@@ -23,7 +23,15 @@
 2. 通过远程执行让 Windows 拉取：`git -C D:/data/AI/Projects/deskbridge pull`。
 3. 在 Windows 上编译和测试，读取结果。
 4. 如果 Windows 上产生了需要入库的文件（如 `go.sum`），在 Windows 上提交并推送回 Linux。
+6. 需要推送到 GitHub 时，在 Windows 上执行 `git push github main`（见下一节）。
 5. 长时间的命令（首次下载依赖、完整编译）放到后台运行，结果写入日志文件，再读取日志。原型的单条命令最长 120 秒。
+
+### GitHub
+
+- 仓库：`Richard2091/deskbridge`（目前为私有，有可运行代码后再公开）。
+- **只从 Windows 推送。** Windows 上已用 GitHub CLI 登录，Linux 上不保存 GitHub 凭据。
+- Windows 仓库的两个远程：`origin` 指向 Linux（日常拉取和推送），`github` 指向 GitHub（只推送）。`main` 分支的上游是 `origin/main`。
+- 推送前确认 Windows 已拉取 Linux 的最新提交，并征得用户同意。
 
 ## 远程执行通道
 
