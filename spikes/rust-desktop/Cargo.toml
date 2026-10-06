@@ -7,6 +7,10 @@ publish = false
 # 依赖由 `cargo add` 在 Windows 上添加，版本取当时最新
 
 [dependencies]
+serde_json = "1.0.151"
+uiautomation = "0.25.1"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+xcap = "0.9.8"
 
 [profile.release]
 strip = true
