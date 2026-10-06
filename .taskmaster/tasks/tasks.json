@@ -553,7 +553,8 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          "8"
+          "8",
+          "23"
         ],
         "priority": "high",
         "subtasks": [
@@ -1124,6 +1125,65 @@
             "parentTaskId": 22
           }
         ]
+      },
+      {
+        "id": 23,
+        "title": "桌面控制权仲裁",
+        "description": "本地用户 > 远程人工 > AI；只有前台输入需要控制权；自动识别本地物理输入并抢占；租约、排队、提示和紧急停止。",
+        "details": "见 docs/decisions/adr-0005-desktop-control-arbitration.md。所有桌面输入工具必须经过仲裁器。验收：本地用户移动鼠标时，AI 正在进行的前台输入立即中断并返回 preempted；本地用户空闲 5 秒后 AI 可继续；远程人工可从 AI 接管；远程断线后租约到期自动释放；紧急停止快捷键可用；每次输入前确认目标窗口在前台。",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "底层输入钩子：区分本地物理输入与注入输入",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 23
+          },
+          {
+            "id": 2,
+            "title": "仲裁器：优先级、租约、排队、抢占（preempted / control_busy）",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 23
+          },
+          {
+            "id": 3,
+            "title": "被控端提示（边框、浮窗）与紧急停止快捷键",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 23
+          },
+          {
+            "id": 4,
+            "title": "控制权状态推送与操作记录",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 23
+          },
+          {
+            "id": 5,
+            "title": "用户策略：仅离开时允许、前台输入前询问",
+            "description": "",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 23
+          }
+        ]
       }
     ],
     "metadata": {
@@ -1136,7 +1196,7 @@
       ],
       "created": "2026-10-06T08:39:08.022Z",
       "description": "Tasks for master context",
-      "updated": "2026-10-06T08:39:21.753Z"
+      "updated": "2026-10-06T11:02:53.990Z"
     }
   }
 }

@@ -23,7 +23,7 @@
 
 ## 代码
 
-- 核心语言暂定 Go，界面暂定 Wails + TypeScript；语言待技术验证后确定（见 ADR-0001、ADR-0002）。
+- 语言建议：Go 主程序 + Rust 写的 Windows 桌面辅助进程（技术验证已完成，待用户确认，见 ADR-0001 和 `spikes/results.md`）。界面暂定 Wails + TypeScript（ADR-0002）。
 - 平台相关代码放在 `_windows.go`、`_linux.go`、`_darwin.go` 中；未实现的平台返回 `unsupported_platform`，不能静默失败。
 - **只参考其他开源项目的设计，不复制代码**（见 ADR-0004）。新增依赖前检查许可证，并更新 `docs/references.md`。
 - 所有返回给 AI 的文本必须是 UTF-8。
