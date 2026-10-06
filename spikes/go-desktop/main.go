@@ -178,7 +178,7 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 	if err != nil {
 		return err
 	}
-	saved := strings.TrimPrefix(string(data), "﻿")
+	saved := strings.TrimPrefix(string(data), "\uFEFF")
 	res["saved_text"] = saved
 	res["typed_ok"] = saved == testText
 

@@ -85,7 +85,7 @@ try
     if (!Native.EnsureForeground(hwnd)) throw new Exception("记事本不在前台，停止保存");
     Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_S);
     Thread.Sleep(800);
-    var saved = File.ReadAllText(txt, Encoding.UTF8).TrimStart('﻿');
+    var saved = File.ReadAllText(txt, Encoding.UTF8).TrimStart('\uFEFF');
     res["saved_text"] = saved;
     res["typed_ok"] = saved == TestText;
 
