@@ -58,6 +58,8 @@ try
         Mouse.Click(new Point(r.X + r.Width / 2, r.Y + r.Height / 2));
         Thread.Sleep(500);
         res["menu_by_coordinates"] = MenuEntries(automation, win);
+        // 第一次 Esc 关闭下拉菜单，菜单栏仍处于激活状态，会吞掉下一个按键；第二次 Esc 退出菜单栏
+        Keyboard.Press(VirtualKeyShort.ESCAPE);
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Thread.Sleep(300);
     }

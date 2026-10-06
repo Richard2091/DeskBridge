@@ -76,7 +76,8 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
         Mouse::new().click(&Point::new(r[0] + r[2] / 2, r[1] + r[3] / 2))?;
         sleep(Duration::from_millis(500));
         res.insert("menu_by_coordinates", json!(menu_entries(&automation, &walker, &win)));
-        Keyboard::new().send_keys("{esc}")?;
+        // 第一次 Esc 关闭下拉菜单，第二次退出菜单栏，否则菜单栏会吞掉下一个按键
+        Keyboard::new().send_keys("{esc}{esc}")?;
         sleep(Duration::from_millis(300));
     }
 
