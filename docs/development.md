@@ -23,8 +23,8 @@
 2. 通过远程执行让 Windows 拉取：`git -C D:/data/AI/Projects/deskbridge pull`。
 3. 在 Windows 上编译和测试，读取结果。
 4. 如果 Windows 上产生了需要入库的文件（如 `go.sum`），在 Windows 上提交并推送回 Linux。
-6. 需要推送到 GitHub 时，在 Windows 上执行 `git push github main`（见下一节）。
 5. 长时间的命令（首次下载依赖、完整编译）放到后台运行，结果写入日志文件，再读取日志。原型的单条命令最长 120 秒。
+6. 需要推送到 GitHub 时，在 Windows 上执行 `git push github main`（见下一节）。
 
 ### GitHub
 
