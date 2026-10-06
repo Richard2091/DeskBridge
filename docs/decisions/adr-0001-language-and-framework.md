@@ -1,6 +1,6 @@
 # ADR-0001：语言和框架
 
-- 状态：**建议方案 B（Go 主程序 + Rust 桌面辅助进程），待用户确认**。技术验证已完成（2026-10-06），结果见 [spikes/results.md](../../spikes/results.md)
+- 状态：**已接受（2026-10-06）：方案 B，Go 主程序 + Rust 写的 Windows 桌面辅助进程**。技术验证结果见 [spikes/results.md](../../spikes/results.md)。客户端界面框架不在本 ADR 中决定，见 ADR-0002（待调研）
 - 日期：2026-10-06
 
 ## 需求

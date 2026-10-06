@@ -9,11 +9,12 @@
 | 层 | 技术 | 跨平台方式 |
 |---|---|---|
 | 核心（组网、协议、工具、存储） | Go | 同一份代码，交叉编译出 Windows、Linux、macOS 版本 |
-| 平台相关功能（截图、输入、界面元素、会话） | Go | 按平台分文件（`_windows.go`、`_linux.go`、`_darwin.go`），用构建标签选择 |
-| 桌面客户端界面 | Wails + TypeScript（React） | 同一份网页代码，用系统自带的 WebView 显示 |
+| 平台相关的非桌面功能（会话、进程、自启等） | Go | 按平台分文件（`_windows.go`、`_linux.go`、`_darwin.go`），用构建标签选择 |
+| Windows 桌面操作（截图、输入、界面元素、控制权提示） | Rust 桌面辅助进程 | 只有 Windows 版；由 Go 主程序启动，通过标准输入输出或命名管道传 JSON。其他平台以后按需选择语言 |
+| 桌面客户端界面 | **待调研**（暂定 Wails + TypeScript） | 调研完成前不定 |
 | 网页控制台（可选） | 同一份前端代码 | 由节点在内网里直接提供，无界面的 Linux 也能被别的设备管理 |
 
-语言尚待技术验证（Go 或 Rust，或两者结合），下表按暂定的 Go 描述。选型理由见 [ADR-0001 语言](decisions/adr-0001-language-and-framework.md) 和 [ADR-0002 界面](decisions/adr-0002-ui-wails.md)。
+语言已确定为 Go 主程序 + Rust 写的 Windows 桌面辅助进程，见 [ADR-0001 语言](decisions/adr-0001-language-and-framework.md)。客户端界面框架需要调研（Wails、Tauri 等），调研完成后整体架构才算定型，才能进入开发，见 [ADR-0002 界面](decisions/adr-0002-ui-wails.md)。
 
 ## 组件
 
@@ -46,7 +47,7 @@
 | `deskbridge node` | 节点：加入内网，对外提供工具。每台被控设备运行一个。 |
 | `deskbridge <工具命令>` | 命令行客户端，例如 `deskbridge exec win-pc "dir"`。 |
 | `deskbridge mcp` | MCP 服务器，供 AI Agent 使用。 |
-| `deskbridge ui` | 打开桌面客户端（Wails 构建版本）。 |
+| `deskbridge ui` | 打开桌面客户端（框架待调研）。 |
 
 一台设备可以同时是“控制端”和“被控端”，两种模式由同一个程序完成。
 
