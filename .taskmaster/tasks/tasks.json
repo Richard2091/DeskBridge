@@ -9,7 +9,8 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          "21"
+          "21",
+          "24"
         ],
         "priority": "high",
         "subtasks": [
@@ -749,7 +750,8 @@
         "dependencies": [
           "6",
           "9",
-          "11"
+          "11",
+          "24"
         ],
         "priority": "medium",
         "subtasks": [
@@ -1020,7 +1022,7 @@
         "description": "在 Windows 上用 Go、Rust、C# 实现同一组桌面操作并验证 Go tsnet，据此确定 ADR-0001。",
         "details": "见 docs/decisions/adr-0001-language-and-framework.md 的技术验证一节。在 D:/data/AI/Projects/deskbridge 下的 spikes/ 目录进行（验证代码不进入正式代码）。比较：代码量、稳定性、程序体积、杀毒误报、AI 一次写对的比例。判断规则：Go 桌面操作差距可接受则选全 Go，否则选 Go 主程序 + 桌面辅助进程。验收：ADR-0001 写入验证结果并改为已决定。",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": [
@@ -1073,13 +1075,14 @@
             "title": "比较结果写入 ADR-0001 并做出决定",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 21,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-06T13:14:07.237Z"
           }
         ],
-        "updatedAt": "2026-10-06T11:40:41.194Z"
+        "updatedAt": "2026-10-06T13:14:07.237Z"
       },
       {
         "id": "22",
@@ -1199,13 +1202,26 @@
             "parentId": "undefined"
           }
         ]
+      },
+      {
+        "id": "24",
+        "title": "客户端框架和语言调研",
+        "description": "调研桌面客户端的界面框架和语言（包括但不限于 Wails、Tauri），确定 ADR-0002。完成后整体架构才算定型，才能进入开发。",
+        "details": "候选包括但不限于：Wails（v2 / v3）、Tauri、Electron、Avalonia、Flutter、Fyne、Slint 等。比较：与 Go 主程序和 Rust 桌面辅助进程的集成方式（同进程、子进程、本地接口）、安装包体积和运行时依赖、Windows/Linux/macOS 支持、成熟度和维护活跃度、许可证、能否复用为网页控制台、后期显示远程画面（WebRTC）的能力、AI 一次写对的比例。对前 2–3 个候选在 Windows 上做最小验证：登录页 + 设备列表 + 调用一次 Go 核心。结果写入 spikes/results.md，更新 ADR-0002、docs/architecture.md、docs/references.md，并据此调整任务 1 和任务 12。",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          "21"
+        ],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-06T11:40:41.194Z",
-      "taskCount": 23,
-      "completedCount": 0,
+      "lastModified": "2026-10-06T13:14:07.238Z",
+      "taskCount": 24,
+      "completedCount": 1,
       "tags": [
         "master"
       ]
