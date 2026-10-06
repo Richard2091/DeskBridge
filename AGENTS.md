@@ -37,4 +37,4 @@
 
 - 每完成一个可验证的步骤就提交一次，只包含相关文件。
 - 提交信息使用 Conventional Commits：类型用英文，描述用中文。例如 `feat: 增加 tsnet 节点登录流程`。
-- 推送到远程仓库前先征得用户同意。
+- 日常推送到 GitHub 私有仓库 `Richard2091/deskbridge` 不需要逐次确认；把仓库改为公开、推送到其他远程仓库前，必须先征得用户同意。流程见 `docs/development.md`。
