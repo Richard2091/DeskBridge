@@ -1,0 +1,6 @@
+# 统一使用 LF 换行，避免 Linux 与 Windows 之间同步时出现整文件差异
+* text=auto eol=lf
+# Windows 脚本保留 CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
