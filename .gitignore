@@ -36,3 +36,8 @@ node_modules/
 *.db
 *.sqlite
 /state/
+
+# 技术验证的构建产物
+spikes/**/bin/
+spikes/**/obj/
+spikes/**/target/

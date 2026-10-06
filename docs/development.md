@@ -16,7 +16,7 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
         └──────────── pull ◀── GitHub ◀── push ─────┘（Windows 生成的文件，如 go.sum）
 ```
 
-- **GitHub 仓库：** `Richard2091/deskbridge`（目前私有，有可运行代码后再公开）。两边的 `origin` 都指向它。
+- **GitHub 仓库：** `Richard2091/DeskBridge`（目前私有，有可运行代码后再公开）。两边的 `origin` 都指向它。
 - **Linux 的 GitHub 权限：** 一把只对这个仓库有读写权限的部署密钥（Deploy Key，`~/.ssh/deskbridge_github`，GitHub 上标题为 `linux-dev-server`）。Linux 上不保存 GitHub 账号令牌，不能访问其他仓库，也不能调用 GitHub API（建仓库、开 PR 等需要在 Windows 上用 `gh` 完成）。仓库配置了 `core.sshCommand` 使用这把密钥。
 - **Windows 的 GitHub 权限：** 用户的 GitHub CLI 登录（`gh`，账号 `Richard2091`）。
 - **备用通道：** GitHub 偶尔连不上时（从中国大陆访问可能出现 TLS 握手失败），Windows 可以直接和 Linux 同步：Windows 上的远程 `linux` 指向 `ssh://root@<Linux 内网 IP>/root/projects/deskbridge`。

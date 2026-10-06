@@ -93,6 +93,23 @@
 | `window.list` / `window.focus` | 窗口 |
 | `ui.tree` / `ui.find` / `ui.invoke` | 界面元素（Windows UI Automation） |
 
+## 调用被控端的 AI 能力：Agent、Skill、MCP（规划中）
+
+被控设备上往往已经有自己的 AI 环境：Claude Code、Codex 等 Agent，它们的 Skill，以及本机配置的 MCP 服务器（例如只能在 Windows 本机运行的数据库、浏览器或桌面控制工具）。DeskBridge 应该能让控制端使用这些能力，而不是只能用 DeskBridge 自带的工具。
+
+| 能力 | 做法 | 例子 |
+|---|---|---|
+| 调用被控端的 Agent | 节点在被控端启动一个无界面的 Agent 会话（如 `claude -p`），把任务交给它，流式返回过程和结果，可以取消 | Linux 上的 Agent 把“在 Windows 上编译并修复报错”整个交给 Windows 上的 Agent |
+| 使用被控端的 MCP 服务器 | 节点读取被控端的 MCP 配置，在本机启动这些服务器，把它们的工具经内网转发给控制端，工具名带前缀（如 `mcp.<服务器名>.<工具名>`） | Linux 上的 Agent 直接使用 Windows 本机的 MCP 工具 |
+| 使用被控端的 Skill | 列出被控端可用的 Skill；通过被控端的 Agent 调用，或者同步到控制端使用 | 复用 Windows 上已配置好的工作流 |
+
+**对现在设计的影响（任务 4 节点协议必须预留）：**
+
+1. **工具来源可扩展：** 能力报告里的工具分来源：内置工具、MCP 转发工具、Agent 运行器。来源在运行时变化（MCP 服务器启动或停止），能力报告要能刷新。
+2. **长时间任务和流式输出：** Agent 任务可能运行几十分钟，需要任务 ID、进度推送（WebSocket）、中途取消、断线后重新查看结果。
+3. **嵌套调用的身份记录：** 操作记录要能看出“Linux 的 Agent → 调用 Windows 的 Agent → 它又调用了某个 MCP 工具”这条链。
+4. **权限：** 被控端的 Agent 和 MCP 工具能力很强，后续权限设计（任务 17）要能单独控制它们。
+
 ## Windows 的会话模型
 
 截图和输入必须在**用户的桌面会话**里执行。Windows 服务运行在看不到桌面的会话 0 里，所以分两步：

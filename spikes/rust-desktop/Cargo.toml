@@ -1,0 +1,12 @@
+[package]
+name = "rust-desktop"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# 依赖由 `cargo add` 在 Windows 上添加，版本取当时最新
+
+[dependencies]
+
+[profile.release]
+strip = true
