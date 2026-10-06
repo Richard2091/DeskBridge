@@ -48,7 +48,7 @@ try
     {
         fileMenu.AsMenuItem().Expand();
         Thread.Sleep(500);
-        res["menu_by_pattern"] = MenuEntries(automation);
+        res["menu_by_pattern"] = MenuEntries(automation, win);
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Thread.Sleep(300);
 
@@ -57,7 +57,7 @@ try
         res["menu_item_rect"] = Rect(r);
         Mouse.Click(new Point(r.X + r.Width / 2, r.Y + r.Height / 2));
         Thread.Sleep(500);
-        res["menu_by_coordinates"] = MenuEntries(automation);
+        res["menu_by_coordinates"] = MenuEntries(automation, win);
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Thread.Sleep(300);
     }
@@ -67,7 +67,9 @@ try
                ?? win.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit));
     if (edit == null) throw new Exception("找不到编辑区");
     edit.Focus();
-    Keyboard.Type(TestText);
+    Thread.Sleep(300);
+    // 每个字符都以 Unicode 发送，绕过中文输入法（库自带的 Keyboard.Type 在中文输入法下会把字母当拼音）
+    res["sendinput_count"] = Native.SendUnicode(TestText);
     Thread.Sleep(300);
     res["edit_value_via_uia"] = edit.Patterns.Value.PatternOrDefault?.Value.Value;
     Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_S);
@@ -115,10 +117,11 @@ static int Walk(AutomationElement e, int depth, List<string> sample)
     return n;
 }
 
-// 弹出菜单是桌面的直接子元素，读取前几项名称作为“菜单已打开”的证据
-static string[]? MenuEntries(UIA3Automation automation)
+// 弹出菜单可能是桌面的直接子元素，也可能挂在记事本窗口下；读取前几项名称作为“菜单已打开”的证据
+static string[]? MenuEntries(UIA3Automation automation, AutomationElement win)
 {
-    var menu = automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.Menu));
+    var menu = automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.Menu))
+               ?? win.FindFirstDescendant(cf => cf.ByControlType(ControlType.Menu));
     return menu?.FindAllChildren().Take(5).Select(c => c.Name).ToArray();
 }
 
@@ -128,4 +131,21 @@ static class Native
 {
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
+
+    const uint INPUT_KEYBOARD = 1, KEYEVENTF_KEYUP = 0x2, KEYEVENTF_UNICODE = 0x4;
+
+    [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public InputUnion u; }
+    [StructLayout(LayoutKind.Explicit)] struct InputUnion { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+    [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr extra; }
+    [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr extra; }
+
+    public static uint SendUnicode(string text)
+    {
+        var inputs = new List<INPUT>();
+        foreach (var ch in text)
+            foreach (var flags in new[] { KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP })
+                inputs.Add(new INPUT { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = ch, dwFlags = flags } } });
+        return SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf<INPUT>());
+    }
 }

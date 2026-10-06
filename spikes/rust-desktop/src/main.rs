@@ -10,6 +10,9 @@ use uiautomation::{
 };
 use windows::Win32::UI::{
     HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2},
+    Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY,
+    },
     WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN},
 };
 
@@ -63,7 +66,7 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
         res.insert("menu_item", json!(menu.get_name()?));
         menu.get_pattern::<UIExpandCollapsePattern>()?.expand()?;
         sleep(Duration::from_millis(500));
-        res.insert("menu_by_pattern", json!(menu_entries(&automation, &walker)));
+        res.insert("menu_by_pattern", json!(menu_entries(&automation, &walker, &win)));
         Keyboard::new().send_keys("{esc}")?;
         sleep(Duration::from_millis(300));
 
@@ -72,7 +75,7 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
         res.insert("menu_item_rect", json!(r));
         Mouse::new().click(&Point::new(r[0] + r[2] / 2, r[1] + r[3] / 2))?;
         sleep(Duration::from_millis(500));
-        res.insert("menu_by_coordinates", json!(menu_entries(&automation, &walker)));
+        res.insert("menu_by_coordinates", json!(menu_entries(&automation, &walker, &win)));
         Keyboard::new().send_keys("{esc}")?;
         sleep(Duration::from_millis(300));
     }
@@ -80,7 +83,9 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
     // 6. 输入中文并保存
     let edit = automation.create_matcher().from(win.clone()).control_type(ControlType::Edit).find_first()?;
     edit.set_focus()?;
-    Keyboard::new().send_text(TEST_TEXT)?;
+    sleep(Duration::from_millis(300));
+    // 每个字符都以 Unicode 发送，绕过中文输入法
+    res.insert("sendinput_count", json!(send_unicode(TEST_TEXT)));
     sleep(Duration::from_millis(300));
     if let Ok(vp) = edit.get_pattern::<UIValuePattern>() {
         res.insert("edit_value_via_uia", json!(vp.get_value()?));
@@ -127,24 +132,45 @@ fn walk(walker: &UITreeWalker, e: &UIElement, depth: usize, sample: &mut Vec<Str
     n
 }
 
-// 弹出菜单是桌面的直接子元素，读取前几项名称作为“菜单已打开”的证据
-fn menu_entries(automation: &UIAutomation, walker: &UITreeWalker) -> Option<Vec<String>> {
+// 弹出菜单可能是桌面的直接子元素，也可能挂在记事本窗口下；读取前几项名称作为“菜单已打开”的证据
+fn menu_entries(automation: &UIAutomation, walker: &UITreeWalker, win: &UIElement) -> Option<Vec<String>> {
     let root = automation.get_root_element().ok()?;
+    let mut menu = None;
     let mut child = walker.get_first_child(&root).ok();
     while let Some(c) = child {
         if c.get_control_type().ok() == Some(ControlType::Menu) {
-            let mut names = Vec::new();
-            let mut item = walker.get_first_child(&c).ok();
-            while let Some(i) = item {
-                if names.len() >= 5 {
-                    break;
-                }
-                names.push(i.get_name().unwrap_or_default());
-                item = walker.get_next_sibling(&i).ok();
-            }
-            return Some(names);
+            menu = Some(c);
+            break;
         }
         child = walker.get_next_sibling(&c).ok();
     }
-    None
+    let menu = match menu {
+        Some(m) => m,
+        None => automation.create_matcher().from(win.clone()).control_type(ControlType::Menu).timeout(0).find_first().ok()?,
+    };
+    let mut names = Vec::new();
+    let mut item = walker.get_first_child(&menu).ok();
+    while let Some(i) = item {
+        if names.len() >= 5 {
+            break;
+        }
+        names.push(i.get_name().unwrap_or_default());
+        item = walker.get_next_sibling(&i).ok();
+    }
+    Some(names)
+}
+
+fn send_unicode(text: &str) -> u32 {
+    let mut inputs = Vec::new();
+    for unit in text.encode_utf16() {
+        for flags in [KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP] {
+            inputs.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT { wVk: VIRTUAL_KEY(0), wScan: unit, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+                },
+            });
+        }
+    }
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) }
 }
