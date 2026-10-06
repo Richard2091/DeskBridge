@@ -99,8 +99,9 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 		return fmt.Errorf("获取窗口元素失败: %w", err)
 	}
 
-	// 3. 元素树
-	tree := uia.TraverseUIElementTree(ppv, rootElem)
+	// 3. 元素树（go-element 自带的 TraverseUIElementTree 在释放缓存请求时崩溃，改用 FindAll 自行遍历）
+	cond := uia.CreateTrueCondition(ppv)
+	tree := buildTree(rootElem, cond, 0)
 	res["window_title"] = tree.CurrentName
 	res["window_rect"] = rectOf(tree)
 	var sample []string
@@ -120,7 +121,7 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 		}
 		_ = ec.Expand()
 		time.Sleep(500 * time.Millisecond)
-		res["menu_by_pattern"] = menuEntries(ppv)
+		res["menu_by_pattern"] = menuEntries(ppv, cond)
 		if err := ensureForeground(hwnd); err != nil {
 			return err
 		}
@@ -140,7 +141,7 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 		}
 		click(x, y)
 		time.Sleep(500 * time.Millisecond)
-		res["menu_by_coordinates"] = menuEntries(ppv)
+		res["menu_by_coordinates"] = menuEntries(ppv, cond)
 		if err := ensureForeground(hwnd); err != nil {
 			return err
 		}
@@ -201,6 +202,26 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 	return nil
 }
 
+// 用 FindAll（直接子元素）逐层构建元素树，深度不超过 6
+func buildTree(el *uia.IUIAutomationElement, cond *uia.IUIAutomationCondition, depth int) *uia.Element {
+	e := uia.NewElement(el)
+	e.Populate(false)
+	e.BoundingRectangle()
+	if depth >= 6 {
+		return e
+	}
+	arr, err := uia.FindAll(el, cond)
+	if err != nil || arr == nil {
+		return e
+	}
+	for i := int32(0); i < arr.Get_Length(); i++ {
+		if c, err := arr.GetElement(i); err == nil && c != nil {
+			e.Child = append(e.Child, buildTree(c, cond, depth+1))
+		}
+	}
+	return e
+}
+
 func walk(e *uia.Element, depth int, sample *[]string) int {
 	if len(*sample) < 15 {
 		*sample = append(*sample, fmt.Sprintf("%s%d '%s'", strings.Repeat("  ", depth), e.CurrentControlType, e.CurrentName))
@@ -216,7 +237,7 @@ func walk(e *uia.Element, depth int, sample *[]string) int {
 }
 
 // 经典 Win32 弹出菜单是类名为 #32768 的顶层窗口；读取前几项名称作为“菜单已打开”的证据
-func menuEntries(ppv *uia.IUIAutomation) []string {
+func menuEntries(ppv *uia.IUIAutomation, cond *uia.IUIAutomationCondition) []string {
 	h, err := uia.GetWindowForString("#32768", "")
 	if err != nil || h == 0 {
 		return nil
@@ -225,7 +246,7 @@ func menuEntries(ppv *uia.IUIAutomation) []string {
 	if err != nil {
 		return nil
 	}
-	tree := uia.TraverseUIElementTree(ppv, el)
+	tree := buildTree(el, cond, 5)
 	var names []string
 	for _, c := range tree.Child {
 		if len(names) >= 5 {
