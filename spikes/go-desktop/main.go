@@ -166,7 +166,7 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 	if vp, err := editor.GetValuePattern(); err == nil {
 		v, _ := vp.Get_CurrentValue()
 		res["edit_value_via_uia"] = v
-		vp.Release()
+		// 不调用 vp.Release()：go-element 的模式对象 Release 会触发内存访问违规（库缺陷），验证程序中接受少量泄漏
 	}
 	if err := ensureForeground(hwnd); err != nil {
 		return err
