@@ -42,3 +42,8 @@ spikes/**/bin/
 spikes/**/obj/
 spikes/**/target/
 spikes/**/publish-single/
+spikes/**/node_modules/
+spikes/**/dist/
+spikes/**/build/
+spikes/**/.dart_tool/
+spikes/**/gen/
