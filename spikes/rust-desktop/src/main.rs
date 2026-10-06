@@ -13,8 +13,34 @@ use windows::Win32::UI::{
     Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY,
     },
-    WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN},
+    WindowsAndMessaging::{
+        GetAncestor, GetForegroundWindow, GetSystemMetrics, SetForegroundWindow, WindowFromPoint, GA_ROOT, SM_CXSCREEN,
+        SM_CYSCREEN,
+    },
 };
+use windows::Win32::{Foundation::{HWND, POINT}};
+
+static mut FOREGROUND_ATTEMPTS: u32 = 0;
+
+// 确认目标窗口在前台；不在则尝试切换，最多 3 次
+fn ensure_foreground(hwnd: HWND) -> Result<(), Box<dyn std::error::Error>> {
+    for _ in 0..3 {
+        if unsafe { GetForegroundWindow() } == hwnd {
+            return Ok(());
+        }
+        unsafe {
+            FOREGROUND_ATTEMPTS += 1;
+            let _ = SetForegroundWindow(hwnd);
+        }
+        sleep(Duration::from_millis(200));
+    }
+    if unsafe { GetForegroundWindow() } == hwnd { Ok(()) } else { Err("记事本不在前台，停止，避免误操作其他窗口".into()) }
+}
+
+// 点击位置的顶层窗口必须是目标窗口
+fn point_belongs_to(x: i32, y: i32, hwnd: HWND) -> bool {
+    unsafe { GetAncestor(WindowFromPoint(POINT { x, y }), GA_ROOT) == hwnd }
+}
 
 const LANG: &str = "rust";
 const TEST_TEXT: &str = "你好，DeskBridge 测试 123";
@@ -39,6 +65,7 @@ fn main() {
     }
     let _ = child.kill();
 
+    res.insert("foreground_switch_attempts", json!(unsafe { FOREGROUND_ATTEMPTS }));
     res.insert("elapsed_ms", json!(start.elapsed().as_millis()));
     println!("{}", serde_json::to_string_pretty(&res).unwrap());
 }
@@ -47,6 +74,8 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
     let automation = UIAutomation::new()?;
     let win = automation.create_matcher().classname("Notepad").timeout(10000).find_first()?;
     res.insert("window_title", json!(win.get_name()?));
+    let raw: isize = win.get_native_window_handle()?.into();
+    let hwnd = HWND(raw as _);
     res.insert("window_rect", json!(rect(&win)?));
 
     // 3. 元素树
@@ -67,16 +96,23 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
         menu.get_pattern::<UIExpandCollapsePattern>()?.expand()?;
         sleep(Duration::from_millis(500));
         res.insert("menu_by_pattern", json!(menu_entries(&automation, &walker, &win)));
-        Keyboard::new().send_keys("{esc}")?;
+        ensure_foreground(hwnd)?;
+        Keyboard::new().send_keys("{esc}{esc}")?;
         sleep(Duration::from_millis(300));
 
         // 5. 按坐标点击
         let r = rect(menu)?;
         res.insert("menu_item_rect", json!(r));
-        Mouse::new().click(&Point::new(r[0] + r[2] / 2, r[1] + r[3] / 2))?;
+        let (x, y) = (r[0] + r[2] / 2, r[1] + r[3] / 2);
+        ensure_foreground(hwnd)?;
+        if !point_belongs_to(x, y, hwnd) {
+            return Err("点击位置不属于记事本，停止".into());
+        }
+        Mouse::new().click(&Point::new(x, y))?;
         sleep(Duration::from_millis(500));
         res.insert("menu_by_coordinates", json!(menu_entries(&automation, &walker, &win)));
         // 第一次 Esc 关闭下拉菜单，第二次退出菜单栏，否则菜单栏会吞掉下一个按键
+        ensure_foreground(hwnd)?;
         Keyboard::new().send_keys("{esc}{esc}")?;
         sleep(Duration::from_millis(300));
     }
@@ -86,11 +122,13 @@ fn run(res: &mut BTreeMap<&str, Value>, txt: &PathBuf, png: &PathBuf) -> Result<
     edit.set_focus()?;
     sleep(Duration::from_millis(300));
     // 每个字符都以 Unicode 发送，绕过中文输入法
+    ensure_foreground(hwnd)?;
     res.insert("sendinput_count", json!(send_unicode(TEST_TEXT)));
     sleep(Duration::from_millis(300));
     if let Ok(vp) = edit.get_pattern::<UIValuePattern>() {
         res.insert("edit_value_via_uia", json!(vp.get_value()?));
     }
+    ensure_foreground(hwnd)?;
     Keyboard::new().send_keys("{ctrl}(s)")?;
     sleep(Duration::from_millis(800));
     let saved = std::fs::read_to_string(txt)?.trim_start_matches('\u{feff}').to_string();

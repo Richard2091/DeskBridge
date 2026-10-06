@@ -32,6 +32,7 @@ var app = FlaUI.Core.Application.Launch("notepad.exe", $"\"{txt}\"");
 try
 {
     var win = app.GetMainWindow(automation, TimeSpan.FromSeconds(10));
+    var hwnd = win.Properties.NativeWindowHandle.Value;
     res["window_title"] = win.Title;
     res["window_rect"] = Rect(win.BoundingRectangle);
 
@@ -49,16 +50,22 @@ try
         fileMenu.AsMenuItem().Expand();
         Thread.Sleep(500);
         res["menu_by_pattern"] = MenuEntries(automation, win);
+        if (!Native.EnsureForeground(hwnd)) throw new Exception("记事本不在前台，停止");
+        Keyboard.Press(VirtualKeyShort.ESCAPE);
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Thread.Sleep(300);
 
         // 5. 按坐标点击
         var r = fileMenu.BoundingRectangle;
         res["menu_item_rect"] = Rect(r);
-        Mouse.Click(new Point(r.X + r.Width / 2, r.Y + r.Height / 2));
+        var pt = new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
+        if (!Native.EnsureForeground(hwnd) || !Native.PointBelongsTo(pt, hwnd))
+            throw new Exception("记事本不在前台或点击位置不属于记事本，停止，避免误操作其他窗口");
+        Mouse.Click(pt);
         Thread.Sleep(500);
         res["menu_by_coordinates"] = MenuEntries(automation, win);
         // 第一次 Esc 关闭下拉菜单，菜单栏仍处于激活状态，会吞掉下一个按键；第二次 Esc 退出菜单栏
+        if (!Native.EnsureForeground(hwnd)) throw new Exception("记事本不在前台，停止");
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Keyboard.Press(VirtualKeyShort.ESCAPE);
         Thread.Sleep(300);
@@ -71,9 +78,11 @@ try
     edit.Focus();
     Thread.Sleep(300);
     // 每个字符都以 Unicode 发送，绕过中文输入法（库自带的 Keyboard.Type 在中文输入法下会把字母当拼音）
+    if (!Native.EnsureForeground(hwnd)) throw new Exception("记事本不在前台，停止输入");
     res["sendinput_count"] = Native.SendUnicode(TestText);
     Thread.Sleep(300);
     res["edit_value_via_uia"] = edit.Patterns.Value.PatternOrDefault?.Value.Value;
+    if (!Native.EnsureForeground(hwnd)) throw new Exception("记事本不在前台，停止保存");
     Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_S);
     Thread.Sleep(800);
     var saved = File.ReadAllText(txt, Encoding.UTF8).TrimStart('﻿');
@@ -100,6 +109,7 @@ finally
     try { if (!app.HasExited) app.Kill(); } catch { }
 }
 
+res["foreground_switch_attempts"] = Native.ForegroundAttempts;
 res["elapsed_ms"] = sw.ElapsedMilliseconds;
 Console.OutputEncoding = Encoding.UTF8;
 Console.WriteLine(JsonSerializer.Serialize(res, new JsonSerializerOptions
@@ -141,6 +151,29 @@ static class Native
     [StructLayout(LayoutKind.Explicit)] struct InputUnion { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
     [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr extra; }
     [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr extra; }
+
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
+    [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+
+    public static int ForegroundAttempts;
+
+    // 确认目标窗口在前台；不在则尝试切换，最多 3 次
+    public static bool EnsureForeground(IntPtr hwnd)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            if (GetForegroundWindow() == hwnd) return true;
+            ForegroundAttempts++;
+            SetForegroundWindow(hwnd);
+            Thread.Sleep(200);
+        }
+        return GetForegroundWindow() == hwnd;
+    }
+
+    // 点击位置的顶层窗口必须是目标窗口
+    public static bool PointBelongsTo(Point p, IntPtr hwnd) => GetAncestor(WindowFromPoint(p), 2) == hwnd;
 
     public static uint SendUnicode(string text)
     {
