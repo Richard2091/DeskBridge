@@ -28,7 +28,7 @@ var png = Path.Combine(tmp, $"deskbridge-spike-{Lang}.png");
 File.WriteAllText(txt, "");
 
 using var automation = new UIA3Automation();
-var app = Application.Launch("notepad.exe", $"\"{txt}\"");
+var app = FlaUI.Core.Application.Launch("notepad.exe", $"\"{txt}\"");
 try
 {
     var win = app.GetMainWindow(automation, TimeSpan.FromSeconds(10));
