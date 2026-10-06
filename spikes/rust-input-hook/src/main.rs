@@ -5,6 +5,7 @@
 // 2. 此时普通权限进程的 SendInput 会被拦截吗？钩子能看到注入的输入吗？
 // 3. GetLastInputInfo（系统最后输入时间）能否作为补充？它会被注入的输入更新吗？
 // 4. UAC 确认框等安全桌面出现时，以上各项的表现。
+// 5. 第二轮：全局热键（RegisterHotKey，Ctrl+Alt+F12）和 Raw Input（RIDEV_INPUTSINK）在管理员窗口前台时能否收到。
 //
 // 隐私：只统计次数，不记录按了哪个键；前台窗口只记录程序文件名，不记录标题。
 
@@ -16,7 +17,7 @@ use std::{
 };
 
 use windows::{
-    core::PWSTR,
+    core::{w, PWSTR},
     Win32::{
         Foundation::{CloseHandle, GetLastError, HANDLE, LPARAM, LRESULT, WPARAM},
         Security::{
@@ -29,13 +30,19 @@ use windows::{
             Threading::{OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION},
         },
         UI::{
-            Input::KeyboardAndMouse::{
-                GetLastInputInfo, SendInput, INPUT, INPUT_0, INPUT_MOUSE, LASTINPUTINFO, MOUSEEVENTF_MOVE, MOUSEINPUT,
+            Input::{
+                GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER, RIDEV_INPUTSINK,
+                RID_HEADER, RIM_TYPEKEYBOARD, RIM_TYPEMOUSE,
+                KeyboardAndMouse::{
+                    GetLastInputInfo, RegisterHotKey, SendInput, INPUT, INPUT_0, INPUT_MOUSE, LASTINPUTINFO, MOD_ALT,
+                    MOD_CONTROL, MOD_NOREPEAT, MOUSEEVENTF_MOVE, MOUSEINPUT, VK_F12,
+                },
             },
             WindowsAndMessaging::{
-                CallNextHookEx, DispatchMessageW, GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, KillTimer,
-                SetTimer, SetWindowsHookExW, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLMHF_INJECTED, MSG,
-                MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_TIMER,
+                CallNextHookEx, CreateWindowExW, DispatchMessageW, GetForegroundWindow, GetMessageW,
+                GetWindowThreadProcessId, KillTimer, SetTimer, SetWindowsHookExW, UnhookWindowsHookEx, KBDLLHOOKSTRUCT,
+                LLKHF_INJECTED, LLMHF_INJECTED, MSG, MSLLHOOKSTRUCT, WH_KEYBOARD_LL, WH_MOUSE_LL, WINDOW_EX_STYLE,
+                WINDOW_STYLE, WM_HOTKEY, WM_INPUT, WM_TIMER,
             },
         },
     },
@@ -45,6 +52,12 @@ static KBD_PHYS: AtomicU32 = AtomicU32::new(0);
 static KBD_INJ: AtomicU32 = AtomicU32::new(0);
 static MOUSE_PHYS: AtomicU32 = AtomicU32::new(0);
 static MOUSE_INJ: AtomicU32 = AtomicU32::new(0);
+// Raw Input 没有“注入”标记；SendInput 产生的事件 hDevice 为空，据此区分
+static RAW_KBD_PHYS: AtomicU32 = AtomicU32::new(0);
+static RAW_KBD_INJ: AtomicU32 = AtomicU32::new(0);
+static RAW_MOUSE_PHYS: AtomicU32 = AtomicU32::new(0);
+static RAW_MOUSE_INJ: AtomicU32 = AtomicU32::new(0);
+static HOTKEY: AtomicU32 = AtomicU32::new(0);
 
 unsafe extern "system" fn kbd_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code >= 0 {
@@ -139,6 +152,24 @@ fn input_desktop() -> String {
     }
 }
 
+unsafe fn count_raw_input(h: HRAWINPUT) {
+    let mut header = RAWINPUTHEADER::default();
+    let mut size = std::mem::size_of::<RAWINPUTHEADER>() as u32;
+    let n = GetRawInputData(h, RID_HEADER, Some((&mut header as *mut RAWINPUTHEADER).cast()), &mut size, size);
+    if n == u32::MAX {
+        return;
+    }
+    let injected = header.hDevice.0.is_null();
+    let counter = match (header.dwType, injected) {
+        (t, false) if t == RIM_TYPEKEYBOARD.0 => &RAW_KBD_PHYS,
+        (t, true) if t == RIM_TYPEKEYBOARD.0 => &RAW_KBD_INJ,
+        (t, false) if t == RIM_TYPEMOUSE.0 => &RAW_MOUSE_PHYS,
+        (t, true) if t == RIM_TYPEMOUSE.0 => &RAW_MOUSE_INJ,
+        _ => return,
+    };
+    counter.fetch_add(1, Relaxed);
+}
+
 fn last_input_tick() -> u32 {
     let mut li = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
     unsafe {
@@ -173,24 +204,48 @@ fn main() {
     let header = format!("# {self_name} 的完整性级别: {self_level}；运行 {seconds} 秒；每 5 秒注入一次 1 像素鼠标移动");
     println!("{header}");
     writeln!(log, "{header}").ok();
-    writeln!(log, "秒\t前台程序\t前台级别\t输入桌面\t物理键盘\t注入键盘\t物理鼠标\t注入鼠标\t系统最后输入(距今ms)\t注入探测").ok();
+    writeln!(log, "秒\t前台程序\t前台级别\t输入桌面\t物理键盘\t注入键盘\t物理鼠标\t注入鼠标\tRaw物理键盘\tRaw注入键盘\tRaw物理鼠标\tRaw注入鼠标\t热键\t系统最后输入(距今ms)\t注入探测").ok();
 
     unsafe {
         let kh = SetWindowsHookExW(WH_KEYBOARD_LL, Some(kbd_proc), None, 0).expect("键盘钩子安装失败");
         let mh = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), None, 0).expect("鼠标钩子安装失败");
         let timer = SetTimer(None, 0, 1000, None);
 
+        // 隐藏窗口，用来接收 Raw Input
+        let hwnd = CreateWindowExW(WINDOW_EX_STYLE(0), w!("STATIC"), w!("rust-input-hook"), WINDOW_STYLE(0), 0, 0, 0, 0, None, None, None, None)
+            .expect("创建窗口失败");
+        let devices = [
+            RAWINPUTDEVICE { usUsagePage: 1, usUsage: 6, dwFlags: RIDEV_INPUTSINK, hwndTarget: hwnd },
+            RAWINPUTDEVICE { usUsagePage: 1, usUsage: 2, dwFlags: RIDEV_INPUTSINK, hwndTarget: hwnd },
+        ];
+        if let Err(e) = RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32) {
+            writeln!(log, "# Raw Input 注册失败: {e}").ok();
+        }
+        // 线程热键：按下时 WM_HOTKEY 发到本线程的消息队列
+        if let Err(e) = RegisterHotKey(None, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F12.0 as u32) {
+            writeln!(log, "# 热键 Ctrl+Alt+F12 注册失败: {e}").ok();
+        }
+
         let start = Instant::now();
         let mut msg = MSG::default();
         let mut sec = 0u32;
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
-            if msg.message == WM_TIMER {
+            if msg.message == WM_HOTKEY {
+                HOTKEY.fetch_add(1, Relaxed);
+            } else if msg.message == WM_INPUT {
+                count_raw_input(HRAWINPUT(msg.lParam.0 as _));
+            } else if msg.message == WM_TIMER {
                 sec = start.elapsed().as_secs() as u32;
                 // 先读取计数再注入：本秒的计数反映上一秒注入的结果
                 let kp = KBD_PHYS.swap(0, Relaxed);
                 let ki = KBD_INJ.swap(0, Relaxed);
                 let mp = MOUSE_PHYS.swap(0, Relaxed);
                 let mi = MOUSE_INJ.swap(0, Relaxed);
+                let rkp = RAW_KBD_PHYS.swap(0, Relaxed);
+                let rki = RAW_KBD_INJ.swap(0, Relaxed);
+                let rmp = RAW_MOUSE_PHYS.swap(0, Relaxed);
+                let rmi = RAW_MOUSE_INJ.swap(0, Relaxed);
+                let hk = HOTKEY.swap(0, Relaxed);
                 let idle = GetTickCount().wrapping_sub(last_input_tick());
                 let (fg, level) = foreground_info();
                 let desk = input_desktop();
@@ -200,7 +255,7 @@ fn main() {
                 } else {
                     String::new()
                 };
-                let line = format!("{sec}\t{fg}\t{level}\t{desk}\t{kp}\t{ki}\t{mp}\t{mi}\t{idle}\t{probe}");
+                let line = format!("{sec}\t{fg}\t{level}\t{desk}\t{kp}\t{ki}\t{mp}\t{mi}\t{rkp}\t{rki}\t{rmp}\t{rmi}\t{hk}\t{idle}\t{probe}");
                 println!("{line}");
                 writeln!(log, "{line}").ok();
                 log.flush().ok();
