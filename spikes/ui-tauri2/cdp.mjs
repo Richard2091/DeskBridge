@@ -1,0 +1,13 @@
+const list = await (await fetch("http://127.0.0.1:9222/json")).json();
+const ws = new WebSocket(list[0].webSocketDebuggerUrl);
+await new Promise((r) => (ws.onopen = r));
+let id = 0; const pending = new Map();
+ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) pending.get(d.id)(d); };
+const ev = (expr) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method: "Runtime.evaluate", params: { expression: expr, awaitPromise: true, returnByValue: true } })); });
+console.log("TITLE", (await ev("document.title")).result.result.value);
+console.log("BODY", JSON.stringify((await ev("document.getElementById('devices').innerText")).result.result.value));
+await ev("document.getElementById('run').click()");
+await new Promise((r) => setTimeout(r, 3000));
+console.log("OUT", JSON.stringify((await ev("document.getElementById('out').textContent")).result.result.value));
+console.log("FPS", (await ev("document.getElementById('fps').textContent")).result.result.value);
+process.exit(0);

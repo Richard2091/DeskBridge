@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DeskBridge 实测</title>
+</head>
+<body>
+  <section id="login" class="page">
+    <h1>DeskBridge</h1>
+    <p>登录后管理你的设备</p>
+    <input id="user" placeholder="用户名" value="demo"/>
+    <input id="pass" type="password" placeholder="密码" value="demo"/>
+    <button id="btn-login">登录</button>
+    <p id="binding" class="muted"></p>
+  </section>
+
+  <section id="home" class="page hidden">
+    <h2>设备列表 <span id="mode" class="muted"></span></h2>
+    <table>
+      <thead><tr><th>名称</th><th>系统</th><th>在线</th><th>连接方式</th><th>延迟</th></tr></thead>
+      <tbody id="devices"></tbody>
+    </table>
+
+    <h2>执行命令</h2>
+    <div class="row">
+      <input id="cmd" value="Write-Output 中文测试" style="flex:1"/>
+      <button id="btn-exec">执行</button>
+    </div>
+    <pre id="exec-out" class="out"></pre>
+
+    <h2>远程画面</h2>
+    <div class="row">
+      <button id="btn-start">开始</button>
+      <button id="btn-stop" disabled>停止</button>
+      <span>实际帧率：<b id="fps">0.0</b> fps</span>
+    </div>
+    <canvas id="screen" width="640" height="360"></canvas>
+  </section>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

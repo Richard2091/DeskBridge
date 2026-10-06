@@ -1,0 +1,14 @@
+body { font-family: "Microsoft YaHei UI", sans-serif; margin: 0; background: #14161c; color: #e6e8ee; }
+.page { padding: 16px 24px; max-width: 1000px; margin: 0 auto; }
+#login { max-width: 320px; margin-top: 80px; display: flex; flex-direction: column; gap: 10px; }
+.hidden { display: none !important; }
+.muted { color: #8a90a0; font-size: 12px; font-weight: normal; }
+input { background: #1f232c; color: inherit; border: 1px solid #3a4050; border-radius: 4px; padding: 6px 8px; }
+button { background: #3b6df0; color: #fff; border: 0; border-radius: 4px; padding: 6px 16px; cursor: pointer; }
+button:disabled { background: #444; cursor: default; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #2a2f3a; }
+.row { display: flex; gap: 10px; align-items: center; }
+.out { background: #0c0e12; padding: 8px; min-height: 40px; white-space: pre-wrap; border-radius: 4px; }
+canvas { width: 100%; max-width: 960px; background: #000; margin-top: 8px; }
+.on { color: #4cd37b; } .off { color: #888; }

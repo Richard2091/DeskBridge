@@ -1,0 +1,26 @@
+[package]
+name = "ui-tauri2"
+version = "0.1.0"
+description = "DeskBridge 客户端界面实测（Tauri v2）"
+authors = ["deskbridge"]
+edition = "2021"
+
+[lib]
+name = "ui_tauri2_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
