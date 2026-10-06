@@ -41,4 +41,4 @@ task-master show <id>     # 任务详情
 
 ## 许可证
 
-AGPL-3.0（待最终确认，见 [ADR-0004](docs/decisions/adr-0004-open-source-and-references.md)）。
+[AGPL-3.0](LICENSE)。作者保留另行提供商业授权的权利，见 [ADR-0004](docs/decisions/adr-0004-open-source-and-references.md)。
