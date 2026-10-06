@@ -93,7 +93,7 @@ func run(res map[string]any, pid int, txt, pngPath string) error {
 		return fmt.Errorf("创建 UIAutomation 失败: %w", err)
 	}
 	ppv := uia.NewIUIAutomation(uia.NewIUnKnown(instance))
-	defer ppv.Release()
+	// 不调用 ppv.Release()：go-element 所有 Release 都会触发内存访问违规（库缺陷）
 	rootElem, err := uia.ElementFromHandle(ppv, hwnd)
 	if err != nil {
 		return fmt.Errorf("获取窗口元素失败: %w", err)
