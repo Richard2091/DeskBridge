@@ -1210,20 +1210,20 @@
         "description": "调研桌面客户端的界面框架和语言（包括但不限于 Wails、Tauri），确定 ADR-0002。完成后整体架构才算定型，才能进入开发。",
         "details": "候选包括但不限于：Wails（v2 / v3）、Tauri、Electron、Avalonia、Flutter、Fyne、Slint 等。比较：与 Go 主程序和 Rust 桌面辅助进程的集成方式（同进程、子进程、本地接口）、安装包体积和运行时依赖、Windows/Linux/macOS 支持、成熟度和维护活跃度、许可证、能否复用为网页控制台、后期显示远程画面（WebRTC）的能力、AI 一次写对的比例。对前 2–3 个候选在 Windows 上做最小验证：登录页 + 设备列表 + 调用一次 Go 核心。结果写入 spikes/results.md，更新 ADR-0002、docs/architecture.md、docs/references.md，并据此调整任务 1 和任务 12。\n<info added on 2026-10-06T13:39:49.034Z>\n我需要先分析代码库，了解项目当前状态和相关架构决策文档。根据用户请求和代码库分析,生成需要追加到任务详情中的新文本:\n\n**更新 2026-10-06：**调研已开始。TaskMaster 已改为本机 Claude Code,不再需要外部 API 密钥(见 .taskmaster/config.json 中的 claude-code provider 配置)。调研范围补充:必须覆盖 ADR-0003 规定的网络场景,客户端要能显示每台设备的连接方式(局域网直连/直连/中继及中继位置)和延迟;在中继、高延迟(数百毫秒)、断线重连时界面不能卡死,网页控制台通过内网访问时同样会遇到中继和高延迟(见 ADR-0002、ADR-0003)。验证时需确认各候选框架能否在异步等待远程数据时保持界面响应,并支持取消操作。\n</info added on 2026-10-06T13:39:49.034Z>",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "21"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2026-10-06T13:39:04.584Z"
+        "updatedAt": "2026-10-06T17:39:10.355Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-06T16:20:24.458Z",
+      "lastModified": "2026-10-06T17:39:10.356Z",
       "taskCount": 24,
-      "completedCount": 1,
+      "completedCount": 2,
       "tags": [
         "master"
       ]
