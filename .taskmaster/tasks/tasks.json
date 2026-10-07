@@ -7,7 +7,7 @@
         "description": "安装 Go，建立 Go 模块、目录结构、测试和交叉编译。",
         "details": "安装 Go（当前稳定版）和 Rust stable。建立 Go 模块：cmd/deskbridge（单一程序入口）、internal/net、internal/node、internal/tools、internal/client、internal/mcp、internal/store；Windows 桌面辅助进程放在 desktop-helper/，用 Rust；客户端放在 ui/，使用任务 24 决策后的框架。用构建标签区分平台。验收：Go 和 Rust 测试通过；GOOS=windows/linux/darwin 的 Go 核心能编译；CI 运行 Go/Rust 测试、交叉编译，以及所选客户端框架的构建和冒烟测试。\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：客户端用 Flutter，放在 ui/。Flutter 应用启动 Go 程序作为子进程，经标准输入输出传 JSON。CI 中加入 Flutter Windows 构建和冒烟测试（可在客户端开始开发时再加）。\n</info added on 2026-10-07T13:00:00.000Z>",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "21",
           "24"
@@ -76,7 +76,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-06T08:22:10.546Z"
+        "updatedAt": "2026-10-07T12:08:37.062Z"
       },
       {
         "id": "2",
@@ -1349,9 +1349,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-07T07:43:51.555Z",
+      "lastModified": "2026-10-07T12:08:37.063Z",
       "taskCount": 26,
-      "completedCount": 1,
+      "completedCount": 2,
       "tags": [
         "master"
       ]
