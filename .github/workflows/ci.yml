@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux：Go 检查和交叉编译
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: scripts/check.sh
+      - run: scripts/build.sh "${GITHUB_SHA::12}"
+      - run: dist/linux-amd64/deskbridge version
+
+  windows:
+    name: Windows：Go 和 Rust 检查
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-helper
+      - run: scripts/check.ps1
+        shell: pwsh
+      - run: |
+          dist/windows-amd64/deskbridge.exe version
+          desktop-helper/target/release/deskbridge-desktop-helper.exe --version
+        shell: pwsh
+
+  # Flutter 客户端（ui/）的 Windows 构建和冒烟测试在客户端开始开发时加入（任务 12）。

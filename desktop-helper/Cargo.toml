@@ -1,0 +1,12 @@
+[package]
+name = "deskbridge-desktop-helper"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+description = "DeskBridge 的 Windows 桌面辅助进程：截图、输入、界面元素"
+
+[dependencies]
+
+[profile.release]
+strip = true
