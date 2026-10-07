@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DeskBridge 风格样张（精致简洁）</title>
+<!--
+  任务 27 第二轮风格样张：在“简洁工具型”基础上做精致化，三个变体比较。
+  只用于比较风格，不是最终设计。数据均为示例值。
+  地址参数：?s=clean|mono|soft&t=light|dark，便于截图。
+-->
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  background: #dcdde3; -webkit-font-smoothing: antialiased;
+}
+svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- 顶部切换条（不属于样张） ---------- */
+.switcher { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 10px 16px; background: #1d1d22; color: #eee; font-size: 14px; }
+.switcher .group { display: flex; gap: 6px; align-items: center; }
+.switcher button { border: 1px solid #555; background: #2c2c33; color: #ddd; padding: 5px 12px; border-radius: 4px; cursor: pointer; font: inherit; }
+.switcher button.on { background: #4a7dff; border-color: #4a7dff; color: #fff; }
+.switcher .desc { color: #aaa; flex: 1 1 100%; font-size: 13px; }
+.stage { padding: 22px; display: flex; justify-content: center; }
+
+/* ---------- 共用结构与变量 ---------- */
+.app {
+  --page: #f4f4f6; --side: transparent; --surface: #ffffff; --surface2: #f8f8fa; --hover: rgba(0,0,0,.04);
+  --border: #e6e6ea; --text: #18181b; --muted: #71717a; --faint: #a1a1aa;
+  --accent: #5b5bd6; --accent-soft: #ededfc; --accent-text: #fff;
+  --ok: #16a34a; --ok-soft: #e7f6ec; --warn: #d97706; --warn-soft: #fdf2e1; --bad: #dc2626; --bad-soft: #fdeaea;
+  --code-bg: #fafafb; --code-text: #27272a;
+  --ai-bg: linear-gradient(90deg, #f1efff 0%, #fbf3ff 100%); --ai-border: #ddd6fe; --ai-text: #4c1d95;
+  --r-sm: 6px; --r: 8px; --r-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(16,16,24,.06);
+  --shadow: 0 1px 2px rgba(16,16,24,.05), 0 4px 16px rgba(16,16,24,.06);
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  width: 1200px; height: 760px; display: flex; flex-direction: column;
+  background: var(--page); color: var(--text); font-size: 13.5px;
+  border-radius: 10px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.08);
+}
+.titlebar { height: 34px; display: flex; align-items: center; padding-left: 14px; font-size: 12px; color: var(--muted); flex: none; }
+.titlebar .ctl { margin-left: auto; display: flex; height: 100%; }
+.titlebar .ctl span { width: 46px; display: grid; place-items: center; font-size: 13px; }
+.body { flex: 1; display: grid; grid-template-columns: 216px 300px 1fr; min-height: 0; }
+
+/* 侧栏 */
+.nav { background: var(--side); padding: 6px 12px 12px; display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+.logo { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%); box-shadow: 0 2px 6px rgba(91,91,214,.35); }
+.logo svg.i { width: 15px; height: 15px; stroke-width: 2.2; }
+.quick { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 10px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--border); color: var(--faint); box-shadow: var(--shadow-sm); font-size: 13px; }
+.kbd { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); background: var(--surface2); font-family: inherit; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-sm); color: var(--muted); text-decoration: none; font-weight: 500; }
+.nav a:hover { background: var(--hover); color: var(--text); }
+.nav a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.nav a.on svg.i { color: var(--accent); }
+.nav a .count { margin-left: auto; font-size: 11px; color: var(--muted); }
+.nav a .badge { margin-left: auto; font-size: 11px; font-weight: 600; min-width: 18px; text-align: center; padding: 1px 6px; border-radius: 9px; background: var(--accent); color: var(--accent-text); }
+.nav .sec { font-size: 11px; color: var(--faint); padding: 14px 10px 4px; font-weight: 600; letter-spacing: .04em; }
+.netcard { margin-top: auto; padding: 10px 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--border); font-size: 12px; box-shadow: var(--shadow-sm); }
+.netcard .t { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+.netcard .s { color: var(--muted); margin-top: 3px; font-family: var(--mono); font-size: 11.5px; }
+.me { display: flex; align-items: center; gap: 9px; padding: 10px 6px 0; font-size: 12.5px; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #f59e0b, #ef4444); flex: none; }
+.me .n { font-weight: 600; } .me .e { color: var(--muted); font-size: 11.5px; }
+
+/* 状态 */
+.pulse { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.pulse.warn { background: var(--warn); } .pulse.off { background: var(--faint); }
+.pulse.live::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid currentColor; opacity: 0; animation: ping 1.8s ease-out infinite; }
+.pulse.live { color: var(--ok); }
+.pulse.live.ai { background: var(--accent); color: var(--accent); }
+@keyframes ping { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(1.8); opacity: 0; } }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.off { background: var(--hover); color: var(--muted); }
+.pill.ai { background: var(--accent-soft); color: var(--accent); }
+.bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 10px; }
+.bars i { width: 3px; border-radius: 1px; background: var(--border); }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; } .bars i:nth-child(3) { height: 10px; }
+.bars.g3 i { background: var(--ok); }
+.bars.g1 i:nth-child(1) { background: var(--warn); }
+
+/* 设备列表 */
+.list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg) 0 0 0; border-right: 0; border-bottom: 0;
+  display: flex; flex-direction: column; min-height: 0; }
+.list-head { display: flex; align-items: center; gap: 8px; padding: 16px 16px 10px; }
+.list-head h2 { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.list-head .sub { color: var(--faint); font-size: 12px; }
+.icon-btn { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--accent-text); background: var(--accent); box-shadow: var(--shadow-sm); }
+.filter { display: flex; gap: 4px; padding: 0 16px 10px; }
+.filter span { font-size: 12px; padding: 3px 10px; border-radius: 999px; color: var(--muted); }
+.filter span.on { background: var(--surface2); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--border); }
+.groups { overflow: auto; padding: 0 10px 12px; }
+.gtitle { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--faint); padding: 10px 8px 6px; display: flex; }
+.gtitle span { margin-left: auto; font-weight: 500; }
+.dev { display: flex; gap: 11px; align-items: center; padding: 9px 10px; border-radius: var(--r); margin-bottom: 2px; border: 1px solid transparent; }
+.dev:hover { background: var(--hover); }
+.dev.on { background: var(--surface2); border-color: var(--border); box-shadow: var(--shadow-sm); }
+.dev .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); position: relative; flex: none; }
+.dev.on .ic { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.dev .ic .pulse { position: absolute; right: -2px; bottom: -2px; box-shadow: 0 0 0 2px var(--surface); }
+.dev .main { flex: 1; min-width: 0; }
+.dev .n { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.dev .m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+.dev .r { white-space: nowrap; flex: none; text-align: right; font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.dev.offline .n, .dev.offline .ic { opacity: .55; }
+
+/* 详情 */
+.detail { background: var(--surface); border-top: 1px solid var(--border); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.dh { display: flex; align-items: center; gap: 14px; padding: 18px 22px 14px; }
+.dh .big { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--accent); background: var(--accent-soft); }
+.dh .big svg.i { width: 22px; height: 22px; }
+.dh h1 { font-size: 19px; font-weight: 650; letter-spacing: -.015em; display: flex; align-items: center; gap: 8px; }
+.meta { display: flex; gap: 14px; margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+.meta span { display: inline-flex; align-items: center; gap: 5px; }
+.meta svg.i { width: 13px; height: 13px; }
+.dh .actions { margin-left: auto; display: flex; gap: 8px; }
+.btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: var(--r-sm); font: inherit; font-size: 13px; font-weight: 500;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); cursor: pointer; }
+.btn svg.i { width: 14px; height: 14px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn.ghost { box-shadow: none; border-color: transparent; background: transparent; color: var(--muted); }
+.btn.danger-soft { color: var(--bad); }
+.aibar { margin: 0 22px 12px; padding: 10px 12px; border-radius: var(--r); background: var(--ai-bg); border: 1px solid var(--ai-border); color: var(--ai-text);
+  display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.aibar .who { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; font-weight: 650; }
+.aibar .who .avatar { width: 20px; height: 20px; font-size: 10px; background: linear-gradient(135deg, #d97757, #b4532a); }
+.aibar .t { opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.aibar .btns { margin-left: auto; display: flex; gap: 6px; }
+.aibar .btn { height: 26px; font-size: 12.5px; }
+.tabs { display: flex; gap: 2px; padding: 0 22px; border-bottom: 1px solid var(--border); }
+.tabs span { display: inline-flex; align-items: center; gap: 6px; padding: 9px 10px 10px; color: var(--muted); font-weight: 500; position: relative; }
+.tabs span svg.i { width: 15px; height: 15px; }
+.tabs span.on { color: var(--text); }
+.tabs span.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.tabs span.later { color: var(--faint); }
+.tabs span .soon { font-size: 10px; padding: 0 5px; border-radius: 4px; background: var(--hover); color: var(--faint); }
+.pane { flex: 1; padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 12px; min-height: 0; background: var(--surface2); }
+.cmd { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 5px 5px 5px 6px; box-shadow: var(--shadow-sm); }
+.shell { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: var(--r-sm); background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.cmd .input { flex: 1; font-family: var(--mono); font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.term { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow-sm); overflow: hidden; }
+.term-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); background: var(--surface); }
+.term-head .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent-soft); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.term-head .st { display: inline-flex; align-items: center; gap: 7px; color: var(--text); font-weight: 600; }
+.term-head .tools { margin-left: auto; display: flex; gap: 2px; align-items: center; }
+.term-head .tools .btn { height: 26px; padding: 0 8px; font-size: 12px; }
+.out { flex: 1; overflow: auto; padding: 12px 16px; font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: var(--code-text); white-space: pre; }
+.out .dim { color: var(--faint); } .out .err { color: var(--bad); } .out .hl { color: var(--accent); }
+.cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(1) infinite; border-radius: 1px; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---------- 变体一：清爽（参考 Linear） ---------- */
+.app[data-style="clean"][data-theme="dark"] {
+  --page: #0f0f12; --surface: #17171b; --surface2: #131316; --hover: rgba(255,255,255,.05);
+  --border: #26262d; --text: #ededf0; --muted: #9a9aa5; --faint: #63636e;
+  --accent: #7c7cf0; --accent-soft: rgba(124,124,240,.15); --accent-text: #fff;
+  --ok: #34d399; --ok-soft: rgba(52,211,153,.12); --warn: #fbbf24; --warn-soft: rgba(251,191,36,.12); --bad: #f87171;
+  --code-bg: #111114; --code-text: #d8d8de;
+  --ai-bg: linear-gradient(90deg, rgba(124,124,240,.16), rgba(192,132,252,.10)); --ai-border: rgba(124,124,240,.35); --ai-text: #d4d0ff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4); --shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+
+/* ---------- 变体二：黑白（参考 Vercel） ---------- */
+.app[data-style="mono"] {
+  --page: #fafafa; --surface: #ffffff; --surface2: #fafafa; --border: #eaeaea; --text: #0a0a0a; --muted: #666; --faint: #a3a3a3;
+  --accent: #0a0a0a; --accent-soft: #f2f2f2; --accent-text: #fff;
+  --ai-bg: #fafafa; --ai-border: #eaeaea; --ai-text: #0a0a0a;
+  --r-sm: 6px; --r: 8px; --r-lg: 10px; --shadow-sm: none; --shadow: none;
+}
+.app[data-style="mono"] .logo { background: #0a0a0a; box-shadow: none; }
+.app[data-style="mono"] .aibar { border-left: 3px solid #8b5cf6; }
+.app[data-style="mono"] .out .hl { color: #0070f3; }
+.app[data-style="mono"] .cursor { background: #0a0a0a; }
+.app[data-style="mono"] .term-head .spin { border-color: #e5e5e5; border-top-color: #0a0a0a; }
+.app[data-style="mono"] .pulse.live.ai { background: #8b5cf6; color: #8b5cf6; }
+.app[data-style="mono"][data-theme="dark"] {
+  --page: #000; --surface: #0a0a0a; --surface2: #000; --hover: rgba(255,255,255,.06); --border: #262626; --text: #ededed; --muted: #a1a1a1; --faint: #5c5c5c;
+  --accent: #ededed; --accent-soft: #1a1a1a; --accent-text: #0a0a0a;
+  --ok: #3ecf8e; --ok-soft: rgba(62,207,142,.12); --warn: #f5a524; --warn-soft: rgba(245,165,36,.12); --bad: #ff5c5c;
+  --code-bg: #000; --code-text: #ededed; --ai-bg: #0a0a0a; --ai-border: #262626; --ai-text: #ededed;
+}
+.app[data-style="mono"][data-theme="dark"] .logo { background: #ededed; color: #0a0a0a; }
+.app[data-style="mono"][data-theme="dark"] .cursor { background: #ededed; }
+.app[data-style="mono"][data-theme="dark"] .term-head .spin { border-color: #262626; border-top-color: #ededed; }
+
+/* ---------- 变体三：柔光（参考 Raycast、Arc） ---------- */
+.app[data-style="soft"] {
+  --page: linear-gradient(160deg, #e8eefc 0%, #f1ebfa 55%, #fbeef2 100%);
+  --surface: rgba(255,255,255,.82); --surface2: rgba(250,250,253,.7); --border: rgba(20,20,40,.08); --hover: rgba(20,20,60,.05);
+  --accent: #3b6cf6; --accent-soft: rgba(59,108,246,.1);
+  --ai-bg: linear-gradient(90deg, rgba(59,108,246,.10), rgba(168,85,247,.10)); --ai-border: rgba(99,102,241,.25); --ai-text: #3730a3;
+  --code-bg: rgba(255,255,255,.7);
+  --r-sm: 8px; --r: 11px; --r-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(30,30,80,.06), 0 2px 8px rgba(30,30,80,.04);
+}
+.app[data-style="soft"] .logo { background: linear-gradient(135deg, #3b6cf6, #a855f7); box-shadow: 0 3px 10px rgba(99,102,241,.4); }
+.app[data-style="soft"] .body { padding: 0 10px 10px 0; gap: 10px; grid-template-columns: 216px 300px 1fr; }
+.app[data-style="soft"] .list, .app[data-style="soft"] .detail { border: 1px solid rgba(255,255,255,.7); border-radius: var(--r-lg); backdrop-filter: blur(20px); box-shadow: 0 8px 30px rgba(40,40,100,.08); }
+.app[data-style="soft"] .detail { overflow: hidden; }
+.app[data-style="soft"] .pane { background: transparent; }
+.app[data-style="soft"] .tabs { border-bottom: 0; gap: 4px; padding-bottom: 2px; }
+.app[data-style="soft"] .tabs span { border-radius: 999px; padding: 6px 12px; }
+.app[data-style="soft"] .tabs span.on { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(59,108,246,.3); }
+.app[data-style="soft"] .tabs span.on::after { display: none; }
+.app[data-style="soft"] .icon-btn, .app[data-style="soft"] .btn.primary, .app[data-style="soft"] .nav a .badge { background: linear-gradient(135deg, #3b6cf6, #7c5cf6); border-color: transparent; }
+.app[data-style="soft"][data-theme="dark"] {
+  --page: linear-gradient(160deg, #10131f 0%, #161225 55%, #1d1220 100%);
+  --surface: rgba(30,30,44,.72); --surface2: rgba(24,24,36,.6); --border: rgba(255,255,255,.08); --hover: rgba(255,255,255,.06);
+  --text: #ececf3; --muted: #a0a0b4; --faint: #6b6b80;
+  --accent: #6d8dff; --accent-soft: rgba(109,141,255,.16);
+  --ok: #4ade80; --ok-soft: rgba(74,222,128,.12); --warn: #fbbf24; --warn-soft: rgba(251,191,36,.12); --bad: #f87171;
+  --code-bg: rgba(14,14,22,.6); --code-text: #dcdce6;
+  --ai-bg: linear-gradient(90deg, rgba(109,141,255,.16), rgba(192,132,252,.12)); --ai-border: rgba(129,140,248,.3); --ai-text: #d6d4ff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+}
+.app[data-style="soft"][data-theme="dark"] .list, .app[data-style="soft"][data-theme="dark"] .detail { border-color: rgba(255,255,255,.06); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17.5 14.5c2 .3 3.5 2 4 4.5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+  <symbol id="i-cast" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M9 21h6M10 8.5v5l4-2.5z"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M2 13v2M22 13v2M9.5 13.5h.01M14.5 13.5h.01"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-bridge" viewBox="0 0 24 24"><path d="M3 17h18M5 17V9M19 17V9M3 9c3 0 6-3 9-3s6 3 9 3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01"/></symbol>
+</svg>
+
+<div class="switcher">
+  <div class="group">变体：
+    <button data-s="clean" class="on">一、清爽</button>
+    <button data-s="mono">二、黑白</button>
+    <button data-s="soft">三、柔光</button>
+  </div>
+  <div class="group">主题：
+    <button data-t="light" class="on">浅色</button>
+    <button data-t="dark">深色</button>
+  </div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<div class="stage">
+<div class="app" id="app" data-style="clean" data-theme="light">
+  <div class="titlebar">DeskBridge<div class="ctl"><span>—</span><span>☐</span><span>✕</span></div></div>
+  <div class="body">
+
+  <aside class="nav">
+    <div class="brand"><span class="logo"><svg class="i"><use href="#i-bridge"/></svg></span>DeskBridge</div>
+    <div class="quick"><svg class="i"><use href="#i-search"/></svg>搜索或执行…<span class="kbd">Ctrl K</span></div>
+    <a class="on" href="#"><svg class="i"><use href="#i-monitor"/></svg>设备<span class="count">5</span></a>
+    <a href="#"><svg class="i"><use href="#i-history"/></svg>操作记录</a>
+    <a href="#"><svg class="i"><use href="#i-shield"/></svg>审批<span class="badge">2</span></a>
+    <a href="#"><svg class="i"><use href="#i-users"/></svg>外部设备</a>
+    <div class="sec">分组</div>
+    <a href="#"><svg class="i"><use href="#i-folder"/></svg>家里</a>
+    <a href="#"><svg class="i"><use href="#i-folder"/></svg>办公室</a>
+    <a href="#" style="margin-top:6px"><svg class="i"><use href="#i-sliders"/></svg>设置</a>
+    <div class="netcard">
+      <div class="t"><span class="pulse"></span>组网正常</div>
+      <div class="s">本机 100.64.0.1</div>
+    </div>
+    <div class="me"><span class="avatar">示</span><div><div class="n">示例用户</div><div class="e">user@example.com</div></div></div>
+  </aside>
+
+  <section class="list">
+    <div class="list-head"><h2>设备</h2><span class="sub">4 台在线</span>
+      <span class="icon-btn"><svg class="i"><use href="#i-plus"/></svg></span></div>
+    <div class="filter"><span class="on">全部</span><span>在线</span><span>Windows</span><span>Linux</span></div>
+    <div class="groups">
+      <div class="gtitle">我的设备<span>4</span></div>
+      <div class="dev on">
+        <div class="ic"><svg class="i"><use href="#i-monitor"/></svg><span class="pulse live ai"></span></div>
+        <div class="main"><div class="n">win-pc</div><div class="m">Windows 11 · 直连</div></div>
+        <div class="r"><span class="pill ai">AI 操作中</span><span><span class="bars g3"><i></i><i></i><i></i></span> 12 毫秒</span></div>
+      </div>
+      <div class="dev">
+        <div class="ic"><svg class="i"><use href="#i-server"/></svg><span class="pulse"></span></div>
+        <div class="main"><div class="n">linux-server</div><div class="m">Ubuntu 24.04 · 直连</div></div>
+        <div class="r"><span><span class="bars g3"><i></i><i></i><i></i></span> 3 毫秒</span></div>
+      </div>
+      <div class="dev">
+        <div class="ic"><svg class="i"><use href="#i-laptop"/></svg><span class="pulse warn"></span></div>
+        <div class="main"><div class="n">laptop</div><div class="m">Windows 10 · 中继</div></div>
+        <div class="r"><span class="pill warn">延迟高</span><span><span class="bars g1"><i></i><i></i><i></i></span> 186 毫秒</span></div>
+      </div>
+      <div class="dev offline">
+        <div class="ic"><svg class="i"><use href="#i-phone"/></svg><span class="pulse off"></span></div>
+        <div class="main"><div class="n">redmi-phone</div><div class="m">Android · 2 小时前在线</div></div>
+        <div class="r"><span class="pill off">离线</span></div>
+      </div>
+      <div class="gtitle">外部设备<span>1</span></div>
+      <div class="dev">
+        <div class="ic"><svg class="i"><use href="#i-monitor"/></svg><span class="pulse"></span></div>
+        <div class="main"><div class="n">office-pc</div><div class="m">来自 alice · 仅命令和文件</div></div>
+        <div class="r"><span><span class="bars g3"><i></i><i></i><i></i></span> 24 毫秒</span></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="detail">
+    <div class="dh">
+      <div class="big"><svg class="i"><use href="#i-monitor"/></svg></div>
+      <div>
+        <h1>win-pc <span class="pill ok"><span class="pulse"></span>在线</span></h1>
+        <div class="meta">
+          <span><svg class="i"><use href="#i-monitor"/></svg>Windows 11</span>
+          <span><svg class="i"><use href="#i-link"/></svg>100.64.0.2 · 直连 12 毫秒</span>
+          <span><svg class="i"><use href="#i-eye"/></svg>本地用户空闲</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn"><svg class="i"><use href="#i-cast"/></svg>远程画面</button>
+        <button class="btn ghost"><svg class="i"><use href="#i-more"/></svg></button>
+      </div>
+    </div>
+
+    <div class="aibar">
+      <span class="pulse live ai"></span>
+      <span class="who"><span class="avatar">C</span>Claude Code 正在操作桌面</span>
+      <span class="t">已持续 2 分 14 秒 · 本地动鼠标即可抢回</span>
+      <span class="btns">
+        <button class="btn"><svg class="i"><use href="#i-eye"/></svg>查看</button>
+        <button class="btn danger-soft"><svg class="i"><use href="#i-stop"/></svg>停止</button>
+      </span>
+    </div>
+
+    <div class="tabs">
+      <span class="on"><svg class="i"><use href="#i-terminal"/></svg>命令</span>
+      <span><svg class="i"><use href="#i-folder"/></svg>文件</span>
+      <span><svg class="i"><use href="#i-image"/></svg>截图</span>
+      <span><svg class="i"><use href="#i-layers"/></svg>界面元素</span>
+      <span class="later"><svg class="i"><use href="#i-bot"/></svg>Agent<span class="soon">规划中</span></span>
+      <span><svg class="i"><use href="#i-history"/></svg>记录</span>
+    </div>
+
+    <div class="pane">
+      <div class="cmd">
+        <span class="shell">PowerShell 7<svg class="i" style="width:12px;height:12px"><use href="#i-chev"/></svg></span>
+        <span class="input">Get-ChildItem D:\data -Recurse | Measure-Object -Sum Length</span>
+        <button class="btn primary"><svg class="i"><use href="#i-play"/></svg>执行</button>
+      </div>
+      <div class="term">
+        <div class="term-head">
+          <span class="st"><span class="spin"></span>运行中</span><span>8.4 秒</span><span>进程号 8812</span><span>UTF-8</span>
+          <span class="tools">
+            <button class="btn ghost"><svg class="i"><use href="#i-copy"/></svg>复制</button>
+            <button class="btn danger-soft"><svg class="i"><use href="#i-stop"/></svg>取消</button>
+          </span>
+        </div>
+<div class="out"><span class="dim">14:02:31  开始执行</span>
+    目录: <span class="hl">D:\data\projects</span>
+
+Mode        LastWriteTime      Length Name
+----        -------------      ------ ----
+d----   2026/10/07  13:58             deskbridge
+d----   2026/10/05  09:12             notes
+-a---   2026/10/06  21:40      18342  readme.md
+-a---   2026/10/07  11:03     204800  设计草稿.pdf
+<span class="err">Get-ChildItem: 拒绝访问路径 'D:\data\private'。</span>
+<span class="dim">已扫描 1,284 个文件…</span> <span class="cursor"></span></div>
+      </div>
+    </div>
+  </main>
+
+  </div>
+</div>
+</div>
+
+<script>
+const desc = {
+  clean: "一、清爽：参考 Linear。浅灰底上放白色面板，细边框加很轻的阴影，靛蓝色强调，图标和状态标签带浅色底。精致但不花哨。",
+  mono: "二、黑白：参考 Vercel。几乎只用黑、白、灰，强调色只留给状态（绿、橙、红）和 AI 提示（紫）。最克制、最“高级”，但辨识度靠排版。",
+  soft: "三、柔光：参考 Raycast、Arc。渐变背景加半透明面板，圆角更大，主按钮用渐变。最有“现代感”，也最活泼。"
+};
+const app = document.getElementById("app");
+function show() { document.getElementById("desc").textContent = desc[app.dataset.style]; }
+function pick(attr, val) {
+  document.querySelectorAll("[data-" + attr + "]").forEach(x => x.classList.toggle("on", x.dataset[attr] === val));
+  app.dataset[attr === "s" ? "style" : "theme"] = val; show();
+}
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => pick("s", b.dataset.s));
+document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => pick("t", b.dataset.t));
+const q = new URLSearchParams(location.search);
+if (q.get("s")) pick("s", q.get("s"));
+if (q.get("t")) pick("t", q.get("t"));
+show();
+</script>
+</body>
+</html>
