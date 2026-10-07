@@ -5,8 +5,8 @@
 | | Linux 服务器 | Windows 开发机 |
 |---|---|---|
 | 位置 | `/root/projects/deskbridge` | `D:/data/AI/Projects/deskbridge` |
-| 用途 | AI 在这里编辑代码和文档、提交；跑轻量的 Go 检查和交叉编译 | 下载依赖、完整编译、测试、Rust 构建、运行桌面功能 |
-| 原因 | 资源很少（2 核、2GB 内存），只装了 Go，没有 Rust 和 Flutter | 资源充足，而且是主要目标平台 |
+| 用途 | AI 在这里编辑代码和文档、提交 | 下载依赖、编译、检查、测试、交叉编译、运行桌面功能 |
+| 原因 | 资源很少（2 核、2GB 内存），只放源代码 | 资源充足，而且是主要目标平台 |
 
 ### 同步方式：GitHub 为中心
 
@@ -53,15 +53,18 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 
 ## 检查和构建
 
-| 命令 | 在哪里运行 | 做什么 |
-|---|---|---|
-| `scripts/check.sh` | Linux、CI | gofmt、go vet、staticcheck、go test |
-| `scripts/build.sh [版本号]` | Linux、CI | 交叉编译 Windows/Linux/macOS 的 amd64 和 arm64，输出到 `dist/` |
-| `powershell -ExecutionPolicy Bypass -File scripts\check.ps1` | Windows、CI | Go 检查和测试，Rust 的 fmt、clippy、test，构建两个 Windows 程序 |
+日常检查和编译都在 Windows 上做（通过远程执行），Linux 上不跑。
+
+| 命令（Windows） | 做什么 |
+|---|---|
+| `powershell -ExecutionPolicy Bypass -File scripts\check.ps1` | gofmt、go vet、staticcheck、go test；Rust 的 fmt、clippy、test；构建两个 Windows 程序 |
+| `powershell -ExecutionPolicy Bypass -File scripts\build.ps1 [-Version v0.1.0]` | 交叉编译 Windows/Linux/macOS 的 amd64 和 arm64，输出到 `dist/` |
+
+`scripts/check.sh` 和 `scripts/build.sh` 是 CI 的 Linux 任务用的同等脚本。
 
 - Go 版本由 `go.mod` 决定，本地 Go 较旧时会自动下载对应工具链（`GOTOOLCHAIN=auto`）。
-- `check.ps1` 必须保存为带 BOM 的 UTF-8，否则 Windows PowerShell 5.1 会按 GBK 读取中文。
-- CI 见 `.github/workflows/ci.yml`：Linux 任务跑 `check.sh` 和 `build.sh`，Windows 任务跑 `check.ps1`。Flutter 的构建和冒烟测试在任务 12 加入。
+- `.ps1` 脚本必须保存为带 BOM 的 UTF-8，否则 Windows PowerShell 5.1 会按 GBK 读取中文。
+- CI 见 `.github/workflows/ci.yml`，运行在 GitHub 的运行器上：Linux 任务跑 `check.sh` 和 `build.sh`，Windows 任务跑 `check.ps1`。Flutter 的构建和冒烟测试在任务 12 加入。
 
 ## 远程执行通道
 
