@@ -20,7 +20,7 @@ const S = {
   uia: { win: "np", sel: "doc", open: { w: true, mb: true, tb: false, sb: false } },
   agent: { who: "Claude Code", running: false, steps: [], prompt: "在 D:\\data\\projects\\deskbridge 下编译，修复所有报错，最后汇报改了哪些文件。" },
   act: { who: "all", dev: "all", open: "0" },
-  confirm: { items: CONFIRMS.map(a => ({ ...a })) },
+  confirm: { items: [] }, // 流程⑫ 或地址参数 modal=demoConfirm 放入示例
   crules: CONFIRM_RULES.map(r => ({ ...r })),
   grantees: GRANTEES.map(g => ({ ...g, p: { ...(g.p || PRESETS[g.preset].p) }, scope: [...(g.scope || [])] })),
   // 已打开的远程窗口：设备 ID → 窗口对象（截图用的假会话为 null）
@@ -373,7 +373,7 @@ const FLOWS = {
   offline: () => go("#/devices/redmi-phone/overview"),
   nonode: () => go("#/devices/nas/overview"),
   external: () => go("#/devices/office-pc/overview"),
-  confirm: () => { if (!S.confirm.items.length) S.confirm.items = CONFIRMS.map(a => ({ ...a })); go("#/devices/win-pc/overview"); setTimeout(A.openConfirm, 300); },
+  confirm: () => { go("#/devices/win-pc/overview"); setTimeout(A.demoConfirm, 300); },
   access: () => { go("#/access"); setTimeout(() => A.grantee({ dataset: { id: "myai" } }), 0); },
   invite: () => { go("#/access"); setTimeout(A.invite, 0); },
   agent: () => go("#/devices/win-pc/ai"),
@@ -482,3 +482,8 @@ POPS.sessions = () => `<div class="ph2">远程窗口</div>${Object.keys(S.sessio
 A.popConn = el => openPop(el, "conn");
 A.popMe = el => openPop(el, "me");
 A.popSessions = el => openPop(el, "sessions");
+A.demoConfirm = () => {
+  if (!S.confirm.items.length) S.confirm.items = CONFIRMS.map(a => ({ ...a }));
+  toast("ai", "Claude Code 有一项操作等你确认", "确认请求发给发起的一方：你的窗口、手机或 AI 客户端");
+  A.openConfirm();
+};

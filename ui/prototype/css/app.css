@@ -507,7 +507,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .remote-bar .btn { background: #22222a; border-color: #32323c; color: #ddd; box-shadow: none; }
 .remote-bar .btn:hover { background: #2c2c36; }
 .remote-bar .btn.danger-soft { color: #ff8080; }
-.remote-bar .stat { display: inline-flex; align-items: center; gap: 5px; color: #a0a0ac; white-space: nowrap; }
+.remote-bar .rstat { display: inline-flex; align-items: center; gap: 5px; color: #a0a0ac; white-space: nowrap; }
 .remote-bar .sep { width: 1px; height: 18px; background: #32323c; }
 .remote-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px 16px 52px; position: relative; }
 .remote-body .desk { width: auto; height: 100%; max-width: 100%; border-radius: 4px; }
@@ -912,3 +912,6 @@ body.rwin .stage { padding: 0; }
 .remote.rwin .ctl { display: flex; height: 100%; margin-left: 4px; }
 .remote.rwin .ctl span { width: 46px; display: grid; place-items: center; color: #a0a0ac; cursor: default; }
 .remote.rwin .ctl span:last-child:hover { background: #e81123; color: #fff; cursor: pointer; }
+.drawer-b > *, .modal-b > * { flex-shrink: 0; }
+.modal { display: flex; flex-direction: column; }
+.modal-b { min-height: 0; }

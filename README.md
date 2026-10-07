@@ -14,16 +14,17 @@ AI Agent 通过 SSH 操作 Linux 服务器已经很顺畅，但 Windows 这类�
 
 ## DeskBridge 做什么
 
-1. **一个客户端，自带组网。** 内置 Tailscale（`tsnet`），用 OAuth 账号登录后自动列出你的所有设备，个人用户的设备之间免费互通。可以改用自建的 Headscale；自建中继暂时搁置。
+1. **一个客户端，自带组网。** 内置 Tailscale（`tsnet`），用 OAuth 账号登录后自动列出你的所有设备，个人用户的设备之间免费互通。可以改用自建的 Headscale；自建中继暂时搁置。连接层可替换，以后会支持 WireGuard 直连等方式（ADR-0007）。
 2. **AI 和人用同一套操作。** 命令、文件、截图、点击、输入、读取界面元素，都是统一的工具。AI 通过 MCP 调用，人通过桌面客户端或命令行调用。
 3. **桌面级控制。** 节点运行在用户的桌面会话里，所以 AI 能看到并操作人正在用的那个桌面。
-4. **加分项（后续）：** 操作记录、权限、危险操作审批、他人设备共享、人工远程画面。
+4. **加分项（后续）：** 操作记录、权限（被控端按发起者授权，危险操作在发起端确认）、他人设备共享、人工远程画面。
 
 ## 文档
 
 - [项目定位](docs/vision.md)
 - [总体架构](docs/architecture.md)
 - [路线图](docs/roadmap.md)
+- [界面与交互设计](docs/ui-design.md)（可点击原型在 `ui/prototype/`）
 - [架构决策（ADR）](docs/decisions/)
 - [参考的开源项目与许可证](docs/references.md)
 - [原型 AgentDesk 的经验](docs/prototype-lessons.md)

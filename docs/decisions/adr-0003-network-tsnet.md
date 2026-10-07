@@ -2,6 +2,7 @@
 
 - 状态：**已接受（2026-10-06）**。技术验证（任务 21）证明 Windows 上的 `tsnet` 登录、访问、`WhoIs` 身份识别都可用，见 [spikes/results.md](../../spikes/results.md)
 - 日期：2026-10-06
+- 补充（2026-10-07）：Tailscale 是连接层的第一种实现，上层不直接依赖它，见 [ADR-0007](adr-0007-pluggable-connection-layer.md)
 
 ## 背景
 

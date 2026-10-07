@@ -537,7 +537,7 @@ function remoteBar(d, inWindow) {
   const ctlBtn = ctl === "human" ? `<button class="btn sm" data-a="release">释放控制权</button>` : ctl === "paused" || ctl === "local" ? "" : `<button class="btn sm" data-a="takeover">${ic("hand")}${ctl === "ai" ? "接管" : "开始控制"}</button>`;
   return `<div class="remote-bar">
       ${inWindow ? `<span class="logo">${ic("bridge")}</span>` : `<button class="btn sm" data-a="closeRemote">${ic("chevLeft")}返回</button>`}
-      <b>${d.name}</b><span class="stat">${latBars(d.latency)}${pathText(d)} · ${d.latency} 毫秒 · 58 帧</span>
+      <b>${d.name}</b><span class="rstat">${latBars(d.latency)}${pathText(d)} · ${d.latency} 毫秒 · 58 帧</span>
       <span class="sep"></span>${ctlText}${ctlBtn}
       <span class="spacer"></span>
       <button class="btn sm" data-a="popRemote">${ic("sliders")}画质与显示器</button>
