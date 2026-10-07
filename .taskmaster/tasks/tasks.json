@@ -146,7 +146,7 @@
         "id": "3",
         "title": "设备发现与设备列表",
         "description": "列出同账号的节点，识别哪些运行 DeskBridge，显示在线状态和连接方式。",
-        "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。",
+        "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：设备列表要记录路径类型（局域网直连、跨网直连、中继及中继位置）和延迟，供远程画面的开放判断使用。节点之间一律用 Tailscale 内网地址通信，不直接用局域网 IP。\n</info added on 2026-10-07T12:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -821,9 +821,9 @@
         "id": "13",
         "title": "一站式自建中继",
         "description": "一条命令部署 DERP 中继（可选 Headscale），客户端一个设置即可使用。",
-        "details": "deploy/relay：Docker Compose 或单脚本；自动申请证书；文档说明端口和防火墙；客户端可配置自定义 DERP/Headscale。参考 RustDesk 自建服务器的部署体验（只参考设计）。验收：在一台新服务器上一条命令部署，两端经该中继通信且延迟低于公共中继。",
+        "details": "deploy/relay：Docker Compose 或单脚本；自动申请证书；文档说明端口和防火墙；客户端可配置自定义 DERP/Headscale。参考 RustDesk 自建服务器的部署体验（只参考设计）。验收：在一台新服务器上一条命令部署，两端经该中继通信且延迟低于公共中继。\n<info added on 2026-10-07T12:00:00.000Z>\n用户决定暂时搁置（ADR-0006），和 macOS 一样保留以后实现的余地。恢复时方向改为：优先 Tailscale peer relay（1.86+，tailscale set --relay-server-port，策略文件 grants 授予 tailscale.com/cap/relay，放行 UDP 端口，不需要域名和证书），自建 DERP 作为只允许 HTTPS 网络的后备。验收改为：两端经自建中继通信，画面所需带宽满足，延迟低于公共中继。恢复时补测任务 24.3 中未测的 A↔B 经中继路径。\n</info added on 2026-10-07T12:00:00.000Z>",
         "testStrategy": "",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": [
           "2"
         ],
@@ -937,9 +937,9 @@
       },
       {
         "id": "15",
-        "title": "人工远程画面（WebRTC）",
+        "title": "人工远程画面（局域网）",
         "description": "在内网里用 WebRTC 传输屏幕画面和输入，允许卡顿。",
-        "details": "pion/webrtc；信令走节点 WebSocket；画面编码方案待定（软件编码起步）；客户端显示与输入转发。只参考 RustDesk 设计。",
+        "details": "pion/webrtc；信令走节点 WebSocket；画面编码方案待定（软件编码起步）；客户端显示与输入转发。只参考 RustDesk 设计。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：暂时只支持局域网直连。传输方式随任务 24 决定（不一定是 WebRTC）。必须做码率自适应、只保留最新帧、截图降级；画面是否开放由可替换的判断函数决定（输入：路径类型、实测带宽和往返时间），现在的规则是只有局域网直连才开放。\n</info added on 2026-10-07T12:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -1244,8 +1244,8 @@
             "id": 3,
             "title": "传输：tsnet 和网络场景",
             "description": "经 tsnet 传输编码后的视频流，覆盖本机回环、局域网直连和中继。",
-            "details": "场景：本机回环（基准）；局域网直连（台式机与手机）；中继（台式机经 Linux 转发回自身，香港中继；台式机与笔记本，旧金山中继）。Linux 转发端用 tc netem 加延迟、抖动、丢包。记录公共 DERP 的吞吐上限（可能限速，待验证）、码率、抖动、丢帧，以及 TCP 队头阻塞的影响。",
-            "status": "in-progress",
+            "details": "场景：本机回环（基准）；局域网直连（台式机与手机）；中继（台式机经 Linux 转发回自身，香港中继；台式机与笔记本，旧金山中继）。Linux 转发端用 tc netem 加延迟、抖动、丢包。记录公共 DERP 的吞吐上限（可能限速，待验证）、码率、抖动、丢帧，以及 TCP 队头阻塞的影响。\n<info added on 2026-10-07T12:00:00.000Z>\n完成。已测本机回环、局域网直连（台式机→手机）、跨境公共中继（台式机→L）、netem 延迟丢包限速。用户决定搁置中继（ADR-0006）：A↔B 经中继、经自建中继的路径随任务 13 恢复时再测；手机作为发送端的测试并入任务 26；手机移动数据不再测。结果见 spikes/results.md。\n</info added on 2026-10-07T12:00:00.000Z>",
+            "status": "done",
             "dependencies": [
               "24.2"
             ],
@@ -1270,7 +1270,7 @@
             "id": 5,
             "title": "资源占用和 RustDesk 对照",
             "description": "在两端测资源占用，并在相同条件下实际运行 RustDesk 作为基准。",
-            "details": "被控端：采集和编码的 CPU、GPU、内存，硬件和软件编码分别测。控制端：各框架的解码和显示开销。RustDesk 在台式机和笔记本之间互连，用相同的分辨率和帧率测试。",
+            "details": "被控端：采集和编码的 CPU、GPU、内存，硬件和软件编码分别测。控制端：各框架的解码和显示开销。RustDesk 在台式机和笔记本之间互连，用相同的分辨率和帧率测试。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：RustDesk 对照只在局域网做，用 RustDesk 的公共服务器或直连 IP，不自建 hbbs/hbbr。\n</info added on 2026-10-07T12:00:00.000Z>",
             "status": "pending",
             "dependencies": [
               "24.4"
