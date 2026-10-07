@@ -1245,12 +1245,13 @@
             "title": "传输：tsnet 和网络场景",
             "description": "经 tsnet 传输编码后的视频流，覆盖本机回环、局域网直连和中继。",
             "details": "场景：本机回环（基准）；局域网直连（台式机与手机）；中继（台式机经 Linux 转发回自身，香港中继；台式机与笔记本，旧金山中继）。Linux 转发端用 tc netem 加延迟、抖动、丢包。记录公共 DERP 的吞吐上限（可能限速，待验证）、码率、抖动、丢帧，以及 TCP 队头阻塞的影响。",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [
               "24.2"
             ],
             "parentTaskId": 24,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-07T07:43:51.554Z"
           },
           {
             "id": 4,
@@ -1318,7 +1319,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-07T07:24:56.671Z"
+        "updatedAt": "2026-10-07T07:43:51.554Z"
       },
       {
         "id": "25",
@@ -1348,7 +1349,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-07T07:24:56.672Z",
+      "lastModified": "2026-10-07T07:43:51.555Z",
       "taskCount": 26,
       "completedCount": 1,
       "tags": [
