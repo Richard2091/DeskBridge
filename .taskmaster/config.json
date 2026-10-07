@@ -1,20 +1,20 @@
 {
   "models": {
     "main": {
-      "provider": "claude-code",
-      "modelId": "sonnet",
+      "provider": "codex-cli",
+      "modelId": "glm-5.3-flash",
       "maxTokens": 64000,
       "temperature": 0.2
     },
     "research": {
-      "provider": "claude-code",
-      "modelId": "opus",
+      "provider": "codex-cli",
+      "modelId": "glm-5.3-flash",
       "maxTokens": 32000,
       "temperature": 0.1
     },
     "fallback": {
-      "provider": "claude-code",
-      "modelId": "opus",
+      "provider": "codex-cli",
+      "modelId": "glm-5.3-flash",
       "maxTokens": 32000,
       "temperature": 0.2
     }
