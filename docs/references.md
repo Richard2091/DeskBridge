@@ -22,8 +22,8 @@
 | `tailscale.com/tsnet` | 内置组网 | BSD-3 |
 | Headscale（部署，不作为代码依赖） | 自建控制服务器 | BSD-3 |
 | `derper`（Tailscale 仓库内） | 自建中继 | BSD-3 |
-| Wails v3（客户端候选，未决策） | 桌面客户端 | MIT |
-| `github.com/pion/webrtc` | 远程画面（后期） | MIT |
+| Flutter（Dart） | 桌面客户端、安卓控制端 | BSD-3 |
+| `github.com/pion/webrtc` | 远程画面（后期，是否使用随任务 15 决定） | MIT |
 | `modernc.org/sqlite` | 本地存储 | BSD-3 |
 | `github.com/zalando/go-keyring` | 系统密钥库 | MIT |
 | `github.com/go-ole/go-ole` | Windows COM / UI Automation | MIT |

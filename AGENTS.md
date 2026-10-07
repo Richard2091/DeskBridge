@@ -23,7 +23,7 @@
 
 ## 代码
 
-- 语言：Go 主程序 + Rust 写的 Windows 桌面辅助进程（已确认，见 ADR-0001 和 `spikes/results.md`）。客户端界面框架待调研（ADR-0002），调研完成、架构定型后才进入开发。
+- 语言：Go 主程序 + Rust 写的 Windows 桌面辅助进程（已确认，见 ADR-0001 和 `spikes/results.md`）。客户端界面用 Flutter（ADR-0002），启动 Go 程序作为子进程通信。
 - 平台相关代码放在 `_windows.go`、`_linux.go`、`_darwin.go` 中；未实现的平台返回 `unsupported_platform`，不能静默失败。
 - **只参考其他开源项目的设计，不复制代码**（见 ADR-0004）。新增依赖前检查许可证，并更新 `docs/references.md`。
 - 所有返回给 AI 的文本必须是 UTF-8。
