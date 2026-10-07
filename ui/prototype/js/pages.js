@@ -4,81 +4,83 @@ function phoneTop(title, extra = "") {
   return isPhone() ? `<div class="mtop"><h1>${title}</h1>${extra}</div>` : "";
 }
 
-// ---------- 操作记录 ----------
-function activityList(items, compact = false) {
-  if (S.scenario === "loading") return Array.from({ length: 6 }, () => `<div class="act"><div class="act-r"><div class="sk" style="height:10px"></div><div class="sk" style="height:10px"></div><div class="sk" style="height:10px"></div><div class="sk" style="height:10px"></div></div></div>`).join("");
-  if (S.scenario === "empty" || !items.length) {
-    return `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有操作记录</h3><p>你和 AI 在各设备上的每一次操作都会记录在这里，方便回看和检查 AI 做了什么。</p></div>`;
-  }
-  let day = "";
-  return items.map(a => {
-    const i = ACTIVITY.indexOf(a);
-    const actor = ACTORS[a.actor];
-    const [stl, stc] = ST_LABEL[a.st];
-    const head = a.day !== day ? `<div class="act-day">${(day = a.day)}</div>` : "";
-    const open = S.act.open === String(i);
-    return head + `<div class="act">
-      <div class="act-r" data-a="actOpen" data-i="${i}">
-        <span class="tm">${a.t}</span>
-        <span class="who">${avatar(a.actor, "sm")}<span>${actor.name}</span></span>
-        <span class="dv tag">${ic(kindIcon(devById(a.dev) || { kind: "monitor" }), "sm")}${a.dev}</span>
-        <span class="sm"><span class="mono faint" style="margin-right:8px">${a.tool}</span>${esc(a.sum)}</span>
-        <span class="stc"><span class="pill ${stc}">${a.st === "run" ? `<span class="spin" style="width:9px;height:9px;border-width:1.5px"></span>` : ""}${stl}</span></span>
-        <span class="du">${a.du}</span>
-      </div>
-      ${open ? `<div class="act-x">
-        <div class="col" style="gap:10px">
-          <div><div class="muted small" style="margin-bottom:6px">调用链</div><div class="chain">${a.chain.map((c, k) => {
-            if (ACTORS[c]) return `<div class="lk">${avatar(c, "sm")}<b>${ACTORS[c].name}</b><span class="muted">${ACTORS[c].type === "ai" ? "AI" : ACTORS[c].type === "local" ? "被控端本地" : ACTORS[c].type === "ext" ? "外部" : "人"} · ${ACTORS[c].from}</span></div>`;
-            const [dv, tool] = c.split(":");
-            return `<div class="lk"><span class="avatar sm" style="background:var(--surface3);color:var(--muted)">${ic(k === a.chain.length - 1 ? "zap" : "arrowRight", "sm")}</span><span class="tag">${dv}</span><span class="mono">${tool}</span></div>`;
-          }).join("")}</div></div>
-          <div class="kv small" style="grid-template-columns:80px 1fr"><dt>请求编号</dt><dd class="mono">req_7f3a${i}c91e</dd><dt>开始时间</dt><dd>${a.day} ${a.t}:31</dd><dt>耗时</dt><dd>${a.du}</dd></div>
-        </div>
-        <div class="col" style="gap:10px">
-          <div><div class="muted small" style="margin-bottom:6px">参数（敏感字段已脱敏）</div><div class="codebox">${esc(a.args)}</div></div>
-          <div><div class="muted small" style="margin-bottom:6px">结果</div><div class="codebox">${esc(a.out)}</div></div>
-          <div class="row"><button class="btn sm" data-go="#/devices/${a.dev}/overview">${ic("monitor")}查看设备</button><button class="btn sm ghost" data-a="noop" data-msg="已复制请求编号">${ic("copy")}复制编号</button></div>
-        </div>
-      </div>` : ""}
-    </div>`;
-  }).join("");
+function pageHead(title, sub, actions = "") {
+  return isPhone() ? phoneTop(title, actions) : `<div class="v2-head"><div><h1>${title}</h1><div class="sub">${sub}</div></div><div class="actions">${actions}</div></div>`;
 }
 
-A.actOpen = el => { S.act.open = S.act.open === el.dataset.i ? null : el.dataset.i; render(); };
-A.actWho = el => { S.act.who = el.dataset.v; render(); };
-
+// ---------- 操作记录 ----------
 function viewActivity() {
   const who = S.act.who;
   let items = ACTIVITY;
   if (who !== "all") items = items.filter(a => ACTORS[a.actor].type === who || (who === "human" && ACTORS[a.actor].type === "local"));
   if (S.act.dev !== "all") items = items.filter(a => a.dev === S.act.dev);
   const seg = (v, l) => `<button class="${who === v ? "on" : ""}" data-a="actWho" data-v="${v}">${l}</button>`;
-  return `${phoneTop("操作记录")}
-    ${isPhone() ? "" : `<div class="ph"><div><h1>操作记录</h1><div class="sub">谁（AI 或人）在哪台设备上做了什么</div></div>
-      <div class="actions"><span class="pill ok"><span class="pulse live"></span>实时</span><button class="btn sm" data-a="noop" data-msg="已导出为 CSV">${ic("download")}导出</button></div></div>`}
-    <div class="toolbar">
+  let body;
+  if (S.scenario === "loading") body = `<div class="list2">${Array.from({ length: 5 }, () => `<div class="li"><span class="avatar sk"></span><div class="b"><div class="sk" style="height:12px;width:50%"></div><div class="sk" style="height:10px;width:70%;margin-top:8px"></div></div></div>`).join("")}</div>`;
+  else if (S.scenario === "empty" || !items.length) body = `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有操作记录</h3><p>你和 AI 在各设备上的每一次操作都会记录在这里，方便回看和检查 AI 做了什么。</p></div>`;
+  else {
+    const days = [...new Set(items.map(a => a.day))];
+    body = days.map(dy => `<div class="day">${dy}</div><div class="list2">${items.filter(a => a.day === dy).map(actItem).join("")}</div>`).join("");
+  }
+  const filtered = S.act.dev !== "all";
+  return `<div class="v2-page" data-sk="act"><div class="v2-in">
+    ${pageHead("操作记录", "谁（AI 或人）在哪台设备上做了什么", isPhone() ? "" : `<button class="btn" data-a="noop" data-msg="已导出为 CSV">${ic("download")}导出</button>`)}
+    <div class="row" style="flex-wrap:wrap;gap:10px">
       <div class="segmented">${seg("all", "全部")}${seg("ai", "AI")}${seg("human", "人")}${seg("ext", "外部")}</div>
-      <select class="select" style="width:150px;height:30px" data-in="act.dev" data-rerender="1">
-        <option value="all">全部设备</option>${DEVICES.filter(d => !d.self && !d.noNode).map(d => `<option value="${d.id}" ${S.act.dev === d.id ? "selected" : ""}>${d.name}</option>`).join("")}</select>
-      ${isPhone() ? "" : `<select class="select" style="width:120px;height:30px"><option>全部结果</option><option>失败</option><option>被拒绝</option><option>被抢占</option></select>
-      <div class="search" style="width:220px">${ic("search", "sm")}<input placeholder="搜索命令、文件、工具…"></div>`}
+      <button class="btn ${filtered ? "primary" : ""}" data-a="popActFilter">${ic("filter")}${filtered ? S.act.dev : "筛选"}</button>
+      ${filtered ? `<button class="btn ghost sm" data-a="actClear">清除</button>` : ""}
+      <span class="spacer"></span>${isPhone() ? "" : `<span class="pill ok"><span class="pulse live"></span>实时</span>`}
     </div>
-    <div class="scroll pad" data-sk="act">${activityList(items)}</div>`;
+    ${body}
+  </div></div>`;
 }
+
+A.actWho = el => { S.act.who = el.dataset.v; render(); };
+A.actClear = () => { S.act.dev = "all"; render(); };
+A.actDrawer = el => { S.drawer = { type: "act", i: +el.dataset.i }; render(); };
+A.popActFilter = el => openPop(el, "actFilter");
+A.actDev = el => { S.act.dev = el.dataset.v; S.pop = null; render(); };
+POPS.actFilter = () => `<div class="ph2">设备</div>${[{ id: "all", name: "全部设备" }].concat(DEVICES.filter(d => !d.self && !d.noNode)).map(d => `<div class="pi" data-a="actDev" data-v="${d.id}"><span class="radio ${S.act.dev === d.id ? "on" : ""}"></span>${d.name}</div>`).join("")}
+  <div class="divider"></div><div class="ph2">结果</div><div class="chips" style="padding:0 6px 6px">${["全部", "失败", "被拒绝", "被抢占"].map((x, i) => `<button class="${i === 0 ? "on" : ""}">${x}</button>`).join("")}</div>`;
+
+DRAWERS.act = () => {
+  const a = ACTIVITY[S.drawer.i];
+  const [stl, stc] = ST_LABEL[a.st];
+  const chain = a.chain.map((c, k) => {
+    if (ACTORS[c]) return `<div class="lk">${avatar(c, "sm")}<b>${ACTORS[c].name}</b><span class="muted">${ACTORS[c].from}</span></div>`;
+    const [dv, tool] = c.split(":");
+    return `<div class="lk"><span class="avatar sm" style="background:var(--surface3);color:var(--muted)">${ic(k === a.chain.length - 1 ? "zap" : "arrowRight", "sm")}</span><span class="tag">${dv}</span><span class="mono">${tool}</span></div>`;
+  }).join("");
+  return drawer({
+    title: `${ACTORS[a.actor].name} ${actVerb(a)}`, sub: `${a.day} ${a.t} · ${a.dev} · <span class="mono">${a.tool}</span>`,
+    body: `<div class="row"><span class="pill ${stc}">${stl}</span><span class="muted small">耗时 ${a.du}</span></div>
+      <div><div class="small muted" style="margin-bottom:8px">内容</div><div class="codebox">${esc(a.sum)}</div></div>
+      <div><div class="small muted" style="margin-bottom:8px">调用链</div><div class="chain">${chain}</div></div>
+      <div><div class="small muted" style="margin-bottom:8px">结果</div><div class="codebox">${esc(a.out)}</div></div>
+      ${expander("actArgs", "terminal", "参数", "敏感字段已脱敏", `<div class="codebox">${esc(a.args)}</div><div class="small muted">请求编号 <span class="mono">req_7f3a${S.drawer.i}c91e</span></div>`)}`,
+    foot: `<button class="btn" data-go="#/devices/${a.dev}/overview">${ic("monitor")}打开设备</button><button class="btn ghost" data-a="noop" data-msg="已复制请求编号">${ic("copy")}复制编号</button>`,
+  });
+};
 
 // ---------- 审批 ----------
 function apprCard(a, done = false) {
   const actor = ACTORS[a.actor];
   const risk = { high: ["高风险", "bad"], mid: ["中风险", "warn"] }[a.risk];
-  return `<div class="card appr ${done ? "done" : ""}">
-    <div class="top">${avatar(a.actor)}<div><b>${actor.name}</b> <span class="muted">请求在</span> <b>${a.dev}</b> <span class="muted">上执行</span><div class="small muted">${actor.type === "ext" ? "外部 · " : "AI · "}来自 ${actor.from}</div></div>
-      <span class="pill ${risk[1]}">${risk[0]}</span>
-      ${done ? `<span class="tmr">${a.result}</span>` : `<span class="tmr">${ic("clock", "sm")}<span data-tmr="${a.id}">${Math.floor(a.wait / 60)}:${String(a.wait % 60).padStart(2, "0")} 后自动拒绝</span></span>`}</div>
-    <div class="codebox" style="font-size:13px">${esc(a.what)}</div>
-    <div class="grid"><div><div class="l">工具</div><span class="mono">${a.tool}</span></div><div><div class="l">触发原因</div>${a.why}</div><div><div class="l">说明</div>${a.reason}</div></div>
-    ${done ? "" : `<div class="btns"><button class="btn" data-a="apprDo" data-id="${a.id}" data-r="deny">${ic("x")}拒绝</button>
-      <span class="right"><button class="btn" data-a="apprDo" data-id="${a.id}" data-r="session">本次会话内都允许</button><button class="btn primary" data-a="apprDo" data-id="${a.id}" data-r="once">${ic("check")}允许一次</button></span></div>`}
+  const verb = a.tool === "proc.exec" ? "执行命令" : a.tool === "screen.capture" ? "截图" : a.tool;
+  const open = S.exp["appr-" + a.id];
+  return `<div class="card" style="padding:var(--cp);display:flex;flex-direction:column;gap:14px;${done ? "opacity:.7" : ""}">
+    <div class="row" style="gap:12px">${avatar(a.actor)}<div style="min-width:0"><div><b>${actor.name}</b> <span class="muted">想在 ${a.dev} 上${verb}</span></div><div class="small muted">${actor.type === "ext" ? "外部" : "AI"} · 来自 ${actor.from}</div></div>
+      <span class="spacer"></span><span class="pill ${risk[1]}">${risk[0]}</span></div>
+    <div class="codebox" style="font-size:13px;padding:10px 12px">${esc(a.what)}</div>
+    ${open ? `<div class="kv small" style="grid-template-columns:72px 1fr"><dt>触发原因</dt><dd>${a.why}</dd><dt>说明</dt><dd>${a.reason}</dd><dt>工具</dt><dd class="mono">${a.tool}</dd></div>` : ""}
+    <div class="row" style="flex-wrap:wrap">
+      <a class="small muted" style="cursor:pointer" data-a="toggleExp" data-k="appr-${a.id}">${open ? "收起" : "为什么需要审批"}${ic(open ? "chevDown" : "chevRight", "sm")}</a>
+      <span class="spacer"></span>
+      ${done ? `<span class="small muted">${a.result}</span>` : `<span class="small faint" style="margin-right:6px">${ic("clock", "sm")} <span data-tmr="${a.id}">${Math.floor(a.wait / 60)}:${String(a.wait % 60).padStart(2, "0")} 后自动拒绝</span></span>
+        <button class="btn" data-a="apprDo" data-id="${a.id}" data-r="deny">拒绝</button>
+        <button class="btn primary" data-a="apprDo" data-id="${a.id}" data-r="once">允许一次</button>
+        <button class="btn ghost icon" data-a="popApprMore" data-id="${a.id}" title="更多">${ic("more")}</button>`}
+    </div>
   </div>`;
 }
 
@@ -88,51 +90,48 @@ A.apprDo = el => {
   const r = el.dataset.r;
   S.appr.items = S.appr.items.filter(x => x !== a);
   a.result = { deny: "已拒绝", once: "已允许一次", session: "本次会话内允许" }[r];
-  S.appr.done.unshift(a);
+  S.appr.done.unshift(a); S.pop = null;
   toast(r === "deny" ? "warn" : "ok", a.result, `${ACTORS[a.actor].name} · ${a.what.slice(0, 40)}`);
   render();
 };
+A.popApprMore = el => { S.apprMoreId = el.dataset.id; openPop(el, "apprMore"); };
+POPS.apprMore = () => `<div class="pi" data-a="apprDo" data-id="${S.apprMoreId}" data-r="session">${ic("check", "sm")}本次会话内都允许</div><div class="pi" data-a="noop" data-msg="已为这类操作新建规则（示例）">${ic("shield", "sm")}以后自动允许这类操作…</div>`;
 A.ruleToggle = el => { const r = S.rules[+el.dataset.i]; r.on = !r.on; render(); };
 
 function viewApprovals() {
   const t = S.appr.tab;
   const seg = (v, l) => `<button class="${t === v ? "on" : ""}" data-a="apprTab" data-v="${v}">${l}</button>`;
   let body;
-  if (S.scenario === "loading") body = `<div class="card appr"><div class="sk" style="height:14px;width:50%"></div><div class="sk" style="height:40px"></div></div>`;
+  if (S.scenario === "loading") body = `<div class="card" style="padding:20px"><div class="sk" style="height:14px;width:50%"></div><div class="sk" style="height:40px;margin-top:14px"></div></div>`;
   else if (t === "pending") {
-    body = S.appr.items.length ? S.appr.items.map(a => apprCard(a)).join("")
+    body = S.appr.items.length ? `<div class="col" style="gap:14px">${S.appr.items.map(a => apprCard(a)).join("")}</div>`
       : `<div class="empty"><div class="art accent">${ic("shield", "xl")}</div><h3>没有待审批的操作</h3><p>AI 或外部用户触发审批规则时，会在这里等你决定，同时弹出系统通知。</p></div>`;
   } else if (t === "done") {
-    body = S.appr.done.length ? S.appr.done.map(a => apprCard(a, true)).join("") : `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有处理过的审批</h3></div>`;
+    body = S.appr.done.length ? `<div class="col" style="gap:14px">${S.appr.done.map(a => apprCard(a, true)).join("")}</div>` : `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有处理过的审批</h3></div>`;
   } else {
-    body = `<div class="card">${S.rules.map((r, i) => `<div class="rule"><div class="b"><div class="t">${r.t}</div><div class="d">${r.d}</div></div><span class="tag">${r.scope}</span><button class="switch ${r.on ? "on" : ""}" data-a="ruleToggle" data-i="${i}"></button></div>`).join("")}</div>
-      <div class="muted small" style="margin-top:10px">没有人处理的审批会在 15 分钟后自动拒绝（可在设置中修改）。</div>`;
+    body = `<div class="list2">${S.rules.map((r, i) => `<div class="li" style="cursor:default"><div class="b"><div class="t">${r.t}</div><div class="d">${r.d} · ${r.scope}</div></div><button class="switch ${r.on ? "on" : ""}" data-a="ruleToggle" data-i="${i}"></button></div>`).join("")}</div>
+      <div class="muted small">没有人处理的审批会在 15 分钟后自动拒绝。</div>`;
   }
-  return `${phoneTop("审批")}
-    ${isPhone() ? "" : `<div class="ph"><div><h1>审批</h1><div class="sub">危险操作和外部访问会在这里等你确认</div></div>
-      <div class="actions">${t === "rules" ? `<button class="btn sm primary" data-a="noop" data-msg="新建规则（原型未实现）">${ic("plus")}新建规则</button>` : ""}</div></div>`}
-    <div class="toolbar"><div class="segmented">${seg("pending", `待审批${S.appr.items.length ? ` <span class="badge">${S.appr.items.length}</span>` : ""}`)}${seg("done", "已处理")}${seg("rules", "规则")}</div></div>
-    <div class="scroll pad" data-sk="appr">${body}</div>`;
+  return `<div class="v2-page" data-sk="appr"><div class="v2-in" style="max-width:820px">
+    ${pageHead("审批", "危险操作和外部访问会在这里等你确认", t === "rules" && !isPhone() ? `<button class="btn primary" data-a="noop" data-msg="新建规则（原型未实现）">${ic("plus")}新建规则</button>` : "")}
+    <div><div class="segmented">${seg("pending", `待审批${S.appr.items.length ? ` <span class="badge">${S.appr.items.length}</span>` : ""}`)}${seg("done", "已处理")}${seg("rules", "规则")}</div></div>
+    ${body}
+  </div></div>`;
 }
 
 // ---------- 外部设备 ----------
 function viewShared() {
-  const card = (s, out) => `<div class="card share">
-    <div class="top"><div class="dic">${ic("monitor")}<span class="pulse"></span></div><div><b>${s.dev}</b><div class="small muted">${out ? `共享给 ${s.to}` : `来自 ${s.owner}`} · ${s.since} 起</div></div>
-      <span class="spacer"></span>${out ? `<button class="btn sm ghost" data-a="noop" data-msg="已撤销对 ${s.to} 的共享">撤销</button>` : `<button class="btn sm" data-go="#/devices/${s.dev}/overview">打开</button>`}</div>
-    <div class="perms">${s.perms.map(p => `<span class="tag">${p}</span>`).join("")}</div>
-    <div class="small muted">有效期：${s.exp}</div>
-  </div>`;
-  return `${phoneTop("外部设备", `<button class="btn primary icon" data-a="invite">${ic("plus")}</button>`)}
-    ${isPhone() ? "" : `<div class="ph"><div><h1>外部设备</h1><div class="sub">和别人共享设备，对方只能使用你明确授予的权限</div></div>
-      <div class="actions"><button class="btn sm" data-a="acceptInvite">${ic("link")}输入邀请链接</button><button class="btn sm primary" data-a="invite">${ic("share")}共享我的设备</button></div></div>`}
-    <div class="scroll pad" data-sk="shared">
-      <div class="banner info" style="margin-bottom:16px">${ic("info")}<div class="t">外部设备是加分功能（任务 17），这里先确定位置和流程。外部用户的每次操作都会在双方的操作记录中保留。</div></div>
-      <h3 style="font-size:13px;margin:0 0 10px">共享给我的</h3>
-      <div class="shares">${SHARED_IN.map(s => card(s, false)).join("")}</div>
-      <h3 style="font-size:13px;margin:22px 0 10px">我共享出去的</h3>
-      <div class="shares">${SHARED_OUT.map(s => card(s, true)).join("")}</div>
-    </div>`;
+  const card = (s, out) => `<div class="dcard" style="cursor:default">
+    <div class="top"><div class="dic">${ic("monitor")}<span class="pulse"></span></div><div style="min-width:0"><div class="nm">${s.dev}</div><div class="os">${out ? `共享给 ${s.to}` : `来自 ${s.owner}`} · 有效期 ${s.exp}</div></div>
+      <span class="badge-r">${out ? `<button class="btn ghost sm" data-a="noop" data-msg="已撤销对 ${s.to} 的共享">撤销</button>` : `<button class="btn sm" data-go="#/devices/${s.dev}/overview">打开</button>`}</span></div>
+    <div class="chips">${s.perms.map(p => `<span class="tag">${p}</span>`).join("")}</div></div>`;
+  return `<div class="v2-page" data-sk="shared"><div class="v2-in">
+    ${isPhone() ? `<div class="mtop"><button class="btn ghost icon" data-go="#/settings">${ic("chevLeft", "lg")}</button><h2>外部设备</h2><button class="btn primary icon" data-a="invite">${ic("plus")}</button></div>`
+      : `<div class="back" data-go="#/devices">${ic("chevLeft", "sm")}设备</div>` + pageHead("外部设备", "和别人共享设备，对方只能使用你明确授予的权限", `<button class="btn" data-a="acceptInvite">${ic("link")}输入邀请链接</button><button class="btn primary" data-a="invite">${ic("share")}共享我的设备</button>`)}
+    <section><div class="sec-h"><h2>共享给我的</h2><span class="count">${SHARED_IN.length}</span></div><div class="dgrid">${SHARED_IN.map(s => card(s, false)).join("")}</div></section>
+    <section><div class="sec-h"><h2>我共享出去的</h2><span class="count">${SHARED_OUT.length}</span></div><div class="dgrid">${SHARED_OUT.map(s => card(s, true)).join("")}</div></section>
+    <div class="small muted">外部设备是加分功能（任务 17）。外部用户的每次操作都会在双方的操作记录中保留。</div>
+  </div></div>`;
 }
 
 A.invite = () => { S.modal = { type: "invite", step: 1, dev: "win-pc", p_cmd: true, p_read: true, p_write: false, p_shot: true, p_desk: false, p_agent: false, approve: true }; render(); };
@@ -145,24 +144,19 @@ MODALS.invite = () => {
     return modal({
       title: "邀请链接已生成", sub: "把链接发给对方，对方用自己的 DeskBridge 打开",
       body: `<div class="snippet"><div class="codebox">deskbridge://invite/9f2c-7a1e-example</div><button class="btn sm" data-a="noop" data-msg="已复制邀请链接">${ic("copy")}复制</button></div>
-        <div class="muted small" style="line-height:1.6">链接 24 小时内有效，只能使用一次。对方接受后，你会收到通知，并可以随时在这里撤销。</div>`,
+        <div class="muted small" style="line-height:1.6">链接 24 小时内有效，只能使用一次。对方接受后你会收到通知，可以随时撤销。</div>`,
       foot: `<button class="btn primary" data-a="closeModal">完成</button>`,
     });
   }
-  const perm = (k, l, d) => `<div class="opt ${m[k] ? "on" : ""}" data-a="modalToggle" data-k="${k}" style="padding:9px 12px"><span class="check ${m[k] ? "on" : ""}"></span><div><div class="t">${l}</div><div class="d">${d}</div></div></div>`;
+  const perm = (k, l) => `<label class="row" style="padding:6px 0;cursor:pointer" data-a="modalToggle" data-k="${k}"><span class="check ${m[k] ? "on" : ""}"></span>${l}</label>`;
   return modal({
-    title: "共享我的设备", sub: "对方只能使用你勾选的权限", wide: true,
+    title: "共享我的设备", sub: "对方只能使用你勾选的权限",
     body: `<div class="field"><label>设备</label><select class="select"><option>win-pc</option><option>linux-server</option></select></div>
-      <div class="field"><label>权限</label><div class="col" style="gap:6px">
-        ${perm("p_cmd", "执行命令", "以你的用户身份运行命令")}
-        ${perm("p_read", "读文件", "浏览和下载文件")}
-        ${perm("p_write", "写文件", "上传、修改和删除文件")}
-        ${perm("p_shot", "截图和界面元素", "查看屏幕内容")}
-        ${perm("p_desk", "鼠标键盘", "操作桌面，受控制权规则约束")}
-        ${perm("p_agent", "调用 Agent 和 MCP", "使用这台设备上的 AI 工具")}
+      <div class="field"><label>权限</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
+        ${perm("p_cmd", "执行命令")}${perm("p_read", "读文件")}${perm("p_write", "写文件")}${perm("p_shot", "截图和界面元素")}${perm("p_desk", "鼠标键盘")}${perm("p_agent", "调用 Agent 和 MCP")}
       </div></div>
-      <div class="row"><div class="field" style="flex:1"><label>有效期</label><select class="select"><option>7 天</option><option>30 天</option><option>长期</option></select></div>
-        <div class="field" style="flex:1"><label>审批</label><div class="row" style="height:32px"><button class="switch ${m.approve ? "on" : ""}" data-a="modalToggle" data-k="approve"></button><span class="small">每次截图和写文件都要我同意</span></div></div></div>`,
+      ${expander("inviteAdv", "sliders", "更多选项", "有效期、审批", `<div class="field"><label>有效期</label><select class="select"><option>7 天</option><option>30 天</option><option>长期</option></select></div>
+        <label class="row" style="cursor:pointer" data-a="modalToggle" data-k="approve"><button class="switch ${m.approve ? "on" : ""}"></button>截图和写文件每次都要我同意</label>`)}`,
     foot: `<button class="btn" data-a="closeModal">取消</button><button class="btn primary" data-a="inviteNext">生成邀请链接</button>`,
   });
 };
@@ -279,7 +273,7 @@ function viewSettings() {
     return `<div class="mtop"><button class="btn ghost icon" data-go="#/settings">${ic("chevLeft", "lg")}</button><h2>${SET_SECS.find(s => s[0] === sec)[2]}</h2></div><div class="sbody">${settingsSec(sec).replace(/<h2>.*?<\/h2>/, "")}</div>`;
   }
   return `<div class="settings">
-    <nav class="snav">${SET_SECS.map(([k, i, l]) => `<a class="${sec === k ? "on" : ""}" data-go="#/settings/${k}">${ic(i)}<span class="label">${l}</span></a>`).join("")}</nav>
+    <nav class="snav"><div class="small muted" style="padding:6px 10px 10px;font-weight:600">设置</div>${SET_SECS.map(([k, i, l]) => `<a class="${sec === k ? "on" : ""}" data-go="#/settings/${k}">${ic(i)}<span class="label">${l}</span></a>`).join("")}<div class="divider" style="margin:10px 6px"></div><a data-go="#/shared">${ic("users")}<span class="label">外部设备</span></a></nav>
     <div class="sbody" data-sk="set">${settingsSec(sec)}</div>
   </div>`;
 }

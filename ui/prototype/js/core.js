@@ -6,7 +6,8 @@ const S = {
   // 路由
   route: { page: "devices", dev: "win-pc", tab: "overview", sec: "appearance" },
   // 浮层
-  modal: null, palette: false, paletteQ: "", remote: null, menu: null, toasts: [],
+  modal: null, palette: false, paletteQ: "", remote: null, menu: null, toasts: [], drawer: null, pop: null,
+  exp: {}, deskMode: "shot",
   // 各页面状态
   filter: "all", search: "",
   cmd: { shell: "PowerShell 7", text: "Get-ChildItem D:\\data -Recurse | Measure-Object -Sum Length", status: "run", lines: CMD_OUTPUTS.default.slice(0, 12), started: Date.now() - 8400, timeout: true, utf8: true },
@@ -94,7 +95,9 @@ function parseRoute() {
   const r = { page: p[0] || "devices", dev: null, tab: "overview", sec: null };
   if (r.page === "devices") { r.dev = p[1] || null; r.tab = p[2] || "overview"; }
   if (r.page === "settings") r.sec = p[1] || null;
-  if (r.page === "devices" && !r.dev && !isPhone() && S.scenario !== "empty") r.dev = "win-pc";
+  if (r.tab === "cmd") r.tab = "term";
+  if (["shot", "uia"].includes(r.tab)) { S.deskMode = r.tab; r.tab = "desk"; }
+  if (r.tab === "agent") r.tab = "ai";
   if (r.page === "settings" && !r.sec && !isPhone()) r.sec = "appearance";
   S.route = r;
 }
@@ -147,23 +150,17 @@ function desktopShell() {
   const p = S.route.page;
   const nav = (page, icon, label, extra = "") =>
     `<a class="${p === page ? "on" : ""}" data-go="#/${page}" title="${label}">${ic(icon)}<span class="label">${label}</span>${extra}</a>`;
-  const net = netDown()
-    ? `<div class="netcard" data-a="netRetry"><div class="t" style="color:var(--bad)"><span class="pulse bad"></span><span class="label">组网已断开</span></div><div class="s">正在重连…</div></div>`
-    : `<div class="netcard" data-go="#/settings/network" title="组网正常"><div class="t"><span class="pulse"></span><span class="label">组网正常</span></div><div class="s">本机 100.64.0.1</div></div>`;
-  const devCount = S.scenario === "empty" ? 1 : DEVICES.length;
   return `<div class="shell">
     <aside class="nav">
       <div class="brand"><span class="logo">${ic("bridge")}</span><span class="label">DeskBridge</span></div>
       <div class="quick" data-a="openPalette" title="搜索或执行（Ctrl K）">${ic("search")}<span class="label">搜索或执行…</span><span class="kbd">Ctrl K</span></div>
-      ${nav("devices", "monitor", "设备", `<span class="count">${devCount}</span>`)}
+      ${nav("devices", "monitor", "设备", "")}
       ${nav("activity", "history", "操作记录")}
       ${nav("approvals", "shield", "审批", pendingCount() ? `<span class="badge">${pendingCount()}</span>` : "")}
-      ${nav("shared", "users", "外部设备")}
-      <div class="grow"></div>
       ${nav("settings", "sliders", "设置")}
-      <div style="height:8px"></div>
-      ${net}
-      <div class="me"><span class="avatar">示</span><div><div class="n">示例用户</div><div class="e">user@example.com</div></div></div>
+      <div class="grow"></div>
+      <div class="foot" data-go="#/settings/network" style="cursor:pointer" title="${netDown() ? "组网已断开" : "组网正常"}"><span class="avatar">示</span><div style="min-width:0"><div class="n" style="font-weight:600">示例用户</div>
+        <div class="s">${netDown() ? `<span class="pulse bad"></span>组网已断开` : `<span class="pulse"></span>组网正常`}</div></div></div>
     </aside>
     <div class="content">${netBanner()}<section class="page">${pageBody()}</section></div>
   </div>`;
@@ -171,8 +168,8 @@ function desktopShell() {
 
 function netBanner() {
   if (!netDown()) return "";
-  return `<div class="netbar banner bad">${ic("wifiOff")}<div class="t"><b>组网已断开</b> <span class="d">正在重连（第 ${S.netTry} 次）。设备状态可能不是最新的，操作暂时不可用。</span></div>
-    <div class="btns"><button class="btn sm" data-go="#/settings/network">查看诊断</button><button class="btn sm" data-a="netRetry">${ic("refresh")}立即重试</button></div></div>`;
+  return `<div class="netbar banner bad">${ic("wifiOff")}<div class="t"><b>组网已断开</b> <span class="d">正在重连（第 ${S.netTry} 次）</span></div>
+    <div class="btns"><button class="btn sm" data-a="netRetry">${ic("refresh")}立即重试</button></div></div>`;
 }
 
 function pageBody() {
@@ -206,6 +203,8 @@ function overlays() {
   let h = "";
   if (S.remote) h += viewRemote();
   if (S.modal) h += `<div class="modal-wrap" data-a="closeModalBg">${MODALS[S.modal.type]()}</div>`;
+  if (S.drawer) h += `<div class="drawer-wrap" data-a="closeDrawerBg">${DRAWERS[S.drawer.type]()}</div>`;
+  if (S.pop) h += S.pop.html();
   if (S.palette) h += viewPalette();
   if (S.menu) h += S.menu.html;
   h += `<div class="toasts" id="toasts"></div>`;
@@ -224,12 +223,13 @@ function paletteItems() {
   const items = [];
   DEVICES.filter(d => !d.self).forEach(d => items.push({ sec: "设备", icon: kindIcon(d), t: d.name, r: d.os, go: `#/devices/${d.id}/overview` }));
   items.push(
-    { sec: "操作", icon: "terminal", t: "在 win-pc 上执行命令", r: "命令", go: "#/devices/win-pc/cmd" },
-    { sec: "操作", icon: "image", t: "给 win-pc 截图", r: "截图", go: "#/devices/win-pc/shot" },
+    { sec: "操作", icon: "terminal", t: "在 win-pc 上执行命令", r: "终端", go: "#/devices/win-pc/term" },
+    { sec: "操作", icon: "image", t: "给 win-pc 截图", r: "截图", go: "#/devices/win-pc/desk" },
     { sec: "操作", icon: "cast", t: "打开 win-pc 的远程画面", r: "远程画面", a: "openRemote" },
     { sec: "操作", icon: "plus", t: "添加设备", r: "", a: "addDevice" },
     { sec: "操作", icon: "moon", t: "切换深色和浅色", r: "外观", a: "toggleMode" },
     { sec: "页面", icon: "history", t: "操作记录", r: "", go: "#/activity" },
+    { sec: "页面", icon: "users", t: "外部设备与共享", r: "", go: "#/shared" },
     { sec: "页面", icon: "shield", t: "审批", r: `${pendingCount()} 项待处理`, go: "#/approvals" },
     { sec: "页面", icon: "plug", t: "AI 接入（MCP 配置）", r: "设置", go: "#/settings/ai" },
   );
@@ -271,6 +271,26 @@ function openMenu(anchor, items) {
   render();
 }
 A.menuPick = el => { S.menu = null; if (el.dataset.msg) toast("ok", el.dataset.msg); render(); };
+
+// ---------- 抽屉与弹出面板 ----------
+const DRAWERS = {};
+const POPS = {};
+function drawer({ title, sub = "", body, foot = "" }) {
+  return `<aside class="drawer"><div class="drawer-h"><div style="min-width:0"><h3>${title}</h3>${sub ? `<div class="sub">${sub}</div>` : ""}</div><button class="btn ghost icon sm x" data-a="closeDrawer">${ic("x")}</button></div>
+    <div class="drawer-b">${body}</div>${foot ? `<div class="drawer-f">${foot}</div>` : ""}</aside>`;
+}
+A.closeDrawer = () => { S.drawer = null; render(); };
+A.closeDrawerBg = (el, ev) => { if (ev.target === el) A.closeDrawer(); };
+function openPop(anchor, type) {
+  if (S.pop && S.pop.type === type) { S.pop = null; render(); return; }
+  const app = $("#app").getBoundingClientRect();
+  const r = anchor.getBoundingClientRect();
+  const right = Math.max(8, app.right - r.right);
+  const below = r.bottom - app.top < app.height * .6;
+  const pos = below ? `top:${r.bottom - app.top + 6}px` : `bottom:${app.bottom - r.top + 6}px`;
+  S.pop = { type, html: () => `<div class="pop" style="${pos};right:${right}px">${POPS[type]()}</div>` };
+  render();
+}
 
 // ---------- 对话框 ----------
 const MODALS = {};
@@ -330,11 +350,11 @@ function onProto(el) {
 
 const FLOWS = {
   welcome: () => { S.onb.step = 0; S.scenario = "normal"; go("#/welcome"); },
-  add: () => { go(isPhone() ? "#/devices" : "#/devices/win-pc/overview"); setTimeout(A.addDevice, 0); },
-  cmd: () => { S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/cmd"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
+  add: () => { go("#/devices"); setTimeout(A.addDevice, 0); },
+  cmd: () => { S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
   takeover: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
   preempt: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
-  netdown: () => { S.scenario = "netdown"; S.netTry = 1; render(); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
+  netdown: () => { S.scenario = "netdown"; S.netTry = 1; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
   remote: () => { go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
   relay: () => go("#/devices/old-laptop/overview"),
   offline: () => go("#/devices/redmi-phone/overview"),
@@ -342,7 +362,7 @@ const FLOWS = {
   external: () => go("#/devices/office-pc/overview"),
   approve: () => { S.appr.tab = "pending"; go("#/approvals"); },
   invite: () => { go("#/shared"); setTimeout(A.invite, 0); },
-  agent: () => go("#/devices/win-pc/agent"),
+  agent: () => go("#/devices/win-pc/ai"),
   palette: () => A.openPalette(),
 };
 
@@ -366,6 +386,7 @@ document.addEventListener("click", ev => {
   const p = ev.target.closest("[data-p]");
   if (p) { onProto(p); return; }
   if (S.menu && !ev.target.closest(".menu")) { S.menu = null; render(); if (!ev.target.closest("[data-a]")) return; }
+  if (S.pop && !ev.target.closest(".pop") && !ev.target.closest("[data-a^=pop]")) { S.pop = null; render(); if (!ev.target.closest("[data-a],[data-go]")) return; }
   const g = ev.target.closest("[data-go]");
   const a = ev.target.closest("[data-a]");
   // 最内层优先
@@ -390,6 +411,8 @@ document.addEventListener("keydown", ev => {
   if (ev.key === "Escape") {
     if (S.palette) S.palette = false;
     else if (S.menu) S.menu = null;
+    else if (S.pop) S.pop = null;
+    else if (S.drawer) S.drawer = null;
     else if (S.modal) S.modal = null;
     else if (S.remote) S.remote = null;
     render();
@@ -401,7 +424,7 @@ document.addEventListener("keydown", ev => {
   }
 });
 
-window.addEventListener("hashchange", () => { S.menu = null; parseRoute(); render(); });
+window.addEventListener("hashchange", () => { S.menu = null; S.pop = null; S.drawer = null; parseRoute(); render(); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (S.mode === "system") render(); });
 
 // 审批倒计时
