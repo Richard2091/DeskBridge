@@ -856,3 +856,59 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .shot-box { display: flex; justify-content: center; }
 .shot-box .desk-wrap { max-width: 760px; }
 .shot-box > .col { padding: 80px 0; }
+
+/* =========================================================
+   第三版：标题栏放品牌和全局入口、访问权限、独立远程窗口
+   ========================================================= */
+.titlebar { height: 46px; gap: 12px; padding-left: 16px; color: var(--text); -webkit-app-region: drag; }
+.tb-brand { display: flex; align-items: center; gap: 9px; width: 180px; flex: none; font-size: 14px; letter-spacing: -.01em; }
+.tb-brand b { font-weight: 650; }
+.tb-search { flex: 0 1 380px; margin: 0 auto; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 12px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--border); color: var(--faint); font-size: 12.5px; cursor: pointer; box-shadow: var(--shadow-sm); }
+.tb-search:hover { border-color: var(--accent); }
+.tb-search .kbd { margin-left: auto; }
+.tb-right { display: flex; align-items: center; gap: 6px; flex: none; }
+.tb-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid transparent; background: transparent;
+  color: var(--muted); font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.tb-chip:hover { background: var(--hover); color: var(--text); }
+.tb-chip .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; display: grid; place-items: center; }
+.tb-chip.warn { color: var(--warn); background: var(--warn-soft); }
+.tb-me { border: 0; background: transparent; padding: 2px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.tb-me .avatar { width: 28px; height: 28px; }
+.titlebar .ctl { margin-left: 4px; }
+.titlebar .ctl span { color: var(--muted); }
+.app[data-size="narrow"] .tb-brand { width: auto; }
+.app[data-size="narrow"] .tb-search { flex: 0 0 auto; width: 34px; padding: 0; justify-content: center; margin: 0 0 0 auto; }
+.app[data-size="narrow"] .tb-search .label, .app[data-size="narrow"] .tb-search .kbd,
+.app[data-size="narrow"] .tb-chip .label { display: none; }
+.app[data-size="narrow"] .tb-chip { padding: 0 8px; }
+
+/* 侧栏只放页面导航，设置放在最下面 */
+.nav { padding-top: 8px; }
+.app .shell { grid-template-columns: 196px minmax(0, 1fr); }
+.app[data-size="narrow"] .shell { grid-template-columns: 60px minmax(0, 1fr); }
+
+/* 访问权限编辑器 */
+.pgroup { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.pg-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--surface2); }
+.prow { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); cursor: pointer; }
+.prow > div { flex: 1; min-width: 0; }
+.prow .d { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.prow:hover { background: var(--hover); }
+.pscope { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.tag a { display: inline-flex; margin-left: 2px; color: var(--faint); cursor: pointer; }
+.tag a:hover { color: var(--bad); }
+.opt.dis { opacity: .5; cursor: not-allowed; }
+
+/* 独立的远程窗口：填满整个浏览器窗口，不显示原型控制台 */
+body.rwin .proto { display: none; }
+body.rwin .stage { padding: 0; }
+.app[data-size="remote"] { width: 100vw; height: 100vh; border-radius: 0; box-shadow: none; }
+.remote.rwin { position: static; flex: 1; }
+.remote.rwin .remote-bar { padding: 0 0 0 12px; height: 44px; -webkit-app-region: drag; }
+.remote.rwin .remote-bar .btn { -webkit-app-region: no-drag; }
+.remote.rwin .remote-bar .logo { width: 22px; height: 22px; border-radius: 6px; }
+.remote.rwin .remote-bar .logo svg.i { width: 13px; height: 13px; }
+.remote.rwin .ctl { display: flex; height: 100%; margin-left: 4px; }
+.remote.rwin .ctl span { width: 46px; display: grid; place-items: center; color: #a0a0ac; cursor: default; }
+.remote.rwin .ctl span:last-child:hover { background: #e81123; color: #fff; cursor: pointer; }

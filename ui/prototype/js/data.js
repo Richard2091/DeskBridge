@@ -3,44 +3,51 @@
 const DEVICES = [
   {
     id: "my-laptop", name: "my-laptop", kind: "laptop", os: "Windows 11 专业版", group: "mine", self: true,
-    online: true, path: "self", latency: 0, ip: "100.64.0.1", version: "0.3.0",
+    online: true, via: "tailscale", path: "self", latency: 0, ip: "100.64.0.1", version: "0.3.0",
     note: "本机",
   },
   {
     id: "win-pc", name: "win-pc", kind: "monitor", os: "Windows 11 专业版", group: "mine",
-    online: true, path: "lan", latency: 4, ip: "100.64.0.2", version: "0.3.0",
+    via: "tailscale", online: true, path: "lan", latency: 4, ip: "100.64.0.2", version: "0.3.0",
     session: "已登录 · 活跃", displays: 2, runMode: "用户模式（计划任务自启）",
     merged: "这台设备上还装有 Tailscale 客户端，内网中的两个节点已合并显示",
     spark: [5, 4, 4, 6, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 4, 6, 4, 4, 4],
   },
   {
     id: "linux-server", name: "linux-server", kind: "server", os: "Ubuntu 24.04", group: "mine",
-    online: true, path: "direct", latency: 38, ip: "100.64.0.3", version: "0.3.0",
+    via: "tailscale", online: true, path: "direct", latency: 38, ip: "100.64.0.3", version: "0.3.0",
     session: "无桌面", displays: 0, runMode: "systemd 服务",
     spark: [36, 40, 38, 37, 41, 39, 38, 36, 38, 44, 39, 38, 37, 38, 40, 38, 37, 39, 38, 38],
   },
   {
     id: "old-laptop", name: "old-laptop", kind: "laptop", os: "Windows 10 家庭版", group: "mine",
-    online: true, path: "relay", relay: "东京", latency: 186, ip: "100.64.0.4", version: "0.2.4",
+    via: "tailscale", online: true, path: "relay", relay: "东京", latency: 186, ip: "100.64.0.4", version: "0.2.4",
     session: "已登录 · 空闲 12 分钟", displays: 1, runMode: "用户模式（计划任务自启）", outdated: true,
     spark: [170, 190, 182, 210, 186, 175, 240, 188, 180, 186, 195, 178, 186, 220, 190, 184, 186, 181, 199, 186],
   },
   {
+    id: "media-pc", name: "media-pc", kind: "monitor", os: "Windows 10 专业版", group: "mine",
+    via: "tailscale", online: true, path: "lan", latency: 3, ip: "100.64.0.7", version: "0.3.0",
+    session: "已登录 · 空闲 40 分钟", displays: 1, runMode: "用户模式（计划任务自启）",
+    spark: [3, 3, 4, 3, 3, 5, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3],
+  },
+  {
     id: "redmi-phone", name: "redmi-phone", kind: "phone", os: "Android 15", group: "mine",
-    online: false, lastSeen: "2 小时前", path: "none", ip: "100.64.0.5", version: "0.3.0", controllerOnly: true,
+    via: "tailscale", online: false, lastSeen: "2 小时前", path: "none", ip: "100.64.0.5", version: "0.3.0", controllerOnly: true,
   },
   {
     id: "nas", name: "nas", kind: "hdd", os: "Linux", group: "mine",
-    online: true, noNode: true, path: "direct", latency: 6, ip: "100.64.0.6",
+    via: "tailscale", online: true, noNode: true, path: "direct", latency: 6, ip: "100.64.0.6",
   },
   {
     id: "office-pc", name: "office-pc", kind: "monitor", os: "Windows 11", group: "external", owner: "alice",
-    online: true, path: "direct", latency: 24, ip: "100.64.1.8", version: "0.3.0",
+    via: "tailscale", online: true, path: "direct", latency: 24, ip: "100.64.1.8", version: "0.3.0",
     session: "已登录 · 活跃", displays: 1, runMode: "用户模式", perms: ["命令", "读文件"],
     spark: [22, 25, 24, 23, 26, 24, 24, 25, 23, 24, 24, 22, 25, 24, 26, 24, 23, 24, 25, 24],
   },
 ];
 
+const VIA_LABEL = { tailscale: "Tailscale", wireguard: "WireGuard" };
 const PATH_LABEL = {
   self: "本机", lan: "局域网直连", direct: "跨网直连", relay: "中继", none: "未连接",
 };
@@ -65,7 +72,7 @@ const ACTIVITY = [
   { day: "今天", t: "13:20", actor: "claude", dev: "win-pc", tool: "agent.run", sum: "交给 Codex：编译并修复 deskbridge 的报错", st: "ok", du: "6 分 12 秒",
     chain: ["claude", "win-pc:agent.run(Codex)", "win-pc:proc.exec", "win-pc:mcp.playwright.navigate"], args: 'agent: "codex"\ncwd: "D:\\\\data\\\\projects\\\\deskbridge"\nprompt: "编译并修复报错"', out: "修改 3 个文件，编译通过" },
   { day: "今天", t: "11:05", actor: "bob", dev: "win-pc", tool: "screen.capture", sum: "截图（显示器 1）", st: "deny", du: "—",
-    chain: ["bob", "win-pc:screen.capture"], args: "monitor: 1", out: "被拒绝：示例用户在审批中拒绝" },
+    chain: ["bob", "win-pc:screen.capture"], args: "monitor: 1", out: "被拒绝：bob 没有“查看屏幕”权限（win-pc 的访问权限）" },
   { day: "今天", t: "10:47", actor: "claude", dev: "old-laptop", tool: "proc.exec", sum: "winget upgrade --all", st: "err", du: "2 分 0 秒",
     chain: ["claude", "old-laptop:proc.exec"], args: 'command: "winget upgrade --all"\ntimeout: 120s', out: "超时（120 秒），已结束进程" },
   { day: "今天", t: "10:30", actor: "me", dev: "linux-server", tool: "proc.exec", sum: "systemctl status deskbridge", st: "ok", du: "0.1 秒",
@@ -83,32 +90,54 @@ const ST_LABEL = {
   pre: ["被抢占", "warn"], deny: ["已拒绝", "bad"],
 };
 
-const APPROVALS = [
+// 发起端确认：在本账号发起的 AI 操作命中“操作确认”规则时，由本账号的客户端确认。被控端不弹窗等人。
+const CONFIRMS = [
   {
-    id: "a1", actor: "claude", dev: "win-pc", tool: "proc.exec", risk: "high",
-    what: "Remove-Item -Recurse -Force D:\\data\\build\\*", why: "规则“删除文件需要审批”", wait: 272,
+    id: "c1", actor: "claude", dev: "win-pc", tool: "proc.exec", risk: "high",
+    what: "Remove-Item -Recurse -Force D:\\data\\build\\*", rule: "删除文件或文件夹", wait: 272,
     reason: "AI 说明：清理旧的编译产物，然后重新编译。",
-  },
-  {
-    id: "a2", actor: "bob", dev: "win-pc", tool: "screen.capture", risk: "mid",
-    what: "截图（显示器 1）", why: "外部设备首次请求截图", wait: 845,
-    reason: "bob 共享过来的 AI 请求查看屏幕。",
   },
 ];
 
-const RULES = [
-  { t: "删除文件需要审批", d: "fs.delete，以及包含 Remove-Item、rm -rf、del 的命令", on: true, scope: "所有设备" },
-  { t: "外部设备的桌面操作需要审批", d: "截图、界面元素、鼠标键盘", on: true, scope: "外部访问" },
-  { t: "AI 前台输入前先询问", d: "AI 模拟鼠标键盘前，被控端弹出确认", on: false, scope: "win-pc" },
-  { t: "调用被控端的 Agent 需要审批", d: "agent.run，每个会话第一次调用时询问", on: true, scope: "所有设备" },
-  { t: "注册表和系统设置修改需要审批", d: "reg add、Set-ItemProperty HKLM:\\ 等", on: true, scope: "Windows 设备" },
+// 操作确认规则（发起端）：本账号的 AI 发起这些操作前先问你
+const CONFIRM_RULES = [
+  { t: "删除文件或文件夹", d: "fs.delete，以及包含 Remove-Item、rm -rf、del 的命令", on: true },
+  { t: "修改注册表和系统设置", d: "reg add、Set-ItemProperty HKLM:\\ 等", on: true },
+  { t: "调用其他设备上的 Agent", d: "agent.run，每个 AI 会话第一次调用时询问", on: true },
+  { t: "使用鼠标键盘", d: "每个 AI 会话第一次操作某台设备的桌面时询问", on: false },
+  { t: "结束进程", d: "proc.kill，以及 taskkill、kill 命令", on: false },
+];
+
+// 访问权限（被控端）：谁能在我的设备上做什么。权限保存在被控设备上，由被控设备执行。
+const PERM_DEFS = [
+  ["屏幕", "eye", [["view", "查看屏幕", "截图、远程画面、读取界面元素"]]],
+  ["输入", "mouse", [["mouse", "鼠标", "点击、拖动、滚动"], ["kbd", "键盘", "输入文字和快捷键"], ["clip", "剪贴板", "读取和写入剪贴板"]]],
+  ["命令", "terminal", [["exec", "执行命令", "以节点的用户身份运行任意命令"]]],
+  ["文件", "folder", [["read", "读取文件", ""], ["write", "写入和上传", ""], ["del", "删除", ""]]],
+  ["AI 能力", "bot", [["agent", "调用本机的 Agent", "Claude Code、Codex 等"], ["mcp", "使用本机的 MCP 服务器", ""]]],
+  ["系统", "power", [["power", "重启和关机", ""]]],
+];
+const PRESETS = {
+  full: { name: "完全访问", p: { view: 1, mouse: 1, kbd: 1, clip: 1, exec: 1, read: 1, write: 1, del: 1, agent: 1, mcp: 1, power: 1 }, scope: [] },
+  standard: { name: "标准", p: { view: 1, mouse: 1, kbd: 1, clip: 1, exec: 1, read: 1, write: 1, del: 1, agent: 1, mcp: 1, power: 0 }, scope: [] },
+  view: { name: "只看", p: { view: 1, read: 1 }, scope: ["D:\\share"] },
+};
+const GRANTEES = [
+  { id: "me", kind: "self", av: "示", avc: "", name: "我本人", sub: "你在任何设备上通过客户端、命令行的人工操作", preset: "full", devs: "全部设备", locked: true },
+  { id: "myai", kind: "ai", av: "AI", avc: "ai", name: "我的 AI", sub: "你的账号下通过 MCP 接入的 Claude Code、Codex 等", preset: "standard", devs: "全部设备",
+    p: { ...PRESETS.standard.p }, scope: [], override: [{ dev: "old-laptop", t: "不允许鼠标键盘" }] },
+  { id: "bob", kind: "ext", av: "B", avc: "ext", name: "bob", sub: "bob@example.com · 外部用户", preset: "custom", devs: "win-pc", exp: "2026-10-31",
+    p: { view: 0, exec: 1, read: 1 }, scope: ["D:\\share", "D:\\data\\projects"] },
 ];
 
 const SHARED_IN = [
   { dev: "office-pc", owner: "alice", perms: ["命令", "读文件"], since: "2026-09-12", exp: "长期", online: true },
 ];
-const SHARED_OUT = [
-  { dev: "win-pc", to: "bob", perms: ["命令", "读文件", "截图（需审批）"], since: "2026-10-01", exp: "2026-10-31", online: true },
+// 连接方式：连接层的各个实现。Tailscale 是第一种，以后可以增加其他方式。
+const CONNECTORS = [
+  { id: "tailscale", name: "Tailscale", icon: "globe", st: "on", acct: "user@example.com（GitHub 登录）", server: "官方控制服务器", ip: "100.64.0.1", devs: 6,
+    d: "内置，不需要另装 Tailscale。同一账号下的设备自动发现、互相信任" },
+  { id: "wireguard", name: "WireGuard 直连", icon: "link", st: "plan", d: "不依赖账号，两台设备配对后直接连接（任务 19）" },
 ];
 
 const FILES = {

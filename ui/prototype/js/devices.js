@@ -43,7 +43,7 @@ function dcard(d) {
   else if (d.self) foot = `${ic("check", "sm")}可被其他设备和 AI 访问`;
   else if (d.group === "external") foot = `${ic("users", "sm")}来自 ${d.owner}`;
   else foot = `${ic("route", "sm")}${pathText(d)}`;
-  const pill = statusPill(d);
+  const pill = statusPill(d) || (S.sessions[d.id] !== undefined ? `<span class="pill info">${ic("cast", "sm")}远程窗口已打开</span>` : "");
   if (pill && isActive(d) && !netDown()) foot = pill;
   const lat = isActive(d) && !d.self && !netDown() ? `<span class="lat">${latBars(d.latency)}${d.latency} 毫秒</span>` : "";
   const quick = isActive(d) && !d.self && !netDown() ? `<div class="quick">
@@ -90,7 +90,7 @@ function devicesHome() {
           ? `<div class="dgrid">${inactive.map(dcard).join("")}</div>${q ? "" : `<div class="collapsed-row" style="margin-top:14px" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
           : `<div class="collapsed-row" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`}</div>` : ""}
       </section>
-      ${ext.length ? `<section><div class="sec-h"><h2>外部设备</h2><span class="count">${ext.length}</span><span class="right"><button class="btn ghost sm" data-go="#/shared">管理共享</button></span></div>
+      ${ext.length ? `<section><div class="sec-h"><h2>外部设备</h2><span class="count">${ext.length}</span><span class="right"><button class="btn ghost sm" data-go="#/access">访问权限</button></span></div>
         <div class="dgrid">${ext.map(dcard).join("")}</div></section>` : ""}
       ${!mine.length && !ext.length ? `<div class="empty"><div class="art">${ic("search", "xl")}</div><h3>没有匹配的设备</h3></div>` : ""}`;
   }
@@ -108,14 +108,14 @@ function canRemote(d) { return !netDown() && isActive(d) && !["server", "phone"]
 function devicePage(d) {
   const [, , label, pc] = devState(d);
   const line = [d.os];
-  if (isActive(d) && !netDown()) line.push(`<span class="mono">${d.ip}</span>`, d.self ? "本机" : `${pathText(d)} · ${d.latency} 毫秒`);
+  if (isActive(d) && !netDown()) line.push(d.self ? `${VIA_LABEL[d.via]} · <span class="mono">${d.ip}</span>` : `${VIA_LABEL[d.via]} · ${pathText(d)} · ${d.latency} 毫秒`);
   if (!d.online) line.push(`${d.lastSeen}在线`);
   const head = `<div class="dhead">
       <div class="big">${ic(kindIcon(d))}</div>
       <div style="min-width:0"><h1>${d.name}${d.self ? `<span class="pill line">本机</span>` : `<span class="pill ${pc}">${pc === "ai" ? `<span class="pulse ai live"></span>` : pc === "ok" ? `<span class="pulse"></span>` : ""}${label}</span>`}</h1>
         <div class="line">${line.join(`<span class="faint">·</span>`)}</div></div>
       <div class="actions">
-        ${canRemote(d) ? `<button class="btn primary" data-a="openRemote">${ic("cast")}远程画面</button>` : ""}
+        ${canRemote(d) ? `<button class="btn primary" data-a="openRemote">${ic(S.sessions[d.id] !== undefined ? "external" : "cast")}${S.sessions[d.id] !== undefined ? "切换到远程窗口" : "远程画面"}</button>` : ""}
         ${isActive(d) && !netDown() ? `<button class="btn icon" data-a="devMenu" title="更多">${ic("more")}</button>` : ""}
       </div></div>`;
   const tabs = isActive(d) ? `<nav class="tabs2">${TABS.map(([k, icon, l]) => {
@@ -188,7 +188,7 @@ function paneOffline(d) {
 
 function paneNoNode(d) {
   return `<div class="empty" style="padding-bottom:12px"><div class="art">${ic("hdd", "xl")}</div><h3>${d.name} 没有运行 DeskBridge</h3>
-      <p>它在你的内网中（${d.ip}），但没有安装或没有启动 DeskBridge，所以还不能操作。</p></div>
+      <p>它在你的 ${VIA_LABEL[d.via]} 网络中（${d.ip}），但没有安装或没有启动 DeskBridge，所以还不能操作。</p></div>
     <div style="max-width:560px;width:100%;margin:0 auto" class="col">
       <div class="snippet"><div class="codebox">curl -fsSL https://example.com/deskbridge/install.sh | sh\ndeskbridge login</div><button class="btn sm" data-a="noop" data-msg="已复制安装命令">${ic("copy")}复制</button></div>
       <div class="small muted" style="text-align:center">在 ${d.name} 上运行，然后用同一账号登录。<a data-a="noop" data-msg="已隐藏" style="cursor:pointer;text-decoration:underline">不再显示这台设备</a></div>
@@ -238,7 +238,7 @@ function paneOverview(d) {
       ${d.outdated ? `<div class="banner info">${ic("info")}<div class="t">节点版本 ${d.version} 较旧，界面元素和 Agent 需要 0.3.0 以上。</div><div class="btns"><button class="btn sm" data-a="noop" data-msg="已发送更新请求">远程更新</button></div></div>` : ""}
       <div class="ov">
         <div><div class="small muted" style="margin-bottom:8px">延迟（最近 10 分钟）</div>${d.spark ? sparkSvg(d.spark) : ""}</div>
-        <dl class="kv"><dt>内网地址</dt><dd class="mono">${d.ip}</dd><dt>桌面会话</dt><dd>${d.session || "—"}</dd><dt>显示器</dt><dd>${d.displays ? d.displays + " 个" : "无"}</dd><dt>运行方式</dt><dd>${d.runMode || "—"}</dd></dl>
+        <dl class="kv"><dt>连接方式</dt><dd>${VIA_LABEL[d.via]} · ${pathText(d)}</dd><dt>地址</dt><dd class="mono">${d.ip}</dd><dt>桌面会话</dt><dd>${d.session || "—"}</dd><dt>显示器</dt><dd>${d.displays ? d.displays + " 个" : "无"}</dd><dt>运行方式</dt><dd>${d.runMode || "—"}</dd></dl>
       </div>
       <div><div class="small muted" style="margin-bottom:8px">可用能力（由节点的能力报告决定）</div><div class="chips">${caps.map(([i, l, ok]) => `<span class="tag" style="${ok ? "" : "opacity:.5;text-decoration:line-through"}">${ic(i, "sm")}${l}</span>`).join("")}</div></div>
     `)}`;
@@ -336,7 +336,7 @@ POPS.options = () => {
   const c = S.cmd;
   return `<div class="ph2">执行选项</div>
     <div class="pi" data-a="optToggle" data-k="timeout"><span class="check ${c.timeout ? "on" : ""}"></span>超时 120 秒后结束</div>
-    <div class="pi" data-a="optToggle" data-k="admin"><span class="check ${c.admin ? "on" : ""}"></span>以管理员身份（需要被控端确认）</div>
+    <div class="pi" data-a="optToggle" data-k="admin"><span class="check ${c.admin ? "on" : ""}"></span>以管理员身份（需要服务模式，规划中）</div>
     <div class="divider"></div>
     <div class="pi" style="cursor:default">${ic("folder", "sm")}<span class="muted">工作目录</span><span class="c" style="text-align:right">D:\\data\\projects</span></div>`;
 };
@@ -529,27 +529,41 @@ A.agentStop = () => { S.agent.running = false; S.agent.steps.push(["ok", "stop",
 // =========================================================
 // 远程画面
 // =========================================================
-function viewRemote() {
-  const d = devById(S.remote);
+// 每台设备的远程画面在独立窗口中打开（参考 ToDesk、UU 远程），可以同时操作多台。
+// 手机上、或设置为“在主窗口中打开”时，覆盖在主窗口上。
+function remoteBar(d, inWindow) {
   const ctl = S.control;
   const ctlText = { ai: `<span class="pill ai"><span class="pulse ai live"></span>AI 正在操作 · 你在观看</span>`, human: `<span class="pill info">${ic("hand", "sm")}你正在控制</span>`, local: `<span class="pill info">本地用户正在使用</span>`, none: `<span class="pill off">只观看</span>`, paused: `<span class="pill bad">被控端已暂停</span>` }[ctl];
   const ctlBtn = ctl === "human" ? `<button class="btn sm" data-a="release">释放控制权</button>` : ctl === "paused" || ctl === "local" ? "" : `<button class="btn sm" data-a="takeover">${ic("hand")}${ctl === "ai" ? "接管" : "开始控制"}</button>`;
-  return `<div class="remote">
-    <div class="remote-bar">
-      <button class="btn sm" data-a="closeRemote">${ic("chevLeft")}返回</button>
-      <b>${d.name}</b><span class="stat">${d.latency} 毫秒 · 58 帧</span>
+  return `<div class="remote-bar">
+      ${inWindow ? `<span class="logo">${ic("bridge")}</span>` : `<button class="btn sm" data-a="closeRemote">${ic("chevLeft")}返回</button>`}
+      <b>${d.name}</b><span class="stat">${latBars(d.latency)}${pathText(d)} · ${d.latency} 毫秒 · 58 帧</span>
       <span class="sep"></span>${ctlText}${ctlBtn}
       <span class="spacer"></span>
       <button class="btn sm" data-a="popRemote">${ic("sliders")}画质与显示器</button>
       <button class="btn sm icon" title="发送 Ctrl+Alt+Del" data-a="noop" data-msg="已发送 Ctrl+Alt+Del">${ic("ctrlAltDel")}</button>
       <button class="btn sm icon" title="全屏" data-a="noop" data-msg="全屏（原型未实现）">${ic("maximize")}</button>
       <button class="btn sm danger-soft" data-a="closeRemote">${ic("x")}断开</button>
-    </div>
-    <div class="remote-body">${desktopArt({ ai: ctl === "ai" })}
-      <div class="remote-hint">${ctl === "human" ? `${ic("keyboard", "sm")}键盘和鼠标已发送到 ${d.name} · 按右 Ctrl 释放键盘捕获` : `${ic("eye", "sm")}正在观看 · 点击“${ctl === "ai" ? "接管" : "开始控制"}”后才会发送鼠标键盘`}</div>
-    </div>
-  </div>`;
+      ${inWindow ? `<div class="ctl"><span>—</span><span>☐</span><span data-a="closeRemote">✕</span></div>` : ""}
+    </div>`;
 }
+
+function remoteBody(d) {
+  const ctl = S.control;
+  return `<div class="remote-body">${desktopArt({ ai: ctl === "ai" })}
+      <div class="remote-hint">${ctl === "human" ? `${ic("keyboard", "sm")}键盘和鼠标已发送到 ${d.name} · 按右 Ctrl 释放键盘捕获` : `${ic("eye", "sm")}正在观看 · 点击“${ctl === "ai" ? "接管" : "开始控制"}”后才会发送鼠标键盘`}</div>
+    </div>`;
+}
+
+function viewRemote() {
+  const d = devById(S.remote);
+  return `<div class="remote">${remoteBar(d, false)}${remoteBody(d)}</div>`;
+}
+
+function remoteWindow(d) {
+  return `<div class="remote rwin">${remoteBar(d, true)}${remoteBody(d)}</div>`;
+}
+
 A.popRemote = el => openPop(el, "remote");
 POPS.remote = () => `<div class="ph2">画质</div>${["自动（推荐）", "清晰优先", "流畅优先"].map((q, i) => `<div class="pi"><span class="radio ${i === 0 ? "on" : ""}"></span>${q}</div>`).join("")}
   <div class="divider"></div><div class="ph2">显示器</div>${["显示器 1（主）", "显示器 2"].map((q, i) => `<div class="pi"><span class="radio ${i === 0 ? "on" : ""}"></span>${q}</div>`).join("")}
@@ -557,11 +571,33 @@ POPS.remote = () => `<div class="ph2">画质</div>${["自动（推荐）", "清�
 
 A.openRemote = () => {
   const d = devById(S.route.dev || "win-pc");
-  if (netDown()) return toast("bad", "无法打开远程画面", "组网已断开");
+  if (netDown()) return toast("bad", "无法打开远程画面", "连接已断开");
   if (d.path !== "lan") { S.modal = { type: "noRemote", dev: d.id }; render(); return; }
-  S.remote = d.id; render();
+  if (S.sessions[d.id] !== undefined) return A.focusRemote({ dataset: { dev: d.id } });
+  if (isPhone() || S.set.remoteMode !== "独立窗口") { S.remote = d.id; render(); return; }
+  const q = new URLSearchParams({ win: "remote", dev: d.id, theme: S.theme, mode: S.mode, control: d.id === "win-pc" ? S.control : "none" });
+  const w = window.open(`${location.href.split(/[?#]/)[0]}?${q}`, "remote-" + d.id, "width=1280,height=760");
+  if (!w) { S.remote = d.id; toast("warn", "浏览器阻止了新窗口", "改为在当前窗口中显示"); render(); return; }
+  S.sessions[d.id] = w;
+  toast("info", `已在新窗口打开 ${d.name} 的远程画面`, "可以同时打开多台设备，在标题栏的“远程窗口”中切换");
+  render();
 };
-A.closeRemote = () => { S.remote = null; S.pop = null; if (S.control === "human") S.control = "none"; render(); };
+A.focusRemote = el => {
+  const w = S.sessions[el.dataset.dev];
+  S.pop = null;
+  if (w && !w.closed) w.focus(); else toast("info", `已切换到 ${el.dataset.dev} 的远程窗口`, "原型里这是示例会话");
+  render();
+};
+A.closeSession = el => {
+  const id = el.dataset.dev, w = S.sessions[id];
+  if (w && !w.closed) w.close();
+  delete S.sessions[id]; S.pop = null;
+  toast("ok", `已断开 ${id}`); render();
+};
+A.closeRemote = () => {
+  if (S.win === "remote") { window.close(); toast("info", "已断开", "窗口没有自动关闭时可以直接关掉"); return; }
+  S.remote = null; S.pop = null; if (S.control === "human") S.control = "none"; render();
+};
 A.takeover = () => { if (S.control === "ai") { S.modal = { type: "takeover" }; render(); return; } S.control = "human"; toast("info", "你已获得 win-pc 的桌面控制权"); render(); };
 A.release = () => { S.control = "none"; toast("ok", "已释放控制权", "Claude Code 可以继续排队获取"); render(); };
 A.stopAI = () => { S.modal = { type: "stopAI", opt: "stop" }; render(); };
@@ -572,7 +608,8 @@ A.devMenu = el => openMenu(el, [
   "-",
   { icon: "fileText", t: "查看节点日志", msg: "已打开节点日志" },
   { icon: "refresh", t: "重启节点", msg: "已向 win-pc 发送重启请求" },
-  { icon: "share", t: "共享给别人…", msg: "请在“外部设备”中邀请" },
+  { icon: "shield", t: "谁能访问这台设备", msg: "请在“访问权限”中查看（原型）" },
+  { icon: "share", t: "共享给别人…", msg: "请在“访问权限”中共享" },
   "-",
   { icon: "trash", t: "从列表隐藏", msg: "已隐藏", bad: true },
 ]);
@@ -623,16 +660,16 @@ MODALS.addDevice = () => {
   const body = {
     pc: `<div class="col" style="gap:16px">
         <div class="feature"><div class="fi">1</div><div><div class="t">在另一台电脑上下载 DeskBridge</div><div class="d">Windows 10/11（macOS 版规划中）· <a style="cursor:pointer;text-decoration:underline" data-a="noop" data-msg="已复制下载链接">复制下载链接</a></div></div></div>
-        <div class="feature"><div class="fi">2</div><div><div class="t">用同一账号登录</div><div class="d">user@example.com</div></div></div>
+        <div class="feature"><div class="fi">2</div><div><div class="t">用同一种连接方式登录</div><div class="d">Tailscale 账号 user@example.com</div></div></div>
         <div class="feature"><div class="fi">3</div><div><div class="t">它会自动出现在设备列表</div><div class="d">不需要输入地址或配对码</div></div></div></div>`,
     server: `<div class="col" style="gap:12px"><div class="muted">在 Linux 服务器上运行：</div>
         <div class="snippet"><div class="codebox">curl -fsSL https://example.com/deskbridge/install.sh | sh\ndeskbridge login</div><button class="btn sm" data-a="noop" data-msg="已复制">${ic("copy")}复制</button></div>
-        <div class="muted small">没有浏览器的服务器可以用授权密钥登录，密钥在“设置 → 组网”中生成。</div></div>`,
+        <div class="muted small">没有浏览器的服务器可以用授权密钥登录，密钥在“设置 → 连接方式”中生成。</div></div>`,
     phone: `<div class="row" style="gap:18px;align-items:flex-start"><div style="width:112px;height:112px;flex:none;border-radius:10px;background:repeating-conic-gradient(var(--text) 0 25%, var(--surface) 0 50%) 0 0/16px 16px;border:6px solid var(--surface);box-shadow:0 0 0 1px var(--border)"></div>
         <div class="col" style="gap:8px"><div style="font-weight:600">用安卓手机扫码安装</div><div class="muted small" style="line-height:1.6">手机目前作为控制端使用。让电脑控制手机还在调研中。</div></div></div>`,
   }[k];
   return modal({
-    title: "添加设备", sub: "新设备用同一账号登录后会自动出现",
+    title: "添加设备", sub: "新设备用同一种连接方式登录后会自动出现",
     body: `<div class="segmented">${tab("pc", "monitor", "电脑")}${tab("server", "server", "服务器")}${tab("phone", "phone", "手机")}<button disabled style="opacity:.5">WireGuard<span class="soon">规划中</span></button></div>${body}
       <div class="row small muted" style="gap:10px"><span class="spin"></span>正在等待新设备上线…<span class="spacer"></span><a style="cursor:pointer;text-decoration:underline" data-a="simNewDevice">模拟新设备上线</a></div>`,
     foot: `<button class="btn" data-a="closeModal">完成</button>`,

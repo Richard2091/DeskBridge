@@ -1,4 +1,4 @@
-// 原型核心：状态、路由、渲染循环、事件分发、外壳（窗口、侧栏、手机框架）、浮层。
+// 原型核心：状态、路由、渲染循环、事件分发、外壳（标题栏、侧栏、手机框架）、浮层、远程窗口。
 
 const S = {
   // 原型控制台
@@ -20,15 +20,17 @@ const S = {
   uia: { win: "np", sel: "doc", open: { w: true, mb: true, tb: false, sb: false } },
   agent: { who: "Claude Code", running: false, steps: [], prompt: "在 D:\\data\\projects\\deskbridge 下编译，修复所有报错，最后汇报改了哪些文件。" },
   act: { who: "all", dev: "all", open: "0" },
-  appr: { tab: "pending", items: APPROVALS.map(a => ({ ...a })), done: [] },
-  rules: RULES.map(r => ({ ...r })),
+  confirm: { items: CONFIRMS.map(a => ({ ...a })) },
+  crules: CONFIRM_RULES.map(r => ({ ...r })),
+  grantees: GRANTEES.map(g => ({ ...g, p: { ...(g.p || PRESETS[g.preset].p) }, scope: [...(g.scope || [])] })),
+  // 已打开的远程窗口：设备 ID → 窗口对象（截图用的假会话为 null）
+  sessions: {}, win: null,
   set: {
     autostart: true, tray: true, lang: "简体中文", density: "标准", fontsize: "14",
-    allowCmd: true, allowDesktop: true, allowInput: true, allowAgent: false,
-    release: "3", lease: "15", idle: "60", onlyAway: false, askBeforeInput: false,
+    release: "3", lease: "15", idle: "60", onlyAway: false, remoteMode: "独立窗口", confirmWait: "5 分钟",
     hkPause: "Ctrl + Alt + P", hkStop: "Ctrl + Alt + End", server: "默认（Tailscale）",
   },
-  onb: { step: 0, adv: false, name: "my-laptop", allowCmd: true, allowDesk: true, allowInput: false, autostart: true },
+  onb: { step: 0, conn: "tailscale", name: "my-laptop", allowCmd: true, allowDesk: true, allowInput: false, autostart: true },
   netTry: 3,
 };
 
@@ -127,40 +129,49 @@ function render() {
   const out = $("#out");
   if (out && S.cmd.status === "run") out.scrollTop = out.scrollHeight;
   renderToasts();
-  renderProto();
+  if (S.win !== "remote") renderProto();
 }
 
 function frame() {
+  if (S.win === "remote") return remoteWindow(devById(S.remote)) + overlays();
   const top = isPhone()
     ? `<div class="phonebar"><span>9:41</span><span class="notch"></span><span class="row" style="gap:5px">${ic("wifi", "sm")}<b style="font-size:12px">87%</b></span></div>`
-    : `<div class="titlebar">DeskBridge${S.route.page === "welcome" ? "" : ` <span class="faint" style="margin-left:8px">— ${pageTitle()}</span>`}<div class="ctl"><span>—</span><span>☐</span><span>✕</span></div></div>`;
+    : titlebar();
   let body;
   if (S.route.page === "welcome") body = viewWelcome();
   else body = isPhone() ? phoneShell() : desktopShell();
   return top + body + overlays();
 }
 
-function pageTitle() {
-  return { devices: "设备", activity: "操作记录", approvals: "审批", shared: "外部设备", settings: "设置" }[S.route.page] || "";
+// 标题栏：品牌、全局搜索、待确认、远程窗口、连接状态、账号、窗口按钮。整条可以拖动窗口。
+function titlebar() {
+  const welcome = S.route.page === "welcome";
+  const sess = Object.keys(S.sessions);
+  const nConf = S.confirm.items.length;
+  return `<div class="titlebar">
+    <div class="tb-brand"><span class="logo">${ic("bridge")}</span><b>DeskBridge</b></div>
+    ${welcome ? `<span class="spacer"></span>` : `<div class="tb-search" data-a="openPalette" title="搜索或执行（Ctrl K）">${ic("search", "sm")}<span class="label">搜索设备、操作或页面</span><span class="kbd">Ctrl K</span></div>
+    <div class="tb-right">
+      ${nConf ? `<button class="tb-chip warn" data-a="openConfirm" title="等待你确认的 AI 操作">${ic("shieldAlert", "sm")}<span class="label">${nConf} 项待确认</span></button>` : ""}
+      ${sess.length ? `<button class="tb-chip" data-a="popSessions" title="远程窗口">${ic("cast", "sm")}<span class="label">远程窗口</span><span class="n">${sess.length}</span></button>` : ""}
+      <button class="tb-chip" data-a="popConn" title="连接状态">${netDown() ? `<span class="pulse bad"></span><span class="label">连接断开</span>` : `<span class="pulse"></span><span class="label">已连接</span>`}</button>
+      <button class="tb-me" data-a="popMe" title="示例用户"><span class="avatar">示</span></button>
+    </div>`}
+    <div class="ctl"><span>—</span><span>☐</span><span>✕</span></div>
+  </div>`;
 }
-
-function pendingCount() { return S.appr.items.length; }
 
 function desktopShell() {
   const p = S.route.page;
-  const nav = (page, icon, label, extra = "") =>
-    `<a class="${p === page ? "on" : ""}" data-go="#/${page}" title="${label}">${ic(icon)}<span class="label">${label}</span>${extra}</a>`;
+  const nav = (page, icon, label, on = p === page) =>
+    `<a class="${on ? "on" : ""}" data-go="#/${page}" title="${label}">${ic(icon)}<span class="label">${label}</span></a>`;
   return `<div class="shell">
     <aside class="nav">
-      <div class="brand"><span class="logo">${ic("bridge")}</span><span class="label">DeskBridge</span></div>
-      <div class="quick" data-a="openPalette" title="搜索或执行（Ctrl K）">${ic("search")}<span class="label">搜索或执行…</span><span class="kbd">Ctrl K</span></div>
-      ${nav("devices", "monitor", "设备", "")}
+      ${nav("devices", "monitor", "设备")}
       ${nav("activity", "history", "操作记录")}
-      ${nav("approvals", "shield", "审批", pendingCount() ? `<span class="badge">${pendingCount()}</span>` : "")}
-      ${nav("settings", "sliders", "设置")}
+      ${nav("access", "shield", "访问权限", p === "access" || p === "shared")}
       <div class="grow"></div>
-      <div class="foot" data-go="#/settings/network" style="cursor:pointer" title="${netDown() ? "组网已断开" : "组网正常"}"><span class="avatar">示</span><div style="min-width:0"><div class="n" style="font-weight:600">示例用户</div>
-        <div class="s">${netDown() ? `<span class="pulse bad"></span>组网已断开` : `<span class="pulse"></span>组网正常`}</div></div></div>
+      ${nav("settings", "sliders", "设置")}
     </aside>
     <div class="content">${netBanner()}<section class="page">${pageBody()}</section></div>
   </div>`;
@@ -168,7 +179,7 @@ function desktopShell() {
 
 function netBanner() {
   if (!netDown()) return "";
-  return `<div class="netbar banner bad">${ic("wifiOff")}<div class="t"><b>组网已断开</b> <span class="d">正在重连（第 ${S.netTry} 次）</span></div>
+  return `<div class="netbar banner bad">${ic("wifiOff")}<div class="t"><b>Tailscale 连接已断开</b> <span class="d">正在重连（第 ${S.netTry} 次）</span></div>
     <div class="btns"><button class="btn sm" data-a="netRetry">${ic("refresh")}立即重试</button></div></div>`;
 }
 
@@ -176,8 +187,7 @@ function pageBody() {
   switch (S.route.page) {
     case "devices": return viewDevices();
     case "activity": return viewActivity();
-    case "approvals": return viewApprovals();
-    case "shared": return viewShared();
+    case "access": case "shared": return viewAccess();
     case "settings": return viewSettings();
     default: return viewDevices();
   }
@@ -186,14 +196,15 @@ function pageBody() {
 function phoneShell() {
   const p = S.route.page;
   const tab = (page, icon, label, extra = "") =>
-    `<a class="${p === page || (page === "devices" && p === "shared") ? "on" : ""}" data-go="#/${page}">${ic(icon)}${label}${extra}</a>`;
+    `<a class="${p === page || (page === "access" && p === "shared") ? "on" : ""}" data-go="#/${page}">${ic(icon)}${label}${extra}</a>`;
+  const nConf = S.confirm.items.length;
   return `<div class="mshell">
-    ${netBanner()}
+    ${netBanner()}${nConf ? `<div class="netbar banner warn" data-a="openConfirm" style="cursor:pointer">${ic("shieldAlert")}<div class="t"><b>${nConf} 项 AI 操作等待你确认</b></div>${ic("chevRight", "sm")}</div>` : ""}
     <div class="mbody" data-sk="mbody">${pageBody()}</div>
     <nav class="mtabbar">
       ${tab("devices", "monitor", "设备")}
       ${tab("activity", "history", "记录")}
-      ${tab("approvals", "shield", "审批", pendingCount() ? `<span class="badge">${pendingCount()}</span>` : "")}
+      ${tab("access", "shield", "权限")}
       ${tab("settings", "sliders", "设置")}
     </nav>
   </div>`;
@@ -201,7 +212,7 @@ function phoneShell() {
 
 function overlays() {
   let h = "";
-  if (S.remote) h += viewRemote();
+  if (S.remote && S.win !== "remote") h += viewRemote();
   if (S.modal) h += `<div class="modal-wrap" data-a="closeModalBg">${MODALS[S.modal.type]()}</div>`;
   if (S.drawer) h += `<div class="drawer-wrap" data-a="closeDrawerBg">${DRAWERS[S.drawer.type]()}</div>`;
   if (S.pop) h += S.pop.html();
@@ -225,12 +236,13 @@ function paletteItems() {
   items.push(
     { sec: "操作", icon: "terminal", t: "在 win-pc 上执行命令", r: "终端", go: "#/devices/win-pc/term" },
     { sec: "操作", icon: "image", t: "给 win-pc 截图", r: "截图", go: "#/devices/win-pc/desk" },
-    { sec: "操作", icon: "cast", t: "打开 win-pc 的远程画面", r: "远程画面", a: "openRemote" },
+    { sec: "操作", icon: "cast", t: "打开 win-pc 的远程画面", r: "新窗口", a: "openRemote" },
     { sec: "操作", icon: "plus", t: "添加设备", r: "", a: "addDevice" },
     { sec: "操作", icon: "moon", t: "切换深色和浅色", r: "外观", a: "toggleMode" },
     { sec: "页面", icon: "history", t: "操作记录", r: "", go: "#/activity" },
-    { sec: "页面", icon: "users", t: "外部设备与共享", r: "", go: "#/shared" },
-    { sec: "页面", icon: "shield", t: "审批", r: `${pendingCount()} 项待处理`, go: "#/approvals" },
+    { sec: "页面", icon: "shield", t: "访问权限", r: "谁能在我的设备上做什么", go: "#/access" },
+    { sec: "页面", icon: "globe", t: "连接方式", r: "设置", go: "#/settings/network" },
+    { sec: "操作", icon: "share", t: "共享设备给别人", r: "", a: "invite" },
     { sec: "页面", icon: "plug", t: "AI 接入（MCP 配置）", r: "设置", go: "#/settings/ai" },
   );
   return items.filter(i => !q || (i.t + i.r).toLowerCase().includes(q));
@@ -324,15 +336,16 @@ function renderProto() {
       <a data-p="flow" data-v="takeover">④ AI 操作中：提示与抢回</a>
       <a data-p="flow" data-v="preempt">⑤ 模拟本地用户动鼠标</a>
       <a data-p="flow" data-v="netdown">⑥ 断线与重连</a>
-      <a data-p="flow" data-v="remote">⑦ 远程画面</a>
+      <a data-p="flow" data-v="remote">⑦ 远程画面（独立窗口）</a>
       <a data-p="flow" data-v="relay">⑧ 高延迟设备（中继）</a>
       <a data-p="flow" data-v="offline">⑨ 离线设备</a>
       <a data-p="flow" data-v="nonode">⑩ 未安装 DeskBridge 的设备</a>
       <a data-p="flow" data-v="external">⑪ 外部设备（权限受限）</a>
-      <a data-p="flow" data-v="approve">⑫ 审批危险操作</a>
-      <a data-p="flow" data-v="invite">⑬ 共享设备给别人</a>
-      <a data-p="flow" data-v="agent">⑭ 调用被控端的 Agent</a>
-      <a data-p="flow" data-v="palette">⑮ 命令面板（Ctrl K）</a>
+      <a data-p="flow" data-v="confirm">⑫ 发起端确认危险操作</a>
+      <a data-p="flow" data-v="access">⑬ 设置访问权限</a>
+      <a data-p="flow" data-v="invite">⑭ 共享设备给别人</a>
+      <a data-p="flow" data-v="agent">⑮ 调用被控端的 Agent</a>
+      <a data-p="flow" data-v="palette">⑯ 命令面板（Ctrl K）</a>
     </div></div>
     <div class="note">这是不接后端的原型，所有数据都是示例。点击界面中的按钮、标签页和列表都有反应。</div>`;
 }
@@ -360,8 +373,9 @@ const FLOWS = {
   offline: () => go("#/devices/redmi-phone/overview"),
   nonode: () => go("#/devices/nas/overview"),
   external: () => go("#/devices/office-pc/overview"),
-  approve: () => { S.appr.tab = "pending"; go("#/approvals"); },
-  invite: () => { go("#/shared"); setTimeout(A.invite, 0); },
+  confirm: () => { if (!S.confirm.items.length) S.confirm.items = CONFIRMS.map(a => ({ ...a })); go("#/devices/win-pc/overview"); setTimeout(A.openConfirm, 300); },
+  access: () => { go("#/access"); setTimeout(() => A.grantee({ dataset: { id: "myai" } }), 0); },
+  invite: () => { go("#/access"); setTimeout(A.invite, 0); },
   agent: () => go("#/devices/win-pc/ai"),
   palette: () => A.openPalette(),
 };
@@ -378,7 +392,7 @@ A.simLocal = () => {
 
 A.netRetry = () => {
   S.netTry += 1; render();
-  setTimeout(() => { S.scenario = "normal"; toast("ok", "组网已恢复", "已重新连接，设备列表已刷新"); render(); }, 1200);
+  setTimeout(() => { S.scenario = "normal"; toast("ok", "Tailscale 已重新连接", "设备列表已刷新"); render(); }, 1200);
 };
 
 // ---------- 事件 ----------
@@ -427,13 +441,15 @@ document.addEventListener("keydown", ev => {
 window.addEventListener("hashchange", () => { S.menu = null; S.pop = null; S.drawer = null; parseRoute(); render(); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (S.mode === "system") render(); });
 
-// 审批倒计时
+// 确认倒计时；检查远程窗口是否已被关闭
 setInterval(() => {
-  S.appr.items.forEach(a => { if (a.wait > 0) a.wait -= 1; });
+  S.confirm.items.forEach(a => { if (a.wait > 0) a.wait -= 1; });
   document.querySelectorAll("[data-tmr]").forEach(el => {
-    const a = S.appr.items.find(x => x.id === el.dataset.tmr);
+    const a = S.confirm.items.find(x => x.id === el.dataset.tmr);
     if (a) el.textContent = `${Math.floor(a.wait / 60)}:${String(a.wait % 60).padStart(2, "0")} 后自动拒绝`;
   });
+  const closed = Object.entries(S.sessions).filter(([, w]) => w && w.closed).map(([id]) => id);
+  if (closed.length) { closed.forEach(id => delete S.sessions[id]); render(); }
   const rt = $("#runtime");
   if (rt && S.cmd.status === "run") rt.textContent = fmtSec(Date.now() - S.cmd.started);
 }, 1000);
@@ -442,7 +458,27 @@ window.addEventListener("DOMContentLoaded", () => {
   const q = new URLSearchParams(location.search);
   ["theme", "mode", "size", "scenario", "control"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");
+  // 远程窗口：?win=remote&dev=win-pc，由主窗口用 window.open 打开
+  if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程画面`; }
+  if (q.get("onb")) S.onb.step = +q.get("onb");
+  // 截图用：?sess=win-pc,old-laptop 假装已打开这些远程窗口
+  if (q.get("sess")) q.get("sess").split(",").forEach(id => { S.sessions[id] = null; });
   parseRoute();
   render();
-  if (q.get("modal") && A[q.get("modal")]) A[q.get("modal")]();
+  if (q.get("modal") && A[q.get("modal")]) A[q.get("modal")]({ dataset: { id: q.get("id") || "" } });
 });
+
+// ---------- 标题栏的弹出面板 ----------
+POPS.conn = () => `<div class="ph2">连接方式</div>${CONNECTORS.map(c => `<div class="pi" style="cursor:default">${ic(c.icon)}<div style="flex:1;min-width:0"><div>${c.name}</div><div class="small muted">${c.st === "on" ? (netDown() ? "已断开，正在重连" : `${c.devs} 台设备 · 本机 <span class="mono">${c.ip}</span>`) : "规划中"}</div></div>${c.st === "on" ? `<span class="pill ${netDown() ? "bad" : "ok"}">${netDown() ? "断开" : "已连接"}</span>` : ""}</div>`).join("")}
+  <div class="divider"></div><div class="pi" data-go="#/settings/network">${ic("sliders", "sm")}连接设置</div>`;
+POPS.me = () => `<div class="pi" style="cursor:default"><span class="avatar">示</span><div><b>示例用户</b><div class="small muted">user@example.com</div></div></div><div class="divider"></div>
+  <div class="pi" data-go="#/settings/appearance">${ic("palette", "sm")}外观</div><div class="pi" data-go="#/settings/general">${ic("sliders", "sm")}设置</div>
+  <div class="pi" data-a="noop" data-msg="退出登录需要确认（原型未实现）">${ic("logout", "sm")}退出登录</div>`;
+POPS.sessions = () => `<div class="ph2">远程窗口</div>${Object.keys(S.sessions).map(id => {
+  const d = devById(id);
+  return `<div class="pi" style="cursor:default">${ic(kindIcon(d))}<div style="flex:1;min-width:0"><div>${d.name}</div><div class="small muted">${pathText(d)} · ${d.latency} 毫秒</div></div>
+    <button class="btn sm" data-a="focusRemote" data-dev="${id}">切换</button><button class="btn ghost sm danger-soft" data-a="closeSession" data-dev="${id}">断开</button></div>`;
+}).join("")}<div class="small muted" style="padding:6px 8px 4px;line-height:1.6">每台设备的远程画面在独立窗口中打开，可以同时操作多台。</div>`;
+A.popConn = el => openPop(el, "conn");
+A.popMe = el => openPop(el, "me");
+A.popSessions = el => openPop(el, "sessions");
