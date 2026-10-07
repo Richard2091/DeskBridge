@@ -39,6 +39,7 @@ node_modules/
 
 # 技术验证的构建产物
 spikes/**/bin/
+!spikes/**/src/bin/
 spikes/**/obj/
 spikes/**/target/
 spikes/**/publish-single/
@@ -53,3 +54,4 @@ spikes/stream/out/
 
 # 子代理和临时脚本的笔记
 .claude/scratch/
+__pycache__/

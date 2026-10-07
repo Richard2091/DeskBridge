@@ -28,7 +28,7 @@ pub struct Frame {
 impl Capturer {
     pub fn new(device: &ID3D11Device, output: &IDXGIOutput) -> Result<Self> {
         let output: IDXGIOutput1 = output.cast()?;
-        let dup = unsafe { output.DuplicateOutput(device)? };
+        let dup = Self::duplicate(&output, device)?;
         let desc = unsafe { dup.GetDesc() };
         Ok(Self {
             dup,
@@ -40,6 +40,18 @@ impl Capturer {
             format: desc.ModeDesc.Format,
             refresh_hz: desc.ModeDesc.RefreshRate.Numerator as f64 / desc.ModeDesc.RefreshRate.Denominator.max(1) as f64,
         })
+    }
+
+    /// 优先用 DuplicateOutput1 要求 BGRA：桌面是 HDR 或高色深时由系统转换，
+    /// 否则拿到的可能是 16 位浮点格式。
+    fn duplicate(output: &IDXGIOutput1, device: &ID3D11Device) -> Result<IDXGIOutputDuplication> {
+        if let Ok(o5) = output.cast::<IDXGIOutput5>() {
+            let formats = [windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM];
+            if let Ok(d) = unsafe { o5.DuplicateOutput1(device, 0, &formats) } {
+                return Ok(d);
+            }
+        }
+        unsafe { output.DuplicateOutput(device) }
     }
 
     /// 等待下一帧，超时返回 None。拿到帧后必须调用 `release`。
@@ -72,7 +84,7 @@ impl Capturer {
     /// 出现 DXGI_ERROR_ACCESS_LOST（切换桌面、改分辨率、UAC 弹窗）后重建。
     pub fn recreate(&mut self) -> Result<()> {
         self.held = false;
-        self.dup = unsafe { self.output.DuplicateOutput(&self.device)? };
+        self.dup = Self::duplicate(&self.output, &self.device)?;
         Ok(())
     }
 }

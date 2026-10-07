@@ -3,10 +3,10 @@
 
 用法：
   AGENTDESK_MACHINE=<机器> STREAM_WIN_DIR=<Windows 上的 spikes\\stream 目录> \\
-  python3 matrix.py --label A [--only 名称,...] [--seconds 60] [--warmup 10]
+  python3 matrix.py --label A [--only 名称,...] [--seconds 20] [--warmup 5] [--verify]
 
-依赖 agentdesk 命令。每个测试先 run，再用 verify 检查码流和时间戳，之后删除 Windows 上的码流文件。
-执行器单次调用约 36 秒超时，所以程序在后台启动，输出写到文件，再定时读取。
+依赖 agentdesk 命令（需支持 --poll-timeout）。每个测试先 run，抽查的几项再用 verify 检查码流和时间戳，
+之后删除 Windows 上的码流文件。
 """
 import argparse
 import json
@@ -35,9 +35,15 @@ TESTS = [
 
 
 def win(cmd, cwd, timeout_s):
-    args = json.dumps({"command": cmd, "cwd": cwd, "timeout_ms": timeout_s * 1000})
+    """在 Windows 上执行命令，等待结束并把标准输出解析为 JSON。
+
+    有的执行器不接受 cwd 参数，统一在命令里切换目录。请求级超时（--timeout-ms）和客户端等待时间
+    （--poll-timeout）都要放宽，否则长命令会在默认的 30 秒处中断。
+    """
+    args = json.dumps({"command": f"cd /d {cwd} && {cmd}", "timeout_ms": timeout_s * 1000})
     r = subprocess.run(
-        ["agentdesk", "call", "--tool", "windows.process.execute", "--args", args],
+        ["agentdesk", "call", "--tool", "windows.process.execute", "--args", args,
+         "--timeout-ms", str(timeout_s * 1000 + 5000), "--poll-timeout", str(timeout_s + 30)],
         capture_output=True,
         text=True,
     )
@@ -53,39 +59,9 @@ def win(cmd, cwd, timeout_s):
         return {"error": out[-500:] + (res.get("stderr") or "") + json.dumps(d.get("error"), ensure_ascii=False)}
 
 
-def read_file(path):
-    args = json.dumps({"path": path, "max_bytes": 1000000})
-    r = subprocess.run(
-        ["agentdesk", "call", "--tool", "windows.file.read", "--args", args],
-        capture_output=True,
-        text=True,
-    )
-    try:
-        return (json.loads(r.stdout).get("result") or {}).get("content")
-    except json.JSONDecodeError:
-        return None
-
-
-def win_bg(capenc_args, cwd, result, timeout_s):
-    """后台运行 capenc，等待结果文件写完并解析。"""
-    win(f"del {result} 2>nul", cwd, 20)
-    ps = (
-        f"Start-Process -FilePath rs\\target\\release\\capenc.exe -ArgumentList '{capenc_args}' "
-        f"-RedirectStandardOutput {result} -WindowStyle Hidden"
-    )
-    started = win(f'powershell -NoProfile -c "{ps}"', cwd, 30)
-    if started:
-        print(f"  启动 {result}：{json.dumps(started, ensure_ascii=False)[:300]}", file=sys.stderr, flush=True)
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        time.sleep(5)
-        text = read_file(cwd + "\\" + result)
-        if text:
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError:
-                pass
-    return {"error": "等待结果超时"}
+EXE = "rs\\target\\release\\capenc.exe"
+# 默认只抽查这几项的码流和时间戳，--verify 时全部检查
+VERIFY = {"ctl30-hw", "hi60-hw", "native60-hw"}
 
 
 def row(name, s, v):
@@ -107,8 +83,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", required=True, help="设备代号，如 A、B")
     ap.add_argument("--only", default="")
-    ap.add_argument("--seconds", type=int, default=60)
-    ap.add_argument("--warmup", type=int, default=10)
+    ap.add_argument("--seconds", type=int, default=20)
+    ap.add_argument("--warmup", type=int, default=5)
+    ap.add_argument("--verify", action="store_true", help="每项都检查码流和时间戳")
     a = ap.parse_args()
     cwd = os.environ.get("STREAM_WIN_DIR")
     if not cwd:
@@ -126,11 +103,11 @@ def main():
         )
         if width:
             cmd += f" --width {width}"
-        s = win_bg(cmd, cwd, f"{base}.run.json", a.seconds + a.warmup + 60)
+        s = win(f"{EXE} {cmd}", cwd, a.seconds + a.warmup + 60)
         v = {}
-        if "error" not in s:
-            v = win_bg(f"verify --in {base}.h264 --stats {base}.jsonl", cwd, f"{base}.verify.json", 180)
-            win(f"del {base}.h264", cwd, 20)
+        if "error" not in s and (a.verify or name in VERIFY):
+            v = win(f"{EXE} verify --in {base}.h264 --stats {base}.jsonl", cwd, 110)
+        win(f"del {base}.h264", cwd, 20)
         with open(os.path.join(out_dir, f"{a.label}-{name}.json"), "w", encoding="utf-8") as f:
             json.dump({"run": s, "verify": v, "time": time.strftime("%Y-%m-%d %H:%M:%S")}, f, ensure_ascii=False, indent=1)
         print(row(name, s, v), flush=True)

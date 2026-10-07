@@ -4,7 +4,7 @@
 use crate::d3d::texture;
 use crate::mf::{self, Out};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use windows::core::{Error, Interface, Result};
 use windows::Win32::Foundation::{E_FAIL, LUID};
 use windows::Win32::Graphics::Direct3D11::*;
@@ -37,10 +37,82 @@ pub struct Encoded {
 
 enum Ev {
     NeedInput,
-    HaveOutput,
+    Output(Encoded),
     DrainComplete,
-    Other,
     Error(String),
+}
+
+/// 异步编码器的事件线程：收到“有输出”就立即取出并记录时刻，主循环不用等。
+struct EventThread {
+    mft: IMFTransform,
+    events: IMFMediaEventGenerator,
+    provides: bool,
+    alloc: u32,
+    dur: i64,
+}
+unsafe impl Send for EventThread {}
+
+impl EventThread {
+    fn run(mut self, tx: std::sync::mpsc::Sender<Ev>) {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        loop {
+            let ev = match unsafe { self.events.GetEvent(MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0)) } {
+                Ok(ev) => ev,
+                Err(e) => {
+                    let _ = tx.send(Ev::Error(e.to_string()));
+                    return;
+                }
+            };
+            let m = match unsafe { ev.GetType() }.unwrap_or(0) {
+                601 => Ev::NeedInput,
+                602 => match self.take() {
+                    Ok(Some(e)) => Ev::Output(e),
+                    Ok(None) => continue,
+                    Err(e) => Ev::Error(e.to_string()),
+                },
+                603 => Ev::DrainComplete,
+                1 => Ev::Error(format!("MEError {:?}", unsafe { ev.GetStatus() })),
+                _ => continue,
+            };
+            let stop = matches!(m, Ev::DrainComplete | Ev::Error(_));
+            if tx.send(m).is_err() || stop {
+                return;
+            }
+        }
+    }
+
+    fn take(&mut self) -> Result<Option<Encoded>> {
+        loop {
+            match mf::process_output(&self.mft, self.provides, self.alloc)? {
+                Out::Sample(s) => return Ok(Some(to_encoded(&s, self.dur)?)),
+                Out::StreamChange => {
+                    unsafe {
+                        let t = self.mft.GetOutputAvailableType(0, 0)?;
+                        self.mft.SetOutputType(0, &t, 0)?;
+                    }
+                    let (p, cb) = mf::output_info(&self.mft)?;
+                    self.provides = p;
+                    self.alloc = cb.max(self.alloc);
+                }
+                Out::NeedMore => return Ok(None),
+            }
+        }
+    }
+}
+
+fn to_encoded(s: &IMFSample, dur: i64) -> Result<Encoded> {
+    let t_out = crate::clock::qpc();
+    unsafe {
+        let time = s.GetSampleTime().unwrap_or(0);
+        Ok(Encoded {
+            index: ((time + dur / 2) / dur) as u64,
+            key: s.GetUINT32(&MFSampleExtension_CleanPoint).unwrap_or(0) != 0,
+            data: mf::sample_bytes(s)?,
+            t_out,
+        })
+    }
 }
 
 pub struct Encoder {
@@ -51,8 +123,6 @@ pub struct Encoder {
     pub is_async: bool,
     /// 编码器不支持的参数。
     pub settings_errors: Vec<String>,
-    /// 等待 50 毫秒仍未交出的帧数（编码器内部排队）。
-    pub delayed: u64,
     rx: Option<Receiver<Ev>>,
     need: u32,
     drained: bool,
@@ -151,36 +221,12 @@ impl Encoder {
             mft.ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0)?;
         }
 
+        let dur = 10_000_000 / fps as i64;
+        let alloc = cb.max(w * h * 2);
         let rx = if is_async {
-            let gen = mf::SendEvents(mf::events_of(&mft)?);
+            let t = EventThread { mft: mft.clone(), events: mf::events_of(&mft)?, provides, alloc, dur };
             let (tx, rx) = channel();
-            std::thread::spawn(move || {
-                let gen = gen;
-                unsafe {
-                    let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-                }
-                loop {
-                    let ev = match unsafe { gen.0.GetEvent(MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0)) } {
-                        Ok(ev) => ev,
-                        Err(e) => {
-                            let _ = tx.send(Ev::Error(e.to_string()));
-                            break;
-                        }
-                    };
-                    let t = unsafe { ev.GetType() }.unwrap_or(0);
-                    let m = match t {
-                        601 => Ev::NeedInput,
-                        602 => Ev::HaveOutput,
-                        603 => Ev::DrainComplete,
-                        1 => Ev::Error(format!("MEError {:?}", unsafe { ev.GetStatus() })),
-                        _ => Ev::Other,
-                    };
-                    let stop = matches!(m, Ev::DrainComplete | Ev::Error(_));
-                    if tx.send(m).is_err() || stop {
-                        break;
-                    }
-                }
-            });
+            std::thread::spawn(move || t.run(tx));
             Some(rx)
         } else {
             None
@@ -199,13 +245,12 @@ impl Encoder {
             hardware: e.hardware,
             is_async,
             settings_errors: log,
-            delayed: 0,
             rx,
             need: 0,
             drained: false,
             provides,
-            alloc: cb.max(w * h * 2),
-            dur: 10_000_000 / fps as i64,
+            alloc,
+            dur,
             ctx: ctx.clone(),
             staging,
             w,
@@ -260,20 +305,13 @@ impl Encoder {
         }
         let mut outs = Vec::new();
         if self.is_async {
+            self.pump(&mut outs, Duration::ZERO, false)?;
             while self.need == 0 {
                 self.pump(&mut outs, Duration::from_secs(2), true)?;
             }
             unsafe { self.mft.ProcessInput(0, &sample, 0)? };
             self.need -= 1;
-            let deadline = Instant::now() + Duration::from_millis(50);
-            while !outs.iter().any(|o| o.index == index) {
-                let now = Instant::now();
-                if now >= deadline {
-                    self.delayed += 1;
-                    break;
-                }
-                self.pump(&mut outs, deadline - now, false)?;
-            }
+            self.pump(&mut outs, Duration::ZERO, false)?;
         } else {
             unsafe { self.mft.ProcessInput(0, &sample, 0)? };
             self.drain_sync(&mut outs)?;
@@ -298,20 +336,23 @@ impl Encoder {
         Ok(outs)
     }
 
+    /// 处理事件线程送来的消息。`timeout` 为零时只取已经到达的，`required` 时至少等到一条。
     fn pump(&mut self, outs: &mut Vec<Encoded>, timeout: Duration, required: bool) -> Result<()> {
         let rx = self.rx.as_ref().unwrap();
-        match rx.recv_timeout(timeout) {
-            Ok(Ev::NeedInput) => self.need += 1,
-            Ok(Ev::HaveOutput) => {
-                self.take_output(outs)?;
+        let mut first = true;
+        loop {
+            let was_first = first;
+            first = false;
+            let r = if was_first { rx.recv_timeout(timeout) } else { rx.try_recv().map_err(|_| RecvTimeoutError::Timeout) };
+            match r {
+                Ok(Ev::NeedInput) => self.need += 1,
+                Ok(Ev::Output(e)) => outs.push(e),
+                Ok(Ev::DrainComplete) => self.drained = true,
+                Ok(Ev::Error(s)) => return Err(Error::new(E_FAIL, format!("编码器事件错误：{s}"))),
+                Err(RecvTimeoutError::Timeout) if !required || !was_first => return Ok(()),
+                Err(_) => return Err(Error::new(E_FAIL, "编码器 2 秒内没有响应")),
             }
-            Ok(Ev::DrainComplete) => self.drained = true,
-            Ok(Ev::Other) => {}
-            Ok(Ev::Error(s)) => return Err(Error::new(E_FAIL, format!("编码器事件错误：{s}"))),
-            Err(RecvTimeoutError::Timeout) if !required => {}
-            Err(_) => return Err(Error::new(E_FAIL, "编码器 2 秒内没有响应")),
         }
-        Ok(())
     }
 
     fn drain_sync(&mut self, outs: &mut Vec<Encoded>) -> Result<()> {
@@ -326,17 +367,7 @@ impl Encoder {
     fn take_output(&mut self, outs: &mut Vec<Encoded>) -> Result<bool> {
         match mf::process_output(&self.mft, self.provides, self.alloc)? {
             Out::Sample(s) => {
-                let t_out = crate::clock::qpc();
-                unsafe {
-                    let time = s.GetSampleTime().unwrap_or(0);
-                    let key = s.GetUINT32(&MFSampleExtension_CleanPoint).unwrap_or(0) != 0;
-                    outs.push(Encoded {
-                        index: ((time + self.dur / 2) / self.dur) as u64,
-                        data: mf::sample_bytes(&s)?,
-                        key,
-                        t_out,
-                    });
-                }
+                outs.push(to_encoded(&s, self.dur)?);
                 Ok(true)
             }
             Out::StreamChange => {
