@@ -245,6 +245,8 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .banner.info { background: var(--info-soft); color: var(--info); border-color: color-mix(in srgb, var(--info) 20%, transparent); }
 .banner.ok { background: var(--ok-soft); color: var(--ok); }
 .banner.ai { background: var(--ai-bg); color: var(--ai-text); border-color: var(--ai-border); }
+.banner.ai .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app[data-size="phone"] .banner.ai .t { white-space: normal; }
 .banner.ai .who { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; white-space: nowrap; }
 .banner .t .d { opacity: .8; }
 .app[data-theme="mono"] .banner.ai { border-left: 3px solid var(--ai); }

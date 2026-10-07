@@ -123,14 +123,14 @@ function detailHead(d, phone = false) {
   if (d.online && !netDown()) meta.push(`<span>${ic("route")}${d.ip}${d.self ? "" : ` · ${pathText(d)} ${d.latency} 毫秒`}</span>`);
   if (d.session && d.online && !netDown()) meta.push(`<span>${ic("user")}${d.session}</span>`);
   if (!d.online) meta.push(`<span>${ic("clock")}${d.lastSeen}在线</span>`);
-  const canRemote = d.online && !d.noNode && d.kind !== "server" && d.kind !== "phone" && !d.self && d.group !== "external";
+  const canRemote = !netDown() && d.online && !d.noNode && d.kind !== "server" && d.kind !== "phone" && !d.self && d.group !== "external";
   return `<div class="dh">
     <div class="big">${ic(kindIcon(d))}</div>
     <div style="min-width:0"><h1>${d.name} <span class="pill ${pc}">${pc === "ai" ? `<span class="pulse ai live"></span>` : pc === "ok" ? `<span class="pulse"></span>` : ""}${label}</span>${d.self ? `<span class="pill line">本机</span>` : ""}</h1>
       <div class="meta">${meta.join("")}</div></div>
     <div class="actions">
       ${canRemote ? `<button class="btn" data-a="openRemote">${ic("cast")}<span class="label">远程画面</span></button>` : ""}
-      ${d.online && !d.noNode ? `<button class="btn ghost icon" data-a="devMenu" title="更多">${ic("more")}</button>` : ""}
+      ${d.online && !d.noNode && !netDown() ? `<button class="btn ghost icon" data-a="devMenu" title="更多">${ic("more")}</button>` : ""}
     </div>
   </div>`;
 }
@@ -173,6 +173,9 @@ function detailTabs(d) {
 }
 
 function detailPane(d) {
+  if (netDown() && !d.self && S.route.tab === "overview" && d.online && !d.noNode) {
+    return paneOverview(d).replace('<div class="pane-in" data-sk="ov">', `<div class="pane-in" data-sk="ov"><div class="banner warn">${ic("clock")}<div class="t"><b>显示的是 2 分钟前的信息</b> <span class="d">组网恢复后自动刷新。</span></div></div>`);
+  }
   if (netDown() && !d.self) {
     return `<div class="empty"><div class="art warn">${ic("wifiOff", "xl")}</div><h3>暂时无法连接 ${d.name}</h3><p>组网断开了，恢复后会自动重新连接。上次获取的信息仍然可以查看。</p><div class="btns"><button class="btn" data-a="netRetry">${ic("refresh")}立即重试</button></div></div>`;
   }
