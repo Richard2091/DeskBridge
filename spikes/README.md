@@ -29,6 +29,12 @@
 |---|---|
 | `go-tsnet/` | Windows 上用 `tsnet` 加入内网并提供 HTTP 接口，从 Linux 访问 |
 
+## 远程画面补充调研（任务 24）
+
+| 目录 | 内容 |
+|---|---|
+| `stream/` | 采集、编码、经 Tailscale 传输和各框架解码显示的测量；测试目标和方法见 [stream/README.md](stream/README.md) |
+
 ## 结果
 
 见 [results.md](results.md)（验证完成后填写）。

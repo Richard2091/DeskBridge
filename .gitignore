@@ -47,3 +47,6 @@ spikes/**/dist/
 spikes/**/build/
 spikes/**/.dart_tool/
 spikes/**/gen/
+
+# 远程画面调研的原始测量数据（可能含真实地址和设备名）
+spikes/stream/out/
