@@ -1,0 +1,143 @@
+/*
+  主题参数：三套主题（清爽、黑白、柔光）× 浅色、深色。
+  组件只使用这里的变量；对应 Flutter 的 ThemeData + ThemeExtension。
+*/
+
+.app {
+  /* 背景与表面 */
+  --page: #f4f4f6;
+  --side: transparent;
+  --surface: #ffffff;
+  --surface2: #f8f8fa;
+  --surface3: #f1f1f4;
+  --hover: rgba(0, 0, 0, .04);
+  --overlay: rgba(15, 15, 25, .38);
+
+  /* 线条与文字 */
+  --border: #e6e6ea;
+  --border-strong: #d4d4da;
+  --text: #18181b;
+  --muted: #71717a;
+  --faint: #a1a1aa;
+
+  /* 强调色 */
+  --accent: #5b5bd6;
+  --accent-hover: #4f4fc7;
+  --accent-soft: #ededfc;
+  --accent-text: #ffffff;
+  --accent-grad: var(--accent);
+  --logo-grad: linear-gradient(135deg, #5b5bd6 0%, #8b5cf6 100%);
+
+  /* 状态色 */
+  --ok: #16a34a;
+  --ok-soft: #e7f6ec;
+  --warn: #d97706;
+  --warn-soft: #fdf2e1;
+  --bad: #dc2626;
+  --bad-soft: #fdeaea;
+  --info: #2563eb;
+  --info-soft: #e8effd;
+  --ai: #7c3aed;
+  --ai-soft: #f1eafe;
+
+  /* 代码与终端 */
+  --code-bg: #fafafb;
+  --code-text: #27272a;
+
+  /* AI 提示条 */
+  --ai-bg: linear-gradient(90deg, #f1efff 0%, #fbf3ff 100%);
+  --ai-border: #ddd6fe;
+  --ai-text: #4c1d95;
+
+  /* 形状 */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(16, 16, 24, .06);
+  --shadow: 0 1px 2px rgba(16, 16, 24, .05), 0 4px 16px rgba(16, 16, 24, .06);
+  --shadow-lg: 0 8px 24px rgba(16, 16, 24, .10), 0 24px 64px rgba(16, 16, 24, .14);
+  --panel-blur: none;
+
+  /* 字体 */
+  --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "Noto Sans Mono CJK SC", monospace;
+}
+
+/* ---------- 清爽 · 深色 ---------- */
+.app[data-theme="clean"][data-mode="dark"] {
+  --page: #0f0f12; --surface: #17171b; --surface2: #131316; --surface3: #1d1d22;
+  --hover: rgba(255, 255, 255, .05); --overlay: rgba(0, 0, 0, .55);
+  --border: #26262d; --border-strong: #34343c; --text: #ededf0; --muted: #9a9aa5; --faint: #63636e;
+  --accent: #7c7cf0; --accent-hover: #8e8ef4; --accent-soft: rgba(124, 124, 240, .15); --accent-text: #fff;
+  --ok: #34d399; --ok-soft: rgba(52, 211, 153, .12); --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, .12);
+  --bad: #f87171; --bad-soft: rgba(248, 113, 113, .12); --info: #60a5fa; --info-soft: rgba(96, 165, 250, .12);
+  --ai: #a78bfa; --ai-soft: rgba(167, 139, 250, .14);
+  --code-bg: #111114; --code-text: #d8d8de;
+  --ai-bg: linear-gradient(90deg, rgba(124, 124, 240, .16), rgba(192, 132, 252, .10));
+  --ai-border: rgba(124, 124, 240, .35); --ai-text: #d4d0ff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4); --shadow: 0 4px 16px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, .6);
+}
+
+/* ---------- 黑白 ---------- */
+.app[data-theme="mono"] {
+  --page: #fafafa; --surface: #ffffff; --surface2: #fafafa; --surface3: #f2f2f2;
+  --border: #eaeaea; --border-strong: #d4d4d4; --text: #0a0a0a; --muted: #666666; --faint: #a3a3a3;
+  --accent: #0a0a0a; --accent-hover: #333333; --accent-soft: #f2f2f2; --accent-text: #ffffff;
+  --logo-grad: #0a0a0a;
+  --ai: #8b5cf6; --ai-soft: #f3efff;
+  --ai-bg: #fafafa; --ai-border: #eaeaea; --ai-text: #0a0a0a;
+  --r-lg: 10px; --r-xl: 12px;
+  --shadow-sm: none; --shadow: 0 0 0 1px rgba(0, 0, 0, .04);
+}
+.app[data-theme="mono"][data-mode="dark"] {
+  --page: #000000; --surface: #0a0a0a; --surface2: #000000; --surface3: #161616;
+  --hover: rgba(255, 255, 255, .06); --overlay: rgba(0, 0, 0, .7);
+  --border: #262626; --border-strong: #3a3a3a; --text: #ededed; --muted: #a1a1a1; --faint: #5c5c5c;
+  --accent: #ededed; --accent-hover: #ffffff; --accent-soft: #1a1a1a; --accent-text: #0a0a0a;
+  --logo-grad: #ededed;
+  --ok: #3ecf8e; --ok-soft: rgba(62, 207, 142, .12); --warn: #f5a524; --warn-soft: rgba(245, 165, 36, .12);
+  --bad: #ff5c5c; --bad-soft: rgba(255, 92, 92, .12); --info: #52a8ff; --info-soft: rgba(82, 168, 255, .12);
+  --ai: #a78bfa; --ai-soft: rgba(167, 139, 250, .14);
+  --code-bg: #000000; --code-text: #ededed;
+  --ai-bg: #0a0a0a; --ai-border: #262626; --ai-text: #ededed;
+  --shadow: 0 0 0 1px rgba(255, 255, 255, .04); --shadow-lg: 0 24px 64px rgba(0, 0, 0, .8);
+}
+
+/* ---------- 柔光 ---------- */
+.app[data-theme="soft"] {
+  --page: linear-gradient(160deg, #e8eefc 0%, #f1ebfa 55%, #fbeef2 100%);
+  --surface: rgba(255, 255, 255, .82); --surface2: rgba(250, 250, 253, .7); --surface3: rgba(240, 240, 248, .8);
+  --border: rgba(20, 20, 40, .08); --border-strong: rgba(20, 20, 40, .14); --hover: rgba(20, 20, 60, .05);
+  --accent: #3b6cf6; --accent-hover: #2f5ee6; --accent-soft: rgba(59, 108, 246, .1);
+  --accent-grad: linear-gradient(135deg, #3b6cf6, #7c5cf6);
+  --logo-grad: linear-gradient(135deg, #3b6cf6, #a855f7);
+  --ai-bg: linear-gradient(90deg, rgba(59, 108, 246, .10), rgba(168, 85, 247, .10));
+  --ai-border: rgba(99, 102, 241, .25); --ai-text: #3730a3;
+  --code-bg: rgba(255, 255, 255, .7);
+  --r-sm: 8px; --r: 11px; --r-lg: 16px; --r-xl: 20px;
+  --shadow-sm: 0 1px 2px rgba(30, 30, 80, .06), 0 2px 8px rgba(30, 30, 80, .04);
+  --shadow: 0 8px 30px rgba(40, 40, 100, .08);
+  --panel-blur: blur(20px);
+}
+.app[data-theme="soft"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #10131f 0%, #161225 55%, #1d1220 100%);
+  --surface: rgba(30, 30, 44, .72); --surface2: rgba(24, 24, 36, .6); --surface3: rgba(40, 40, 58, .7);
+  --border: rgba(255, 255, 255, .08); --border-strong: rgba(255, 255, 255, .14); --hover: rgba(255, 255, 255, .06);
+  --overlay: rgba(5, 5, 15, .6);
+  --text: #ececf3; --muted: #a0a0b4; --faint: #6b6b80;
+  --accent: #6d8dff; --accent-hover: #819dff; --accent-soft: rgba(109, 141, 255, .16);
+  --ok: #4ade80; --ok-soft: rgba(74, 222, 128, .12); --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, .12);
+  --bad: #f87171; --bad-soft: rgba(248, 113, 113, .12); --info: #60a5fa; --info-soft: rgba(96, 165, 250, .12);
+  --ai: #c4b5fd; --ai-soft: rgba(196, 181, 253, .14);
+  --code-bg: rgba(14, 14, 22, .6); --code-text: #dcdce6;
+  --ai-bg: linear-gradient(90deg, rgba(109, 141, 255, .16), rgba(192, 132, 252, .12));
+  --ai-border: rgba(129, 140, 248, .3); --ai-text: #d6d4ff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3); --shadow: 0 8px 30px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, .6);
+}
