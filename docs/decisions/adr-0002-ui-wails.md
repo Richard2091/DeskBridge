@@ -1,6 +1,6 @@
 # ADR-0002：桌面客户端界面框架
 
-- 状态：**已接受（2026-10-06）：Wails v3 + TypeScript**。用户要求继续并完成 Claude session 中的剩余任务，实测结果支持这个推荐。整体架构据此定型，可以进入项目骨架开发；v3 beta 风险用锁定版本和 CI 冒烟测试控制
+- 状态：**三项候选实测完成，待决策（2026-10-06）**。本 ADR 目前只保留客观测试结果；选型结论和架构定型等待后续分析
 - 日期：2026-10-06
 
 ## 背景
@@ -46,18 +46,18 @@
 | Fyne、Gio | 没有视频方案；Gio 未到 1.0 |
 | egui、iced | 接口仍在变化，没有视频控件 |
 
-### 远程画面
+### 远程画面（网上调研，未实测）
 
 - Windows 的 WebView2 是 Chromium 内核，WebRTC 和 WebCodecs 都可用，Wails、Tauri 在 Windows 上没有障碍。
 - Linux 的 WebKitGTK 默认不启用 WebRTC（预计 2027 年才默认开启），Wails、Tauri 在 Linux 上做远程画面有风险。当前范围不涉及 Linux 图形界面，暂不处理。
-- 建议的传输方式：在 `tsnet` 连接上直接传 H.264 帧，界面用 WebCodecs（或 Canvas 显示 JPEG）解码，不依赖 WebRTC。
+- 待验证的传输方式包括：在 `tsnet` 连接上传 H.264 帧并用 WebCodecs 解码，或用 Canvas 显示 JPEG；两者的带宽、CPU、延迟和兼容性还未比较。
 - 参考：RustDesk 先降码率再降帧率（最低 5 帧），以 150ms 延迟为阈值。
 
-## 实测结果
+## 实测结果摘要
 
 实测已完成，数据和环境见 [`spikes/results.md`](../../spikes/results.md) 的“客户端框架实测”。三个候选都完成登录、设备列表、执行命令和远程画面流。Wails v3 达到 10 fps、exe 11.7 MB、MSIX 4.7 MB；Tauri v2 达到 9.3–9.4 fps、exe 5.96 MB；Flutter 达到 9.0–10.0 fps、release 目录 35.7 MB。
 
-选择 Wails v3 的决定性原因是：Go 核心可以留在同一进程，没有 sidecar 通信层；同一份 TypeScript 前端可复用为网页控制台；体积和帧率满足早期客户端目标。Flutter 内存最低，但引入 Dart 且网页复用较弱。Tauri 更稳定，但 Go 必须作为 sidecar，集成边界更复杂。Wails v3 仍是 beta，这是主要风险。
+实测中的集成方式是：Wails 使用同一 Go 进程；Tauri 使用 Go sidecar 子进程；Flutter 使用 Dart 子进程。这些只是本次原型的实现事实，不构成选型结论。
 
 ## 实测记录
 
@@ -67,7 +67,7 @@
 2. 远程画面：Go 每秒推送 5–10 帧截图，界面显示；记录实际帧率、CPU 和内存。
 3. 记录安装包或程序体积、编译时间、AI 第一次就写对的比例。
 
-结果已写入 `spikes/results.md`。正式客户端应锁定 Wails v3 版本；升级或切换框架前必须重跑远程画面和高延迟场景。
+结果已写入 `spikes/results.md`。网络传输、30/60 fps、硬件编解码、高延迟、断线重连和取消操作尚未实测；选定框架前需要补齐这些数据。
 
 ## 风险
 
