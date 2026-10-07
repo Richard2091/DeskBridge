@@ -1231,14 +1231,14 @@
             "id": 2,
             "title": "共用画面管线：采集和编码",
             "description": "Rust 采集桌面并做 H.264 编码，交给 Go，与界面框架无关，只做一次。",
-            "details": "采集用 DXGI Desktop Duplication；编码优先硬件（台式机 NVENC、笔记本 Intel Quick Sync，经 Media Foundation 或厂商接口），软件回退（如 openh264，注意许可证）。参考 RustDesk 的采集、编码选择和码率帧率自适应设计，不复制代码。注意两台机器都装了第三方虚拟显示适配器，可能影响采集，需验证。",
-            "status": "in-progress",
+            "details": "采集用 DXGI Desktop Duplication；编码优先硬件（台式机 NVENC、笔记本 Intel Quick Sync，经 Media Foundation 或厂商接口），软件回退（如 openh264，注意许可证）。参考 RustDesk 的采集、编码选择和码率帧率自适应设计，不复制代码。注意两台机器都装了第三方虚拟显示适配器，可能影响采集，需验证。\n<info added on 2026-10-07T07:24:40.032Z>\n进度更新：台式机 A（RTX 4070 SUPER，NVENC）已完成 14 项档位的采集与编码测量，程序在 spikes/stream/rs/，批量脚本为 spikes/stream/matrix.py，结果与结论已写入 spikes/results.md（提交 cbf4a45）。实现为 DXGI 桌面复制采集，D3D11 视频处理器转 NV12 并缩放，再交给 Media Foundation 的 H.264 硬件（NVENC）与软件编码对照；测试画面带像素时间戳，解码后逐帧比对一致。主要结论：硬件编码 CPU 均低于 1%；软件编码在 1080p 可用（60 fps 约 9% CPU），4K 60 fps 码率控制失效（目标 12 Mbps、实际约 75 Mbps），软件编码仅作 1080p 及以下后备；绘制到编码完成约 18-24 ms，其中约 13 ms 为显示合成；按需采集比每帧都取更省 CPU；显示器关闭后采集拿不到新帧，被控端推流期间需保持显示器常亮，刚唤醒时需重建采集并等待几秒；笔记本 B 装有第三方虚拟显示器，远程连接时会采到虚拟屏，采集前需确认目标屏幕。测量方法已调整为预热 5 秒、记录 20 秒，与原预热 10 秒、记录 60 秒的结果相差不到 0.4 ms 和 0.3 个百分点，码流和时间戳只抽查少数项。遗留问题：笔记本 B（Iris Xe，Quick Sync）未取得有效数据，初测硬件编码每帧约 28 ms 反而慢于软件编码（约 14 ms），原因未查清（初测时后台负载较重）；又因笔记本执行器调用外部程序会卡住，Quick Sync 复测并入任务 24.5（两端资源占用测试）进行。为支持长时间运行的远程命令，AgentDesk 客户端增加了 --poll-timeout 参数。\n</info added on 2026-10-07T07:24:40.032Z>",
+            "status": "done",
             "dependencies": [
               "24.1"
             ],
             "parentTaskId": 24,
             "parentId": "undefined",
-            "updatedAt": "2026-10-07T04:40:33.789Z"
+            "updatedAt": "2026-10-07T07:24:56.671Z"
           },
           {
             "id": 3,
@@ -1318,7 +1318,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-07T04:40:33.789Z"
+        "updatedAt": "2026-10-07T07:24:56.671Z"
       },
       {
         "id": "25",
@@ -1348,7 +1348,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-07T04:40:33.789Z",
+      "lastModified": "2026-10-07T07:24:56.672Z",
       "taskCount": 26,
       "completedCount": 1,
       "tags": [
