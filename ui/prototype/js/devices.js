@@ -43,6 +43,8 @@ function dcard(d) {
   else if (d.self) foot = `${ic("check", "sm")}可被其他设备和 AI 访问`;
   else if (d.group === "external") foot = `${ic("users", "sm")}来自 ${d.owner}`;
   else foot = `${ic("route", "sm")}${pathText(d)}`;
+  const pill = statusPill(d);
+  if (pill && isActive(d) && !netDown()) foot = pill;
   const lat = isActive(d) && !d.self && !netDown() ? `<span class="lat">${latBars(d.latency)}${d.latency} 毫秒</span>` : "";
   const quick = isActive(d) && !d.self && !netDown() ? `<div class="quick">
       <button class="btn ghost icon sm" title="终端" data-go="#/devices/${d.id}/term">${ic("terminal")}</button>
@@ -51,8 +53,7 @@ function dcard(d) {
     </div>` : "";
   return `<div class="dcard ${dim} ${d.self ? "self" : ""}" data-go="#/devices/${d.id}/overview">
     <div class="top"><div class="dic">${ic(kindIcon(d))}${dot(d)}</div>
-      <div style="min-width:0"><div class="nm">${d.name}</div><div class="os">${d.os}</div></div>
-      <span class="badge-r">${statusPill(d)}</span></div>
+      <div style="min-width:0"><div class="nm">${d.name}</div><div class="os">${d.os}</div></div></div>
     <div class="foot">${foot}${lat}</div>${quick}
   </div>`;
 }
@@ -359,7 +360,7 @@ function paneFiles(d) {
     body = `<div class="list2">${rows.map(x => `<div class="li" data-a="${x.d ? "cd" : "fileDrawer"}" data-p="${esc(f.path + "\\" + x.n)}" data-n="${esc(x.n)}">
         ${x.d ? `<span class="fname"><span class="folder">${ic("folder", "lg")}</span></span>` : `<span class="fname">${ic(x.text ? "fileText" : "file", "lg")}</span>`}
         <div class="b"><div class="t">${esc(x.n)}</div></div>
-        <div class="r"><span class="hide-m">${x.m}</span><span style="width:64px;text-align:right">${x.d ? "" : x.s}</span>${x.d ? ic("chevRight", "sm") : ""}</div></div>`).join("")}</div>`;
+        <div class="r"><span class="hide-m">${x.m}</span><span style="width:64px;text-align:right">${x.d ? "" : x.s}</span><span style="width:14px;display:inline-flex">${x.d ? ic("chevRight", "sm") : ""}</span></div></div>`).join("")}</div>`;
   }
   const up = f.upload;
   return `<div class="row" style="flex-wrap:wrap">
@@ -418,8 +419,8 @@ function paneDesk(d) {
   return `<div class="row" style="flex-wrap:wrap">${seg}<span class="spacer"></span>
       <select class="select" style="width:130px;height:30px" data-in="shot.mon"><option value="1">显示器 1</option><option value="2">显示器 2</option><option value="all">全部显示器</option></select>
       <button class="btn primary" data-a="takeShot">${ic("image")}截图</button></div>
-    <div class="card" style="padding:16px;flex:1;min-height:260px;display:flex;flex-direction:column;gap:12px">
-      <div class="shot-canvas" style="background:transparent;padding:0">${s.taking ? `<div class="col" style="align-items:center;color:var(--muted)"><span class="spin lg"></span>正在截图…</div>` : desktopArt({ ai: S.control === "ai" && cur.ai })}</div>
+    <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div class="shot-box">${s.taking ? `<div class="col" style="align-items:center;color:var(--muted)"><span class="spin lg"></span>正在截图…</div>` : desktopArt({ ai: S.control === "ai" && cur.ai })}</div>
       <div class="row small muted">${cur.t} · ${cur.mon} · 由 ${cur.by} 截取<span class="spacer"></span>
         <button class="btn ghost sm" data-a="noop" data-msg="已复制到剪贴板">${ic("copy")}复制</button><button class="btn ghost sm" data-a="noop" data-msg="已保存">${ic("download")}保存</button>
         <button class="btn ghost sm" data-a="toggleExp" data-k="shotHist">${ic("history")}历史 ${s.list.length}${ic(S.exp.shotHist ? "chevDown" : "chevRight", "sm")}</button></div>

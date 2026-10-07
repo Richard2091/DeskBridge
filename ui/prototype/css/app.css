@@ -852,3 +852,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .netbar { margin: 0 12px 10px 0; }
 .app[data-size="narrow"] .settings { grid-template-columns: 170px minmax(0, 1fr); }
 .app[data-size="narrow"] .sbody { padding: 24px 24px 40px; }
+.dcard .nm, .dcard .os { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shot-box { display: flex; justify-content: center; }
+.shot-box .desk-wrap { max-width: 760px; }
+.shot-box > .col { padding: 80px 0; }
