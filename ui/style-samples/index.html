@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DeskBridge 风格样张</title>
+<!--
+  任务 27 的风格样张：同一个页面（设备列表 + 设备详情 + 命令执行）用四种风格呈现，供挑选方向。
+  只用于比较风格，不是最终设计。数据均为示例值。
+-->
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: #e9e9ee; color: #222;
+}
+
+/* ---------- 顶部切换条（不属于样张） ---------- */
+.switcher {
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  padding: 10px 16px; background: #1d1d22; color: #eee; font-size: 14px;
+}
+.switcher .group { display: flex; gap: 6px; align-items: center; }
+.switcher button {
+  border: 1px solid #555; background: #2c2c33; color: #ddd;
+  padding: 5px 12px; border-radius: 4px; cursor: pointer; font: inherit;
+}
+.switcher button.on { background: #4a7dff; border-color: #4a7dff; color: #fff; }
+.switcher .desc { color: #aaa; flex: 1 1 100%; font-size: 13px; }
+.stage { padding: 20px; display: flex; justify-content: center; }
+
+/* ---------- 共用结构 ---------- */
+.app {
+  --bg: #fff; --panel: #f6f6f8; --panel2: #fff; --line: #e2e2e6; --text: #1f1f24; --sub: #6b6b75;
+  --accent: #2f6fed; --accent-text: #fff; --ok: #1f9d55; --warn: #c27c0e; --bad: #d64545; --off: #9a9aa3;
+  --code-bg: #f3f3f5; --code-text: #1f1f24; --banner-bg: #fff4e0; --banner-text: #7a4a00;
+  --radius: 6px; --gap: 8px; --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  width: 1180px; height: 720px; display: grid; grid-template-columns: 200px 290px 1fr;
+  background: var(--bg); color: var(--text); overflow: hidden;
+  border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.18); font-size: 14px;
+}
+.nav { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 14px 10px; }
+.brand { font-weight: 700; font-size: 16px; padding: 4px 8px 16px; display: flex; gap: 8px; align-items: center; }
+.brand .logo { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); }
+.nav a { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius); color: var(--text); text-decoration: none; margin-bottom: 2px; }
+.nav a.on { background: var(--accent); color: var(--accent-text); }
+.nav a .badge { background: var(--bad); color: #fff; border-radius: 9px; font-size: 11px; padding: 1px 7px; }
+.nav .foot { margin-top: auto; font-size: 12px; color: var(--sub); padding: 8px; border-top: 1px solid var(--line); line-height: 1.7; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; vertical-align: middle; }
+.dot.warn { background: var(--warn); } .dot.off { background: var(--off); }
+
+.list { background: var(--panel2); border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.list-head { padding: 14px; display: flex; gap: 8px; align-items: center; }
+.list-head h2 { font-size: 16px; flex: 1; }
+.btn { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: var(--radius); padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.danger { background: var(--bad); color: #fff; border-color: var(--bad); }
+.search { margin: 0 14px 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); color: var(--sub); font-size: 13px; }
+.groups { overflow: auto; padding: 0 8px 12px; }
+.group-title { font-size: 12px; color: var(--sub); padding: 10px 8px 6px; }
+.dev { padding: 9px 10px; border-radius: var(--radius); margin-bottom: var(--gap); cursor: default; border: 1px solid transparent; }
+.dev.on { background: var(--panel); border-color: var(--line); }
+.dev .row1 { display: flex; align-items: center; font-weight: 600; }
+.dev .row1 .os { margin-left: auto; font-size: 11px; color: var(--sub); font-weight: 400; }
+.dev .row2 { font-size: 12px; color: var(--sub); margin-top: 3px; padding-left: 14px; }
+.dev.offline { opacity: .6; }
+
+.detail { display: flex; flex-direction: column; overflow: hidden; }
+.detail-head { padding: 16px 20px 10px; }
+.detail-head h1 { font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 2px 9px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); color: var(--sub); }
+.banner { margin: 4px 20px 8px; padding: 9px 12px; border-radius: var(--radius); background: var(--banner-bg); color: var(--banner-text); display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.banner b { font-weight: 600; }
+.banner .btn { margin-left: auto; }
+.tabs { display: flex; gap: 2px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 9px 12px; color: var(--sub); border-bottom: 2px solid transparent; font-size: 13px; }
+.tabs span.on { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.tabs span.later { opacity: .55; }
+.pane { flex: 1; padding: 14px 20px 18px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.cmd { display: flex; gap: 8px; }
+.cmd .input { flex: 1; font-family: var(--mono); font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+.run-meta { font-size: 12px; color: var(--sub); display: flex; gap: 14px; align-items: center; }
+.out { flex: 1; background: var(--code-bg); color: var(--code-text); font-family: var(--mono); font-size: 12.5px; line-height: 1.6; padding: 12px 14px; border-radius: var(--radius); overflow: auto; white-space: pre; }
+.out .dim { opacity: .55; } .out .err { color: var(--bad); }
+.cursor { display: inline-block; width: 7px; height: 14px; background: currentColor; vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---------- 风格一：简洁工具型 ---------- */
+.app[data-style="tool"] { --radius: 4px; --gap: 1px; font-size: 13px; }
+.app[data-style="tool"] .nav a.on { background: #e4ecfd; color: var(--accent); }
+.app[data-style="tool"] .dev.on { background: #e4ecfd; border-color: transparent; }
+.app[data-style="tool"] .chip { border-radius: 3px; }
+.app[data-style="tool"][data-theme="dark"] {
+  --bg: #1e1e1e; --panel: #252526; --panel2: #1e1e1e; --line: #333338; --text: #d4d4d4; --sub: #8b8b93;
+  --accent: #3b82f6; --code-bg: #181818; --code-text: #d4d4d4; --banner-bg: #3a2c12; --banner-text: #f3c77a;
+}
+.app[data-style="tool"][data-theme="dark"] .nav a.on,
+.app[data-style="tool"][data-theme="dark"] .dev.on { background: #2a3550; color: #a9c4ff; }
+
+/* ---------- 风格二：现代卡片型 ---------- */
+.app[data-style="card"] {
+  --bg: #f7f5fb; --panel: #efebf6; --panel2: #f7f5fb; --line: #e3dcef; --text: #1d1b22; --sub: #6a6475;
+  --accent: #6750a4; --code-bg: #1d1b22; --code-text: #e9e4f2; --banner-bg: #ffe8cc; --banner-text: #6b3d00;
+  --radius: 14px; --gap: 10px; font-size: 14px;
+}
+.app[data-style="card"] .nav { border-right: 0; }
+.app[data-style="card"] .nav a { border-radius: 20px; padding: 9px 14px; }
+.app[data-style="card"] .nav a.on { background: #e1d8f5; color: #21005d; font-weight: 600; }
+.app[data-style="card"] .list { border-right: 0; }
+.app[data-style="card"] .dev { background: #fff; border: 1px solid var(--line); padding: 12px 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.app[data-style="card"] .dev.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(103,80,164,.18); background: #fff; }
+.app[data-style="card"] .btn { border-radius: 20px; padding: 6px 16px; }
+.app[data-style="card"] .search { border-radius: 22px; background: #fff; padding: 9px 14px; }
+.app[data-style="card"] .detail { background: #fff; margin: 10px 10px 10px 0; border-radius: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.app[data-style="card"] .tabs { border-bottom: 0; gap: 6px; }
+.app[data-style="card"] .tabs span { border: 0; border-radius: 16px; padding: 6px 14px; }
+.app[data-style="card"] .tabs span.on { background: #e8def8; color: #21005d; }
+.app[data-style="card"] .cmd .input { border-radius: 22px; padding: 9px 16px; }
+.app[data-style="card"] .chip { background: #f1ecf8; border: 0; }
+.app[data-style="card"][data-theme="dark"] {
+  --bg: #141218; --panel: #1d1b20; --panel2: #141218; --line: #36323f; --text: #e6e0e9; --sub: #a29cae;
+  --accent: #d0bcff; --accent-text: #381e72; --code-bg: #0f0d13; --banner-bg: #4a3214; --banner-text: #ffd8a8;
+}
+.app[data-style="card"][data-theme="dark"] .nav a.on,
+.app[data-style="card"][data-theme="dark"] .tabs span.on { background: #4a4458; color: #e8def8; }
+.app[data-style="card"][data-theme="dark"] .dev,
+.app[data-style="card"][data-theme="dark"] .dev.on,
+.app[data-style="card"][data-theme="dark"] .search,
+.app[data-style="card"][data-theme="dark"] .detail { background: #211f26; }
+.app[data-style="card"][data-theme="dark"] .chip { background: #2b2930; }
+
+/* ---------- 风格三：终端开发者风 ---------- */
+.app[data-style="term"] {
+  --bg: #fbfbf9; --panel: #f2f2ee; --panel2: #fbfbf9; --line: #dcdcd4; --text: #1b1b18; --sub: #707068;
+  --accent: #0e8a5f; --code-bg: #fbfbf9; --code-text: #1b1b18; --banner-bg: #fff3d6; --banner-text: #6e4b00;
+  --radius: 2px; --gap: 0; font-family: var(--mono); font-size: 12.5px;
+}
+.app[data-style="term"] .brand .logo { border-radius: 2px; }
+.app[data-style="term"] .nav a::before { content: "  "; white-space: pre; }
+.app[data-style="term"] .nav a.on { background: transparent; color: var(--accent); }
+.app[data-style="term"] .nav a.on::before { content: "› "; }
+.app[data-style="term"] .dev { border-left: 2px solid transparent; border-radius: 0; }
+.app[data-style="term"] .dev.on { background: var(--panel); border-color: transparent; border-left-color: var(--accent); }
+.app[data-style="term"] .out { border: 1px solid var(--line); }
+.app[data-style="term"] .chip { border-radius: 0; background: transparent; }
+.app[data-style="term"] .tabs span.on { border-bottom-width: 1px; }
+.app[data-style="term"] .detail-head h1 { font-size: 17px; }
+.app[data-style="term"][data-theme="dark"] {
+  --bg: #0d1117; --panel: #11161d; --panel2: #0d1117; --line: #222a35; --text: #c9d1d9; --sub: #6e7a88;
+  --accent: #3fd68f; --accent-text: #0d1117; --code-bg: #0a0e13; --code-text: #c9d1d9; --banner-bg: #2a2110; --banner-text: #f5c26b;
+}
+
+/* ---------- 风格四：Windows 原生风（Fluent） ---------- */
+.app[data-style="fluent"] {
+  --bg: #fafafa; --panel: #f3f3f3; --panel2: #f9f9f9; --line: #e5e5e5; --text: #1a1a1a; --sub: #616161;
+  --accent: #0067c0; --code-bg: #ffffff; --code-text: #1a1a1a; --banner-bg: #fff4ce; --banner-text: #5c4400;
+  --radius: 4px; --gap: 3px; font-size: 14px;
+  background: linear-gradient(135deg, #eef3fa 0%, #f6f1f6 100%);
+}
+.app[data-style="fluent"] .nav,
+.app[data-style="fluent"] .list { background: transparent; border-right: 0; }
+.app[data-style="fluent"] .nav a.on { background: rgba(0,0,0,.05); color: var(--text); position: relative; }
+.app[data-style="fluent"] .nav a.on::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--accent); }
+.app[data-style="fluent"] .dev.on { background: rgba(255,255,255,.75); border-color: rgba(0,0,0,.06); }
+.app[data-style="fluent"] .detail { background: rgba(255,255,255,.8); border: 1px solid rgba(0,0,0,.06); border-radius: 8px 0 0 0; margin-top: 8px; }
+.app[data-style="fluent"] .btn { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.08); }
+.app[data-style="fluent"] .btn.primary { background: var(--accent); }
+.app[data-style="fluent"] .btn.danger { background: var(--bad); }
+.app[data-style="fluent"] .search { background: rgba(255,255,255,.7); border-bottom: 2px solid #868686; }
+.app[data-style="fluent"] .cmd .input { border-bottom: 2px solid var(--accent); }
+.app[data-style="fluent"] .out { border: 1px solid var(--line); }
+.app[data-style="fluent"] .chip { background: rgba(0,0,0,.04); border: 0; border-radius: 4px; }
+.app[data-style="fluent"][data-theme="dark"] {
+  --bg: #202020; --panel: #272727; --panel2: #202020; --line: #3a3a3a; --text: #f0f0f0; --sub: #a8a8a8;
+  --accent: #4cc2ff; --accent-text: #000; --code-bg: #1c1c1c; --code-text: #f0f0f0; --banner-bg: #433519; --banner-text: #fce100;
+  background: linear-gradient(135deg, #1f2430 0%, #2a2129 100%);
+}
+.app[data-style="fluent"][data-theme="dark"] .nav a.on { background: rgba(255,255,255,.07); }
+.app[data-style="fluent"][data-theme="dark"] .dev.on { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.06); }
+.app[data-style="fluent"][data-theme="dark"] .detail { background: rgba(32,32,32,.85); border-color: rgba(255,255,255,.06); }
+.app[data-style="fluent"][data-theme="dark"] .btn { background: #2d2d2d; }
+.app[data-style="fluent"][data-theme="dark"] .btn.primary { background: var(--accent); }
+.app[data-style="fluent"][data-theme="dark"] .search { background: rgba(255,255,255,.05); }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <div class="group">风格：
+    <button data-s="tool" class="on">一、简洁工具型</button>
+    <button data-s="card">二、现代卡片型</button>
+    <button data-s="term">三、终端开发者风</button>
+    <button data-s="fluent">四、Windows 原生风</button>
+  </div>
+  <div class="group">主题：
+    <button data-t="light" class="on">浅色</button>
+    <button data-t="dark">深色</button>
+  </div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<div class="stage">
+<div class="app" id="app" data-style="tool" data-theme="light">
+
+  <aside class="nav">
+    <div class="brand"><span class="logo"></span>DeskBridge</div>
+    <a class="on" href="#">设备</a>
+    <a href="#">操作记录</a>
+    <a href="#">审批 <span class="badge">2</span></a>
+    <a href="#">外部设备</a>
+    <a href="#">设置</a>
+    <div class="foot">
+      <div><span class="dot"></span>组网已连接</div>
+      <div>本机 100.64.0.1</div>
+      <div>user@example.com</div>
+    </div>
+  </aside>
+
+  <section class="list">
+    <div class="list-head"><h2>设备</h2><button class="btn primary">＋ 添加</button></div>
+    <div class="search">搜索设备名、地址…</div>
+    <div class="groups">
+      <div class="group-title">我的设备 · 4</div>
+      <div class="dev on">
+        <div class="row1"><span class="dot"></span>win-pc<span class="os">Windows 11</span></div>
+        <div class="row2">直连 · 12 毫秒 · AI 操作中</div>
+      </div>
+      <div class="dev">
+        <div class="row1"><span class="dot"></span>linux-server<span class="os">Linux</span></div>
+        <div class="row2">直连 · 3 毫秒</div>
+      </div>
+      <div class="dev">
+        <div class="row1"><span class="dot warn"></span>laptop<span class="os">Windows 10</span></div>
+        <div class="row2">中继 · 186 毫秒 · 延迟较高</div>
+      </div>
+      <div class="dev offline">
+        <div class="row1"><span class="dot off"></span>redmi-phone<span class="os">Android</span></div>
+        <div class="row2">离线 · 2 小时前在线</div>
+      </div>
+      <div class="group-title">外部设备 · 1</div>
+      <div class="dev">
+        <div class="row1"><span class="dot"></span>office-pc<span class="os">Windows 11</span></div>
+        <div class="row2">来自 alice · 仅命令和文件</div>
+      </div>
+    </div>
+  </section>
+
+  <main class="detail">
+    <div class="detail-head">
+      <h1><span class="dot"></span>win-pc</h1>
+      <div class="chips">
+        <span class="chip">Windows 11</span><span class="chip">100.64.0.2</span>
+        <span class="chip">直连 12 毫秒</span><span class="chip">本地用户空闲</span>
+      </div>
+    </div>
+    <div class="banner"><b>AI 正在操作桌面</b>Claude Code · 已持续 2 分 14 秒 · 本地动鼠标即可抢回
+      <button class="btn danger">立即停止</button></div>
+    <div class="tabs">
+      <span class="on">命令</span><span>文件</span><span>截图</span><span>界面元素</span>
+      <span class="later">远程画面</span><span class="later">Agent</span><span>操作记录</span>
+    </div>
+    <div class="pane">
+      <div class="cmd">
+        <div class="input">PS&gt; Get-ChildItem D:\data -Recurse | Measure-Object -Sum Length</div>
+        <button class="btn danger">取消</button>
+      </div>
+      <div class="run-meta"><span><span class="dot warn"></span>运行中 · 8.4 秒</span><span>PowerShell 7</span><span>输出编码 UTF-8</span></div>
+<div class="out"><span class="dim">[14:02:31] 开始执行，进程号 8812</span>
+    目录: D:\data\projects
+
+Mode        LastWriteTime      Length Name
+----        -------------      ------ ----
+d----   2026/10/07  13:58             deskbridge
+d----   2026/10/05  09:12             notes
+-a---   2026/10/06  21:40      18342  readme.md
+-a---   2026/10/07  11:03     204800  设计草稿.pdf
+<span class="err">Get-ChildItem: 拒绝访问路径 'D:\data\private'。</span>
+<span class="dim">已扫描 1,284 个文件…</span> <span class="cursor"></span></div>
+    </div>
+  </main>
+
+</div>
+</div>
+
+<script>
+const desc = {
+  tool: "简洁工具型：参考 VS Code、Tailscale 客户端。信息密度高、颜色克制，适合同时看很多设备和长输出。缺点是看起来比较“工程”。",
+  card: "现代卡片型：参考 Material 3 和手机应用。圆角大、留白多、色彩柔和，桌面和安卓两端最容易统一（Flutter 默认就是 Material 3）。缺点是一屏信息较少。",
+  term: "终端开发者风：全等宽字体、几乎无装饰、深色优先，参考 Warp、GitHub 深色主题。和“AI 操作命令行”的定位最贴，但对不熟悉命令行的人不够友好。",
+  fluent: "Windows 原生风：参考 Windows 11 设置和 Fluent 设计。半透明背景、细边框，在 Windows 上最像系统自带应用。缺点是在安卓和 Linux 上会显得突兀，需要两套适配。"
+};
+const app = document.getElementById("app");
+function show() { document.getElementById("desc").textContent = desc[app.dataset.style]; }
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b));
+  app.dataset.style = b.dataset.s; show();
+});
+document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-t]").forEach(x => x.classList.toggle("on", x === b));
+  app.dataset.theme = b.dataset.t;
+});
+show();
+</script>
+</body>
+</html>
