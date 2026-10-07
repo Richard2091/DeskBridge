@@ -30,10 +30,20 @@
 | `github.com/kbinani/screenshot` | 截图 | MIT |
 | MCP 官方 Go SDK（`github.com/modelcontextprotocol/go-sdk`） | MCP 服务器 | 待核实 |
 
+远程画面补充调研（`spikes/stream/`，任务 24）的验证代码另外用到下面几个库，许可证已在 crate 的 `Cargo.toml` 中核实（2026-10-07）。间接依赖未逐个核实。
+
+| 库 | 用途 | 许可证 |
+|---|---|---|
+| `windows`（Rust，0.62） | DXGI 采集、D3D11 视频处理、Media Foundation 编解码 | MIT OR Apache-2.0 |
+| `serde_json`（Rust） | 输出测量结果 | MIT OR Apache-2.0 |
+| `png`（Rust） | 保存解码后的检查画面 | MIT OR Apache-2.0 |
+
+H.264 编码只用系统自带的 Media Foundation 编码器（显卡厂商的硬件编码器和微软软件编码器），不引入 openh264、x264 等编码库。
+
 ## 参考记录
 
 开发中每参考一个项目的某部分设计，在这里追加一行：日期、项目、参考内容、对应的 DeskBridge 模块。
 
 | 日期 | 项目 | 参考内容 | DeskBridge 模块 |
 |---|---|---|---|
-| | | | |
+| 2026-10-07 | RustDesk | 硬件编码优先、软件编码兜底；按目标帧率采集，只发最新一帧（只参考思路，未阅读代码） | `spikes/stream/`（任务 24.2） |

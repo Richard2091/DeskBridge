@@ -1232,12 +1232,13 @@
             "title": "共用画面管线：采集和编码",
             "description": "Rust 采集桌面并做 H.264 编码，交给 Go，与界面框架无关，只做一次。",
             "details": "采集用 DXGI Desktop Duplication；编码优先硬件（台式机 NVENC、笔记本 Intel Quick Sync，经 Media Foundation 或厂商接口），软件回退（如 openh264，注意许可证）。参考 RustDesk 的采集、编码选择和码率帧率自适应设计，不复制代码。注意两台机器都装了第三方虚拟显示适配器，可能影响采集，需验证。",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [
               "24.1"
             ],
             "parentTaskId": 24,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-07T04:40:33.789Z"
           },
           {
             "id": 3,
@@ -1317,7 +1318,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-07T04:38:03.275Z"
+        "updatedAt": "2026-10-07T04:40:33.789Z"
       },
       {
         "id": "25",
@@ -1347,7 +1348,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-07T04:38:03.276Z",
+      "lastModified": "2026-10-07T04:40:33.789Z",
       "taskCount": 26,
       "completedCount": 1,
       "tags": [
