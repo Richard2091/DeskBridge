@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "项目骨架与开发环境",
         "description": "安装 Go，建立 Go 模块、目录结构、测试和交叉编译。",
         "details": "安装 Go（当前稳定版）和 Rust stable。建立 Go 模块：cmd/deskbridge（单一程序入口）、internal/net、internal/node、internal/tools、internal/client、internal/mcp、internal/store；Windows 桌面辅助进程放在 desktop-helper/，用 Rust；客户端放在 ui/，使用任务 24 决策后的框架。用构建标签区分平台。验收：Go 和 Rust 测试通过；GOOS=windows/linux/darwin 的 Go 核心能编译；CI 运行 Go/Rust 测试、交叉编译，以及所选客户端框架的构建和冒烟测试。\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：客户端用 Flutter，放在 ui/。Flutter 应用启动 Go 程序作为子进程，经标准输入输出传 JSON。CI 中加入 Flutter Windows 构建和冒烟测试（可在客户端开始开发时再加）。\n</info added on 2026-10-07T13:00:00.000Z>",
@@ -84,7 +84,7 @@
         "updatedAt": "2026-10-07T12:26:29.291Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "内置组网：tsnet 节点与登录",
         "description": "程序内置 Tailscale（tsnet），OAuth 登录后加入内网，可切换到 Headscale。",
         "details": "见 ADR-0003。首次运行打印/打开登录链接；状态目录保存在用户目录并限制权限；控制服务器地址可配置（Headscale）；主机名可配置。验收：新设备登录后加入内网；重启无需重新登录；Linux 与 Windows 之间能互相访问；配置 Headscale 地址后可登录（待有 Headscale 环境时验证）。",
@@ -148,7 +148,7 @@
         ]
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "设备发现与设备列表",
         "description": "列出同账号的节点，识别哪些运行 DeskBridge，显示在线状态和连接方式。",
         "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：设备列表要记录路径类型（局域网直连、跨网直连、中继及中继位置）和延迟，供远程画面的开放判断使用。节点之间一律用 Tailscale 内网地址通信，不直接用局域网 IP。\n</info added on 2026-10-07T12:00:00.000Z>",
@@ -212,7 +212,7 @@
         ]
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "节点协议与身份认证",
         "description": "节点提供 HTTP+JSON 接口：能力报告、工具调用、超时、取消、结构化错误；用 WhoIs 识别身份。",
         "details": "见 docs/architecture.md 节点协议一节。GET /v1/capability；POST /v1/tools/{name}；DELETE /v1/requests/{id}；错误码统一（如 unsupported_platform、timeout、forbidden、invalid_args）。每个工具声明 JSON Schema。用 tsnet WhoIs 识别调用者；默认只允许同账号。请求上下文预留操作记录字段（操作者类型、身份、设备）。验收：契约测试覆盖成功、超时、取消、非法参数、非同账号拒绝。",
@@ -306,7 +306,7 @@
         ]
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "命令与文件工具",
         "description": "实现 sys.info、fs.list/read/write/stat、proc.exec/list/kill，Windows 输出统一为 UTF-8。",
         "details": "proc.exec：支持选择 shell（PowerShell/cmd/sh）、工作目录、环境变量、超时；返回退出码、stdout、stderr、是否超时、是否截断。Windows 上按控制台代码页解码（如 GBK），PowerShell 设置 UTF-8 输出。fs：大文件分块或限制大小，二进制以 base64 返回。验收：Windows 与 Linux 测试通过；中文命令输出和中文报错不乱码（原型的乱码用例必须通过）。",
@@ -390,7 +390,7 @@
         ]
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "命令行客户端",
         "description": "deskbridge devices / exec / read / write / ls / ps / screen 等子命令，支持 --json。",
         "details": "复用客户端库（之后供 MCP 和界面使用）。设备可用名称或 IP 指定；默认设备可配置；分层诊断命令 deskbridge ping（网络/身份/协议）。验收：在 Linux 服务器上操作 Windows 的全部命令可用。",
@@ -446,7 +446,7 @@
         ]
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "MCP 服务器",
         "description": "deskbridge mcp 以 stdio 方式提供 MCP 工具：列出设备、调用各设备的工具。",
         "details": "使用 MCP 官方 Go SDK（引入前核实许可证）。工具设计：list_devices、以及按工具类型的通用调用（device 参数 + 工具参数），或按能力动态生成工具，两种方案比较后决定。截图以图片内容返回。验收：Claude Code 配置 deskbridge mcp 后可列设备、执行命令、读写文件。",
@@ -500,7 +500,7 @@
         ]
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Windows 用户模式部署与自启",
         "description": "用户登录后节点在桌面会话中自动启动，崩溃后自动重启。",
         "details": "用计划任务（登录时触发，以当前用户运行）或类似方式；提供安装和卸载命令（deskbridge install / uninstall）；日志写入用户目录。替代原型手动启动网关的方式。验收：重启 Windows 并登录后，Linux 端无需人工干预即可连接；结束进程后自动恢复。",
@@ -554,7 +554,7 @@
         ]
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Windows 桌面工具：截图、输入、窗口",
         "description": "screen.capture、input.click/type/key/scroll、window.list/focus。",
         "details": "截图：多显示器、DPI 缩放、可选缩放和区域，返回 PNG/JPEG；坐标系统一（说明截图坐标与实际坐标的换算）。输入：SendInput，中文输入用 Unicode 方式；快捷键组合。窗口：枚举、标题、进程、位置，前置窗口。参考 UFO、Computer Use 的工具设计（只参考设计）。验收：AI 通过 MCP 打开记事本、输入中文、保存文件；多显示器和 150% 缩放下点击位置正确。",
@@ -629,7 +629,7 @@
         ]
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Windows 界面元素工具（UI Automation）",
         "description": "ui.tree / ui.find / ui.invoke：读取界面元素树、查找并操作元素。",
         "details": "通过 COM 调用 UI Automation（go-ole）。返回精简的元素树（类型、名称、自动化 ID、位置、可用操作），限制深度和数量以控制大小。ui.invoke 支持点击、设置值、展开等。验收：AI 不靠坐标，按名称点击按钮、填写输入框；对常见应用（资源管理器、设置、记事本）可用。",
@@ -693,7 +693,7 @@
         ]
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "基础操作记录",
         "description": "每次工具调用写入本地 SQLite，区分 AI 与人，命令行可查询。",
         "details": "使用 modernc.org/sqlite。字段：request_id、操作者类型、操作者身份、目标设备、工具、参数摘要（敏感字段脱敏）、状态、开始和结束时间。被控端记录；控制端也记录自己发出的请求。deskbridge log 查询。哈希链防篡改留到任务 17。验收：AI 和人的操作都能查到，脱敏生效。",
@@ -747,7 +747,7 @@
         ]
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "桌面客户端",
         "description": "登录、按分组显示设备、执行命令、查看截图、查看操作记录。",
         "details": "使用任务 24 决策后的客户端框架实现。复用客户端库。同一份前端是否以及如何提供为网页控制台，按框架决策执行；必须保持异步加载、高延迟下的界面响应、取消操作和断线重连状态。验收：Windows 上安装客户端，登录后看到设备、连接方式、延迟，能执行命令、截图、查看记录。\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：Flutter。网页控制台暂不做。可参考 spikes/ui-flutter/ 的原型结构（Dart 子进程启动 Go 核心）。\n</info added on 2026-10-07T13:00:00.000Z>",
@@ -825,7 +825,7 @@
         ]
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "一站式自建中继",
         "description": "一条命令部署 DERP 中继（可选 Headscale），客户端一个设置即可使用。",
         "details": "deploy/relay：Docker Compose 或单脚本；自动申请证书；文档说明端口和防火墙；客户端可配置自定义 DERP/Headscale。参考 RustDesk 自建服务器的部署体验（只参考设计）。验收：在一台新服务器上一条命令部署，两端经该中继通信且延迟低于公共中继。\n<info added on 2026-10-07T12:00:00.000Z>\n用户决定暂时搁置（ADR-0006），和 macOS 一样保留以后实现的余地。恢复时方向改为：优先 Tailscale peer relay（1.86+，tailscale set --relay-server-port，策略文件 grants 授予 tailscale.com/cap/relay，放行 UDP 端口，不需要域名和证书），自建 DERP 作为只允许 HTTPS 网络的后备。验收改为：两端经自建中继通信，画面所需带宽满足，延迟低于公共中继。恢复时补测任务 24.3 中未测的 A↔B 经中继路径。\n</info added on 2026-10-07T12:00:00.000Z>",
@@ -879,7 +879,7 @@
         ]
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "打包与发布",
         "description": "Windows 和 Linux 安装包、自动更新、发布流程自动化。",
         "details": "Windows：安装程序（MSI 或类似）、可选 winget；代码签名（需要证书，待用户决定）。Linux：deb/rpm、静态二进制。自动更新机制。GitHub Releases 自动构建。验收：新机器下载安装后可用；版本升级可自动完成。",
@@ -943,7 +943,7 @@
         ]
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "人工远程画面（局域网）",
         "description": "在内网里用 WebRTC 传输屏幕画面和输入，允许卡顿。",
         "details": "pion/webrtc；信令走节点 WebSocket；画面编码方案待定（软件编码起步）；客户端显示与输入转发。只参考 RustDesk 设计。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：暂时只支持局域网直连。传输方式随任务 24 决定（不一定是 WebRTC）。必须做码率自适应、只保留最新帧、截图降级；画面是否开放由可替换的判断函数决定（输入：路径类型、实测带宽和往返时间），现在的规则是只有局域网直连才开放。\n</info added on 2026-10-07T12:00:00.000Z>\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：先验证 Flutter 在 Windows 上显示 H.264 流（Media Foundation 解码写入纹理，或经 Rust 辅助进程解码），记录帧率、延迟、CPU；不可行时远程画面改用嵌入 WebView2 + WebCodecs。\n</info added on 2026-10-07T13:00:00.000Z>",
@@ -957,7 +957,7 @@
         "subtasks": []
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Windows 服务模式与会话辅助进程",
         "description": "系统服务常驻和组网，会话辅助进程负责桌面操作，支持锁屏、UAC、未登录状态。",
         "details": "WTSQueryUserToken + CreateProcessAsUser；命名管道通信；会话切换处理。参考 RustDesk、MeshCentral 设计。",
@@ -970,7 +970,7 @@
         "subtasks": []
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "权限、审批与外部设备",
         "description": "工具级权限、危险操作审批、他人共享设备、紧急停止、操作记录防篡改。",
         "details": "外部设备默认只给明确授予的权限；危险操作暂停等待人批准；紧急停止取消某设备上的全部 AI 请求；操作记录哈希链和双端存储。",
@@ -984,7 +984,7 @@
         "subtasks": []
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Linux 桌面支持",
         "description": "Linux 桌面的截图、输入和窗口工具：先 X11，后 Wayland。",
         "details": "X11 直接实现；Wayland 通过 xdg-desktop-portal（RemoteDesktop/ScreenCast），需要用户授权。",
@@ -998,7 +998,7 @@
         "updatedAt": "2026-10-06T16:20:24.456Z"
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "WireGuard 传输",
         "description": "不依赖 Tailscale 的第二种传输方式，自带配对和密钥。",
         "details": "密钥存系统密钥库；设备配对流程；设备分组中显示为 WireGuard 设备。",
@@ -1011,7 +1011,7 @@
         "subtasks": []
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "macOS 适配（预留）",
         "description": "有 macOS 设备后再适配：命令、文件、桌面工具和客户端。",
         "details": "需要处理屏幕录制与辅助功能权限（用户手动授予）。在此之前代码只保留 _darwin.go 占位，能力报告中不出现未实现工具。",
@@ -1025,7 +1025,7 @@
         "updatedAt": "2026-10-06T08:21:32.490Z"
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "技术验证：语言和框架",
         "description": "在 Windows 上用 Go、Rust、C# 实现同一组桌面操作并验证 Go tsnet，据此确定 ADR-0001。",
         "details": "见 docs/decisions/adr-0001-language-and-framework.md 的技术验证一节。在 D:/data/AI/Projects/deskbridge 下的 spikes/ 目录进行（验证代码不进入正式代码）。比较：代码量、稳定性、程序体积、杀毒误报、AI 一次写对的比例。判断规则：Go 桌面操作差距可接受则选全 Go，否则选 Go 主程序 + 桌面辅助进程。验收：ADR-0001 写入验证结果并改为已决定。",
@@ -1093,7 +1093,7 @@
         "updatedAt": "2026-10-06T13:14:07.237Z"
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "调用被控端的 Agent、Skill 和 MCP",
         "description": "让控制端使用被控设备上的 Agent（如 Claude Code）、Skill 和本机 MCP 服务器。",
         "details": "见 docs/architecture.md“调用被控端的 AI 能力”一节。agent.run：在被控端启动无界面 Agent 会话，流式返回，可取消，可断线后查看结果。MCP 转发：读取被控端 MCP 配置，启动服务器，工具以 mcp.<服务器>.<工具> 暴露给控制端。Skill：列出并通过被控端 Agent 调用。操作记录记录嵌套调用链。验收：Linux 上的 Claude Code 通过 DeskBridge 让 Windows 上的 Claude Code 完成一次编译修复任务；并调用一个 Windows 本机 MCP 工具。",
@@ -1148,7 +1148,7 @@
         ]
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "桌面控制权仲裁",
         "description": "本地用户 > 远程人工 > AI；只有前台输入需要控制权；自动识别本地物理输入并抢占；租约、排队、提示和紧急停止。",
         "details": "见 docs/decisions/adr-0005-desktop-control-arbitration.md。所有桌面输入工具必须经过仲裁器。验收：本地用户移动鼠标时，AI 正在进行的前台输入立即中断并返回 preempted；本地用户空闲 5 秒后 AI 可继续；远程人工可从 AI 接管；远程断线后租约到期自动释放；紧急停止快捷键可用；每次输入前确认目标窗口在前台。",
@@ -1212,7 +1212,7 @@
         ]
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "客户端框架和语言调研",
         "description": "调研桌面客户端的界面框架和语言（包括但不限于 Wails、Tauri），确定 ADR-0002。完成后整体架构才算定型，才能进入开发。",
         "details": "候选包括但不限于：Wails（v2 / v3）、Tauri、Electron、Avalonia、Flutter、Fyne、Slint 等。比较：与 Go 主程序和 Rust 桌面辅助进程的集成方式（同进程、子进程、本地接口）、安装包体积和运行时依赖、Windows/Linux/macOS 支持、成熟度和维护活跃度、许可证、能否复用为网页控制台、后期显示远程画面（WebRTC）的能力、AI 一次写对的比例。对前 2–3 个候选在 Windows 上做最小验证：登录页 + 设备列表 + 调用一次 Go 核心。结果写入 spikes/results.md，更新 ADR-0002、docs/architecture.md、docs/references.md，并据此调整任务 1 和任务 12。\n<info added on 2026-10-06T13:39:49.034Z>\n我需要先分析代码库，了解项目当前状态和相关架构决策文档。根据用户请求和代码库分析,生成需要追加到任务详情中的新文本:\n\n**更新 2026-10-06：**调研已开始。TaskMaster 已改为本机 Claude Code,不再需要外部 API 密钥(见 .taskmaster/config.json 中的 claude-code provider 配置)。调研范围补充:必须覆盖 ADR-0003 规定的网络场景,客户端要能显示每台设备的连接方式(局域网直连/直连/中继及中继位置)和延迟;在中继、高延迟(数百毫秒)、断线重连时界面不能卡死,网页控制台通过内网访问时同样会遇到中继和高延迟(见 ADR-0002、ADR-0003)。验证时需确认各候选框架能否在异步等待远程数据时保持界面响应,并支持取消操作。\n</info added on 2026-10-06T13:39:49.034Z>",
@@ -1329,7 +1329,7 @@
         "updatedAt": "2026-10-07T07:43:51.554Z"
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "安卓控制端",
         "description": "用安卓手机控制电脑（以及可行时控制其他手机）：登录、查看设备、看远程画面、触控操作。",
         "details": "客户端形态取决于任务 24 的选型：原生跨平台客户端（如 Flutter、Tauri v2 移动端）或手机浏览器打开网页控制台。需要验证：安卓上内置 tsnet 节点与 Tailscale 官方应用同时运行时的 VPN 冲突（用户态网络是否可行，待验证）；移动网络下的直连和中继；手机端视频解码和电量消耗。验收：安卓手机登录后看到设备和连接方式，能查看 Windows 远程画面并用触控操作。\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：用和桌面客户端同一套 Flutter 代码。需验证安卓上 Go 核心的运行方式（子进程或 gomobile 绑定），以及原任务 24.6 的手机解码显示（1080p 30 fps、发热、耗电）。\n</info added on 2026-10-07T13:00:00.000Z>",
@@ -1343,7 +1343,7 @@
         "subtasks": []
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "安卓被控端可行性调研",
         "description": "调研安卓手机能否作为被控设备（电脑控制手机、手机控制手机），参考 RustDesk 安卓被控端的设计。",
         "details": "需要调研并实测：屏幕采集（MediaProjection，每次会话的用户授权、前台服务、Android 14 以后的限制）；输入注入（无障碍服务 dispatchGesture，需要用户手动开启）；无人值守能力的边界；厂商系统后台保活限制；在安卓上运行 Go 节点（gomobile 或 c-shared）；视频硬件编码（MediaCodec）。在 12turbo 上做最小验证：采集画面并编码，经 tsnet 传到 Windows 显示，并从 Windows 发送一次点击。结果写入 spikes/results.md，必要时写新 ADR。验收：给出可行性结论、权限和限制清单。iOS 不在范围内。",
@@ -1354,30 +1354,28 @@
         "subtasks": []
       },
       {
-        "id": 27,
+        "id": "27",
         "title": "界面与交互设计",
         "description": "在开发客户端前完成整个产品的界面与交互设计，覆盖已规划的全部功能，避免边做边拼导致界面杂乱。",
         "details": "范围：按完整产品设计，不只设计首个版本。覆盖登录与组网状态、设备列表与分组（连接方式、延迟、重复设备合并）、设备详情、命令执行（流式输出、取消）、文件、截图、界面元素、操作记录、调用被控端 Agent、远程画面（任务 15）、桌面控制权提示与抢回（ADR-0005）、权限审批与外部设备（任务 17）、设置，以及安卓控制端（任务 25）的适配。\n交付：1) 信息结构与页面导航；2) 关键流程（首次登录、添加设备、执行并取消命令、AI 操作中的提示与抢回控制权、断线重连）；3) 各页面的加载、为空、出错、离线、高延迟状态；4) 视觉规范（配色、字体、间距、图标、深浅色），对应 Flutter 主题；5) 线框图，确认后做不接后端的 Flutter 可点击原型；6) 界面对 Go 核心 ui-core 接口的数据需求清单，供任务 6、12 使用。\n未实现功能的处理：设计中保留其位置和入口；实现时允许以空白板块预留，或暂不显示、不占位，由各功能所在任务决定，但不得破坏整体布局。\n过程：先出草案，页面风格和功能取舍等决定由用户确认后定稿。定稿写入 docs/ui-design.md，原型放在 ui/ 或 spikes/ 下（待定）。\n验收：用户确认设计文档和原型；任务 6、12 的接口和页面以此为准。",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
-          24
+          "24"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-10-07T15:00:04.409Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-07T12:26:29.292Z",
-      "taskCount": 26,
+      "lastModified": "2026-10-07T15:00:04.409Z",
+      "taskCount": 27,
       "completedCount": 3,
       "tags": [
         "master"
-      ],
-      "created": "2026-10-07T13:52:28.020Z",
-      "description": "Tasks for master context",
-      "updated": "2026-10-07T13:52:28.028Z"
+      ]
     }
   }
 }
