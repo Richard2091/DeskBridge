@@ -141,7 +141,7 @@ function detailBanner(d) {
   if (d.id === "win-pc") {
     if (S.control === "ai") b.push(`<div class="banner ai">
       <span class="pulse ai live"></span>
-      <div class="t"><span class="who">${avatar("claude", "sm")}Claude Code 正在操作桌面</span> <span class="d">来自 linux-server · 已持续 2 分 14 秒 · 本地用户动鼠标即可抢回</span></div>
+      <div class="t"><span class="who">${avatar("claude", "sm")}Claude Code 正在操作桌面</span> <span class="d">来自 linux-server · 2 分 14 秒 · 本地动鼠标即可抢回</span></div>
       <div class="btns"><button class="btn sm" data-a="openRemote">${ic("eye")}查看</button><button class="btn sm" data-a="takeover">${ic("hand")}接管</button><button class="btn sm danger-soft" data-a="stopAI">${ic("stop")}停止</button></div></div>`);
     if (S.control === "local") b.push(`<div class="banner info">${ic("mouse")}
       <div class="t"><b>本地用户正在使用这台电脑</b> <span class="d">AI 的鼠标键盘操作已暂停，Claude Code 在排队。本地停止操作 3 秒后自动继续。命令和文件操作不受影响。</span></div></div>`);
@@ -274,7 +274,7 @@ function paneCmd(d) {
   if (!shells.includes(c.shell)) c.shell = shells[0];
   return `<div class="pane-in">
     <div class="cmd">
-      <span class="shell" data-a="cycleShell" data-v="${shells.join("|")}" title="切换命令行">${c.shell}${ic("chevDown", "sm")}</span>
+      <span class="sh" data-a="cycleShell" data-v="${shells.join("|")}" title="切换命令行">${c.shell}${ic("chevDown", "sm")}</span>
       <input id="cmdin" value="${esc(c.text)}" data-in="cmd.text" placeholder="输入命令，按回车执行" autocomplete="off" spellcheck="false">
       ${c.status === "run" ? `<button class="btn danger-soft" data-a="cancelCmd">${ic("stop")}取消</button>` : `<button class="btn primary" data-a="runCmd">${ic("play")}执行</button>`}
     </div>
@@ -379,12 +379,16 @@ A.upload = () => {
 A.cancelUpload = () => { clearInterval(upTimer); S.fs.upload = null; toast("ok", "已取消上传"); render(); };
 
 // ---------- 截图 ----------
+function mouseSvg(x, y) {
+  return `<svg class="mouse" viewBox="0 0 12 18" style="left:${x}%;top:${y}%"><path d="M1 1v14.5l3.6-3.4 2.6 5.6 2.3-1.1-2.6-5.4H11.5z" fill="#fff" stroke="#111" stroke-width="1" stroke-linejoin="round"/></svg>`;
+}
+
 function desktopArt({ ai = false, small = false, hl = false } = {}) {
   return `<div class="desk-wrap"><div class="desk ${small ? "small" : ""}">
     <div class="win" style="left:6%;top:8%;width:48%;height:58%"><div class="tb">无标题 - 记事本</div><div class="ln" style="width:70%"></div><div class="ln" style="width:55%"></div><div class="ln" style="width:62%"></div><div class="ln" style="width:30%"></div></div>
     <div class="win dark" style="left:40%;top:30%;width:52%;height:56%"><div class="tb">PowerShell</div><div class="ln b" style="width:40%"></div><div class="ln" style="width:75%"></div><div class="ln" style="width:68%"></div><div class="ln g" style="width:35%"></div><div class="ln" style="width:58%"></div></div>
     ${hl ? `<div class="hit" style="left:6.5%;top:14%;width:47%;height:51%"></div>` : ""}
-    ${ai ? `<div class="aiframe"></div><div class="aitip">AI 正在操作（来自 linux-server）</div><div class="mouse" style="left:30%;top:40%"></div>` : `<div class="mouse" style="left:70%;top:62%"></div>`}
+    ${ai ? `<div class="aiframe"></div><div class="aitip">AI 正在操作（来自 linux-server）</div>${mouseSvg(30, 40)}` : mouseSvg(70, 62)}
     <div class="taskbar"><i></i><i></i><i></i><i></i><i></i></div>
   </div></div>`;
 }
@@ -444,7 +448,8 @@ function paneUia(d) {
     <div class="uia">
       <div class="card wlc"><div class="card-h">${ic("screen2")}窗口<span class="right"><button class="btn ghost icon sm" data-a="noop" data-msg="已刷新窗口列表">${ic("refresh")}</button></span></div>
         <div class="scroll wl">${UI_WINDOWS.map(w => `<a class="${u.win === w.id ? "on" : ""}" data-a="uiaWin" data-id="${w.id}">${w.elevated ? ic("shieldAlert", "sm") : ic("monitor", "sm")}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(w.n)}</span></a>`).join("")}</div></div>
-      <div class="card"><div class="card-h">${ic("layers")}元素树<span class="sub">${esc(win.n)}</span><span class="right"><div class="search" style="height:26px;width:150px">${ic("search", "sm")}<input placeholder="查找元素"></div></span></div>
+      <div class="card"><div class="card-h">${ic("layers")}元素树<span class="sub">${esc(win.n)}</span></div>
+        <div style="padding:8px 8px 0"><div class="search" style="height:28px">${ic("search", "sm")}<input placeholder="按名称或类型查找元素"></div></div>
         <div class="scroll" data-sk="tree">${center}</div></div>
       <div class="card props"><div class="card-h">${ic("target")}属性</div>
         <div class="card-b col" style="gap:12px">
@@ -492,11 +497,11 @@ function paneAgent(d) {
       </div>
       <div class="col" style="min-height:0;gap:12px">
         <div class="card"><div class="card-b col" style="gap:10px">
-          <div class="row"><span class="small muted">交给</span>
-            <div class="segmented">${AGENTS.filter(a => a.ok).map(a => `<button class="${g.who === a.n ? "on" : ""}" data-a="agentWho" data-v="${a.n}">${a.n}</button>`).join("")}</div>
-            <span class="spacer"></span><span class="small muted">工作目录</span><span class="tag mono">D:\\data\\projects\\deskbridge</span></div>
+          <div class="row" style="white-space:nowrap"><span class="small muted">交给</span>
+            <div class="segmented">${AGENTS.filter(a => a.ok).map(a => `<button class="${g.who === a.n ? "on" : ""}" data-a="agentWho" data-v="${a.n}">${a.n}</button>`).join("")}</div></div>
           <textarea class="textarea" rows="3" id="agentin" data-in="agent.prompt">${esc(g.prompt)}</textarea>
-          <div class="row"><select class="select" style="width:200px;height:30px"><option>每次写入前询问我</option><option>只读操作自动允许</option><option>全部自动（危险）</option></select>
+          <div class="row" style="flex-wrap:wrap"><span class="tag mono" title="工作目录">${ic("folder", "sm")}D:\\data\\projects\\deskbridge</span>
+            <select class="select" style="width:170px;height:30px"><option>每次写入前询问我</option><option>只读操作自动允许</option><option>全部自动（危险）</option></select>
             <span class="spacer"></span>${g.running ? `<button class="btn danger-soft" data-a="agentStop">${ic("stop")}取消任务</button>` : `<button class="btn primary" data-a="agentRun">${ic("send")}交给 ${g.who}</button>`}</div>
         </div></div>
         <div class="card" style="flex:1;min-height:160px;display:flex;flex-direction:column">

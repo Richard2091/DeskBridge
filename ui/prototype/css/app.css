@@ -55,8 +55,8 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .phonebar { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0; font-size: 14px; font-weight: 600; flex: none; }
 .phonebar .notch { width: 110px; height: 30px; border-radius: 16px; background: #111; }
 
-.shell { flex: 1; display: grid; grid-template-columns: 220px 1fr; min-height: 0; }
-.app[data-size="narrow"] .shell { grid-template-columns: 60px 1fr; }
+.shell { flex: 1; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
+.app[data-size="narrow"] .shell { grid-template-columns: 60px minmax(0, 1fr); }
 .content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .page { flex: 1; min-height: 0; background: var(--surface); border-top: 1px solid var(--border); border-left: 1px solid var(--border);
   border-radius: var(--r-lg) 0 0 0; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: var(--panel-blur); }
@@ -210,8 +210,8 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 
 /* 卡片与分组 */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); }
-.card-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
-.card-h .sub { font-weight: 400; color: var(--muted); font-size: 12px; }
+.card-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap; min-width: 0; }
+.card-h .sub { font-weight: 400; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .card-h .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .card-b { padding: 12px 14px; }
 .kv { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; font-size: 13px; }
@@ -348,7 +348,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 /* =========================================================
    设备页
    ========================================================= */
-.devices { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+.devices { flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
 .app[data-size="narrow"] .devices { grid-template-columns: 250px 1fr; }
 .dlist { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .dlist-h { display: flex; align-items: center; gap: 8px; padding: 16px 16px 10px; }
@@ -389,11 +389,11 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .pane-in { flex: 1; min-height: 0; padding: 16px 24px 20px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 
 /* 概览 */
-.ov { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ov { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .ov .span2 { grid-column: span 2; }
 .spark { width: 100%; height: 44px; display: block; }
-.capgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.cap { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface2); font-size: 12.5px; border: 1px solid var(--border); }
+.capgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.cap { white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface2); font-size: 12.5px; border: 1px solid var(--border); }
 .cap.no { color: var(--faint); background: transparent; border-style: dashed; }
 .cap .r { margin-left: auto; }
 .mini-log { display: flex; flex-direction: column; }
@@ -405,7 +405,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 /* 命令 */
 .cmd { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 5px 5px 5px 6px; box-shadow: var(--shadow-sm); flex: none; }
 .cmd:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.cmd .shell { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: var(--r-sm); background: var(--surface2); color: var(--muted); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; }
+.cmd .sh { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: var(--r-sm); background: var(--surface2); color: var(--muted); border: 1px solid var(--border); cursor: pointer; white-space: nowrap; }
 .cmd input { flex: 1; border: 0; outline: 0; background: transparent; font-family: var(--mono); font-size: 13px; min-width: 0; color: var(--text); }
 .cmdopts { display: flex; gap: 14px; font-size: 12px; color: var(--muted); align-items: center; flex: none; flex-wrap: wrap; }
 .cmdopts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
@@ -425,7 +425,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .runs .it .w { color: var(--faint); font-size: 12px; }
 
 /* 文件 */
-.fs { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 12px; min-height: 0; }
+.fs { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; min-height: 0; }
 .fs.nopreview { grid-template-columns: 1fr; }
 .crumbs { display: flex; align-items: center; gap: 2px; font-size: 13px; flex-wrap: wrap; }
 .crumbs a { padding: 3px 6px; border-radius: var(--r-xs); cursor: pointer; color: var(--muted); }
@@ -442,7 +442,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .progress i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
 
 /* 截图与远程画面中的模拟桌面 */
-.shot { flex: 1; display: grid; grid-template-columns: 1fr 180px; gap: 12px; min-height: 0; }
+.shot { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 12px; min-height: 0; }
 .shot-view { display: flex; flex-direction: column; min-height: 0; }
 .shot-canvas { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--surface3); border-radius: var(--r); padding: 14px; overflow: hidden; position: relative; }
 .thumbs { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
@@ -462,12 +462,12 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .desk .taskbar i:first-child { background: #4cc2ff; }
 .desk .aiframe { position: absolute; inset: 0; border: 3px solid #a855f7; border-radius: 6px; pointer-events: none; }
 .desk .aitip { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); background: rgba(124,58,237,.92); color: #fff; font-size: max(7px, 1.3cqw); padding: .6% 1.6%; border-radius: 99px; white-space: nowrap; }
-.desk .mouse { position: absolute; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 14px solid #fff; transform: rotate(-30deg); filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.desk .mouse { position: absolute; width: 2.2%; height: auto; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
 .desk .hit { position: absolute; border: 2px solid #f59e0b; background: rgba(245,158,11,.12); border-radius: 3px; }
 .desk-wrap { container-type: inline-size; width: 100%; max-height: 100%; display: flex; align-items: center; justify-content: center; }
 
 /* 界面元素 */
-.uia { flex: 1; display: grid; grid-template-columns: 200px 1fr 280px; gap: 12px; min-height: 0; }
+.uia { flex: 1; display: grid; grid-template-columns: 180px minmax(0, 1fr) 250px; gap: 12px; min-height: 0; }
 .uia .card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .uia .card .scroll { padding: 6px; }
 .wl a { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: var(--r-sm); cursor: pointer; font-size: 12.5px; }
@@ -482,7 +482,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .tree .nm { color: var(--text); }
 
 /* Agent */
-.agent { flex: 1; display: grid; grid-template-columns: 260px 1fr; gap: 12px; min-height: 0; }
+.agent { flex: 1; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; min-height: 0; }
 .agent .side { display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .ag { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
 .ag:last-child { border-bottom: 0; }
@@ -557,7 +557,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .share .perms { display: flex; flex-wrap: wrap; gap: 4px; }
 
 /* 设置 */
-.settings { flex: 1; display: grid; grid-template-columns: 200px 1fr; min-height: 0; }
+.settings { flex: 1; display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 0; }
 .snav { border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 .snav a { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-weight: 500; white-space: nowrap; }
 .snav a:hover { background: var(--hover); color: var(--text); }
@@ -610,14 +610,14 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .app[data-size="narrow"] .ov .span2 { grid-column: auto; }
 .app[data-size="narrow"] .fs { grid-template-columns: 1fr; }
 .app[data-size="narrow"] .fs .preview { display: none; }
-.app[data-size="narrow"] .uia { grid-template-columns: 160px 1fr; }
+.app[data-size="narrow"] .uia { grid-template-columns: 150px minmax(0, 1fr); }
 .app[data-size="narrow"] .uia .props { display: none; }
 .app[data-size="narrow"] .agent { grid-template-columns: 1fr; }
 .app[data-size="narrow"] .agent .side { display: none; }
 .app[data-size="narrow"] .shot { grid-template-columns: 1fr; }
 .app[data-size="narrow"] .shot .thumbs { display: none; }
 .app[data-size="narrow"] .shares { grid-template-columns: 1fr; }
-.app[data-size="narrow"] .settings { grid-template-columns: 160px 1fr; }
+.app[data-size="narrow"] .settings { grid-template-columns: 160px minmax(0, 1fr); }
 .app[data-size="narrow"] .dh .actions .label { display: none; }
 .app[data-size="narrow"] .capgrid { grid-template-columns: 1fr 1fr; }
 
