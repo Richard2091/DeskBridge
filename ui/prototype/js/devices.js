@@ -653,7 +653,7 @@ function phoneList() {
 
 function phoneDetail() {
   const d = devById(S.route.dev);
-  return `<div class="mtop"><button class="btn ghost icon" data-go="#/devices">${ic("chevLeft", "lg")}</button><h2>${d.name}</h2>
+  return `<div class="mtop"><button class="btn ghost icon" data-go="#/devices">${ic("chevLeft", "lg")}</button><h2 class="muted" style="font-size:14px;font-weight:500">设备</h2>
       ${d.online && !d.noNode && d.path === "lan" ? `<button class="btn ghost icon" data-a="openRemote">${ic("cast")}</button>` : ""}
       ${d.online && !d.noNode ? `<button class="btn ghost icon" data-a="devMenu">${ic("more")}</button>` : ""}</div>
     <div class="detail" style="flex:1">${detailHead(d).replace('<h1>', '<h1 style="font-size:17px">')}${detailBanner(d)}${detailTabs(d)}<div class="pane">${detailPane(d)}</div></div>`;
