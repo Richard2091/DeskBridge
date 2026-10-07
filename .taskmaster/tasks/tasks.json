@@ -1215,7 +1215,99 @@
           "21"
         ],
         "priority": "high",
-        "subtasks": [],
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "定义测试目标和测量方法",
+            "description": "确定画面档位、记录指标和端到端延迟的测量方法。",
+            "details": "档位：AI 观屏 1–5 fps；人工控制 1080p 30 fps；高帧率 60 fps；另测 4K。延迟不设硬性要求，拆成网络延迟（tailscale ping）和管线延迟（采集、编码、传输、解码、显示）分别记录。同机测试在画面里叠加时间戳直接相减；两机测试由控制端回显时间戳算往返，并用手机拍两块屏幕校验。资源指标：两端 CPU、GPU、内存、码率、丢帧率。",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 24
+          },
+          {
+            "id": 2,
+            "title": "共用画面管线：采集和编码",
+            "description": "Rust 采集桌面并做 H.264 编码，交给 Go，与界面框架无关，只做一次。",
+            "details": "采集用 DXGI Desktop Duplication；编码优先硬件（台式机 NVENC、笔记本 Intel Quick Sync，经 Media Foundation 或厂商接口），软件回退（如 openh264，注意许可证）。参考 RustDesk 的采集、编码选择和码率帧率自适应设计，不复制代码。注意两台机器都装了第三方虚拟显示适配器，可能影响采集，需验证。",
+            "status": "pending",
+            "dependencies": [
+              "24.1"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 3,
+            "title": "传输：tsnet 和网络场景",
+            "description": "经 tsnet 传输编码后的视频流，覆盖本机回环、局域网直连和中继。",
+            "details": "场景：本机回环（基准）；局域网直连（台式机与手机）；中继（台式机经 Linux 转发回自身，香港中继；台式机与笔记本，旧金山中继）。Linux 转发端用 tc netem 加延迟、抖动、丢包。记录公共 DERP 的吞吐上限（可能限速，待验证）、码率、抖动、丢帧，以及 TCP 队头阻塞的影响。",
+            "status": "pending",
+            "dependencies": [
+              "24.2"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 4,
+            "title": "三个框架的送帧通道和解码显示",
+            "description": "比较 Wails v3、Tauri v2、Flutter 把视频送进界面并解码显示的能力。",
+            "details": "Wails 和 Tauri：WebView2 中用 WebCodecs 解码再画到 Canvas，比较框架自带消息通道与本地 WebSocket 等送帧方式；Flutter：原生解码后写入纹理。在 30 和 60 fps、1080p 和 4K 下记录管线延迟、丢帧、CPU、GPU、内存。",
+            "status": "pending",
+            "dependencies": [
+              "24.2",
+              "24.3"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 5,
+            "title": "资源占用和 RustDesk 对照",
+            "description": "在两端测资源占用，并在相同条件下实际运行 RustDesk 作为基准。",
+            "details": "被控端：采集和编码的 CPU、GPU、内存，硬件和软件编码分别测。控制端：各框架的解码和显示开销。RustDesk 在台式机和笔记本之间互连，用相同的分辨率和帧率测试。",
+            "status": "pending",
+            "dependencies": [
+              "24.4"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 6,
+            "title": "手机端显示",
+            "description": "验证安卓手机作为控制端查看远程画面的方案，作为选型标准之一（关联任务 25）。",
+            "details": "在 Redmi（Android 15）上比较：手机浏览器打开网页方案（WebCodecs）、Flutter 安卓原型、Tauri v2 移动端（成熟度待验证）。优先用台式机与手机的局域网直连。记录解码延迟、丢帧、发热和耗电。用 adb 经 Tailscale 安装和收集日志。",
+            "status": "pending",
+            "dependencies": [
+              "24.3"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 7,
+            "title": "网络异常和界面响应",
+            "description": "验证高延迟、丢包、断线重连和取消操作时界面不卡死。",
+            "details": "按 ADR-0003 的网络场景，用 netem 制造数百毫秒延迟和丢包、断开再恢复；检查各框架界面响应、重连状态显示和取消操作。",
+            "status": "pending",
+            "dependencies": [
+              "24.3",
+              "24.4"
+            ],
+            "parentTaskId": 24
+          },
+          {
+            "id": 8,
+            "title": "汇总并决策",
+            "description": "汇总数据，确定客户端框架。",
+            "details": "结果写入 spikes/results.md；更新 ADR-0002、docs/architecture.md、docs/references.md；据此调整任务 1、12、25。",
+            "status": "pending",
+            "dependencies": [
+              "24.4",
+              "24.5",
+              "24.6",
+              "24.7"
+            ],
+            "parentTaskId": 24
+          }
+        ],
         "updatedAt": "2026-10-06T17:51:34.888Z"
       },
       {
