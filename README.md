@@ -2,7 +2,7 @@
 
 让 AI Agent 和人都能顺畅操作多台设备的开源控制平台：命令、文件和图形桌面，跨 Windows 和 Linux（macOS 预留）。
 
-> 状态：设计阶段，尚无可运行代码。原型 AgentDesk（Python）保留在 `/root/projects/agentdesk`，只作参考。
+> 状态：开发中，已有项目骨架，尚无可用功能。原型 AgentDesk（Python）保留在 `/root/projects/agentdesk`，只作参考。
 
 ## 要解决的问题
 

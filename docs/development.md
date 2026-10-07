@@ -5,8 +5,8 @@
 | | Linux 服务器 | Windows 开发机 |
 |---|---|---|
 | 位置 | `/root/projects/deskbridge` | `D:/data/AI/Projects/deskbridge` |
-| 用途 | AI 在这里编辑代码和文档、提交 | 下载依赖、编译、测试、运行桌面功能 |
-| 原因 | 资源很少（2 核、2GB 内存），只放源代码 | 资源充足，而且是主要目标平台 |
+| 用途 | AI 在这里编辑代码和文档、提交；跑轻量的 Go 检查和交叉编译 | 下载依赖、完整编译、测试、Rust 构建、运行桌面功能 |
+| 原因 | 资源很少（2 核、2GB 内存），只装了 Go，没有 Rust 和 Flutter | 资源充足，而且是主要目标平台 |
 
 ### 同步方式：GitHub 为中心
 
@@ -31,6 +31,37 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 4. 如果 Windows 上产生了需要入库的文件（如 `go.sum`），在 Windows 上提交并推送到 GitHub，Linux 再 `git pull`。
 5. 长时间的命令（首次下载依赖、完整编译）放到后台运行，结果写入日志文件，再读取日志。原型的单条命令最长 120 秒。
 6. 仓库目前是私有的，日常推送不需要逐次确认；**改为公开或推送到其他远程仓库前，必须先征得用户同意。**
+
+## 目录结构
+
+| 路径 | 内容 |
+|---|---|
+| `cmd/deskbridge/` | 唯一的程序入口，子命令见 `deskbridge help` |
+| `internal/cli/` | 命令行解析和子命令分派 |
+| `internal/mesh/` | 内置组网（tsnet）。不叫 `net`，避免和标准库重名 |
+| `internal/node/` | 节点，对外提供工具 |
+| `internal/tools/` | 工具实现 |
+| `internal/client/` | 命令行、MCP、桌面客户端共用的客户端库 |
+| `internal/mcp/` | MCP 服务器 |
+| `internal/store/` | 本地存储 |
+| `internal/platform/` | 平台差异，按 `_windows.go`、`_linux.go`、`_darwin.go` 分文件 |
+| `internal/version/` | 版本号，构建时用 `-ldflags` 注入 |
+| `desktop-helper/` | Rust 写的 Windows 桌面辅助进程 |
+| `ui/` | Flutter 客户端（任务 12 开始时建立） |
+| `scripts/` | 检查和构建脚本 |
+| `spikes/` | 技术验证代码，各自是独立的模块，不参与检查和 CI |
+
+## 检查和构建
+
+| 命令 | 在哪里运行 | 做什么 |
+|---|---|---|
+| `scripts/check.sh` | Linux、CI | gofmt、go vet、staticcheck、go test |
+| `scripts/build.sh [版本号]` | Linux、CI | 交叉编译 Windows/Linux/macOS 的 amd64 和 arm64，输出到 `dist/` |
+| `powershell -ExecutionPolicy Bypass -File scripts\check.ps1` | Windows、CI | Go 检查和测试，Rust 的 fmt、clippy、test，构建两个 Windows 程序 |
+
+- Go 版本由 `go.mod` 决定，本地 Go 较旧时会自动下载对应工具链（`GOTOOLCHAIN=auto`）。
+- `check.ps1` 必须保存为带 BOM 的 UTF-8，否则 Windows PowerShell 5.1 会按 GBK 读取中文。
+- CI 见 `.github/workflows/ci.yml`：Linux 任务跑 `check.sh` 和 `build.sh`，Windows 任务跑 `check.ps1`。Flutter 的构建和冒烟测试在任务 12 加入。
 
 ## 远程执行通道
 

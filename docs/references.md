@@ -38,6 +38,12 @@
 | `serde_json`（Rust） | 输出测量结果 | MIT OR Apache-2.0 |
 | `png`（Rust） | 保存解码后的检查画面 | MIT OR Apache-2.0 |
 
+开发工具（只在检查脚本和 CI 中通过 `go run` 运行，不编进程序）：
+
+| 工具 | 用途 | 许可证 |
+|---|---|---|
+| staticcheck（`honnef.co/go/tools`，2026.2.1） | Go 静态检查 | MIT（已核实 LICENSE，2026-10-07） |
+
 H.264 编码只用系统自带的 Media Foundation 编码器（显卡厂商的硬件编码器和微软软件编码器），不引入 openh264、x264 等编码库。
 
 ## 参考记录
