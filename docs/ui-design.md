@@ -175,7 +175,7 @@ Esc 依次关闭：菜单 → 弹出面板 → 抽屉 → 对话框 → 应用�
 - 位置：`ui/prototype/`。`index.html` 加载 `css/theme.css`（主题变量）、`css/app.css`（布局和组件）、`js/icons.js`（自绘图标）、`js/data.js`（示例数据，全部虚构）、`js/core.js`（状态、路由、外壳、浮层）、`js/devices.js`（设备首页、设备页、远程画面）、`js/pages.js`（操作记录、设置）。
 - 风格样张：`ui/style-samples/index.html`（第一轮四种风格）、`ui/style-samples/refined.html`（最终三套主题的样张）。
 - 右侧原型控制台：切换主题、明暗、窗口尺寸、场景、win-pc 的桌面控制权，跳到第 3 节的流程。
-- 地址参数（方便截图）：`?theme=clean|mono|soft&mode=light|dark|system&size=desktop|narrow|phone&scenario=normal|loading|nologin|error|netdown&control=none|ai|local|human|paused&proto=closed`，页面用 `#/…`。另外：`modal=动作名`（如 `addDevice`），`sess=win-pc`（假装已打开远程窗口），`win=remote&dev=win-pc`（远程窗口本身）。
+- 地址参数（方便截图）：`?theme=clean|mono|soft&mode=light|dark|system&size=desktop|narrow|phone&scenario=normal|loading|nologin|error|netdown&control=none|ai|local|human|paused&proto=closed`，页面用 `#/…`。另外：`modal=动作名`（如 `addDevice`；`modal=pairDevice&id=study-pc` 打开配对对话框），`sess=win-pc`（假装已打开远程窗口），`win=remote&dev=win-pc`（远程窗口本身）。
 - 远程画面在浏览器里用 `window.open` 打开新窗口模拟独立窗口；浏览器阻止弹出窗口时改为在当前窗口显示。
 - 第三版原型（含第 8 节的后续功能）在提交 `9067ca1` 中，需要时可以从 git 历史中查看。
 

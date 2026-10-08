@@ -37,7 +37,7 @@ function dcard(d) {
   if (!d.online) foot = `${ic("clock", "sm")}${d.lastSeen}在线`;
   else if (d.noNode) foot = `${ic("info", "sm")}在内网中，没有运行 DeskBridge`;
   else if (d.self) foot = `${ic("check", "sm")}可被其他设备和 AI 访问`;
-  else if (unpaired(d)) foot = `${ic("link", "sm")}局域网中发现 · 未配对<button class="btn sm primary" style="margin-left:auto" data-a="pairDevice" data-id="${d.id}">配对</button>`;
+  else if (unpaired(d)) foot = `${ic("link", "sm")}未配对<button class="btn sm primary" style="margin-left:auto" data-a="pairDevice" data-id="${d.id}">配对</button>`;
   else foot = `${ic("route", "sm")}${pathText(d)}`;
   const pill = statusPill(d) || (S.sessions[d.id] !== undefined ? `<span class="pill info">${ic("cast", "sm")}远程窗口已打开</span>` : "");
   if (pill && isActive(d) && !down && !unpaired(d)) foot = pill;
