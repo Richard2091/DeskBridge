@@ -471,7 +471,7 @@ function fsChild(d, path, name) {
 
 function paneFiles(d) {
   const f = fsOf(d.id);
-  const crumbs = fsCrumbs(d, f.path).map(([n, p]) => `<a data-a="cd" data-p="${esc(p)}">${esc(n)}</a>`).join(`<span class="sep">${ic("chevRight", "sm")}</span>`);
+  const crumbs = fsCrumbs(d, f.path).map(([n, p]) => `<a data-a="cd" data-path="${esc(p)}">${esc(n)}</a>`).join(`<span class="sep">${ic("chevRight", "sm")}</span>`);
   const list = fsTree(d)[f.path];
   const priv = isWin(d) ? "D:\\data\\private" : null;
   let body;
@@ -481,7 +481,7 @@ function paneFiles(d) {
     body = `<div class="empty"><div class="art">${ic("folder", "xl")}</div><h3>空文件夹</h3><p>把文件拖到这里即可上传。</p></div>`;
   } else {
     const rows = list.concat(isWin(d) && f.path === "D:\\data" ? [{ n: "private", d: true, m: "—" }] : []);
-    body = `<div class="list2">${rows.map(x => `<div class="li" data-a="${x.d ? "cd" : "fileDrawer"}" data-p="${esc(fsChild(d, f.path, x.n))}" data-n="${esc(x.n)}">
+    body = `<div class="list2">${rows.map(x => `<div class="li" data-a="${x.d ? "cd" : "fileDrawer"}" data-path="${esc(fsChild(d, f.path, x.n))}" data-n="${esc(x.n)}">
         ${x.d ? `<span class="fname"><span class="folder">${ic("folder", "lg")}</span></span>` : `<span class="fname">${ic(x.text ? "fileText" : "file", "lg")}</span>`}
         <div class="b"><div class="t">${esc(x.n)}</div></div>
         <div class="r"><span class="hide-m">${x.m}</span><span style="width:64px;text-align:right">${x.d ? "" : x.s}</span><span style="width:14px;display:inline-flex">${x.d ? ic("chevRight", "sm") : ""}</span></div></div>`).join("")}</div>`;
@@ -496,7 +496,7 @@ function paneFiles(d) {
     ${up ? `<div class="card" style="padding:12px 16px"><div class="row small"><span>${ic("upload", "sm")}上传 <b>${up.n}</b></span><span class="spacer"></span><span class="muted">${up.p}%</span><button class="btn ghost sm" data-a="cancelUpload">取消</button></div><div class="progress" style="margin-top:8px"><i style="width:${up.p}%"></i></div></div>` : ""}
     ${body}`;
 }
-A.cd = el => { fsOf(S.route.dev).path = el.dataset.p; render(); };
+A.cd = el => { fsOf(S.route.dev).path = el.dataset.path; render(); };
 A.cdUp = () => {
   const d = devById(S.route.dev), f = fsOf(d.id), c = fsCrumbs(d, f.path);
   if (c.length > 1) { f.path = c[c.length - 2][1]; render(); }
