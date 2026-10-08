@@ -133,7 +133,7 @@ function parseRoute() {
     // 这种连接方式里没有这台设备（或连接方式已移除）：回到设备列表并说明原因
     const name = r.dev;
     r.dev = null; r.via = null;
-    history.replaceState(null, "", "#/devices");
+    location.replace("#/devices"); // 不用 history.replaceState：直接打开 file:// 时会报安全错误
     setTimeout(() => toast("info", `当前的连接方式里没有 ${name}`, tsAdded() ? "" : "它可能在 Tailscale 里，添加 Tailscale 后可以打开"), 0);
   }
   else if (routeDev) S.conn = routeDev.via; // 从设备页返回时回到它所在的连接方式
