@@ -28,6 +28,7 @@ const S = {
   netTry: 3, tsLogging: false, tsErr: false, tsFailNext: false,
   stopped: {}, // 被紧急停止的 AI：设备 ID → { who, t, kill }
   connecting: {}, elevated: false, // 远程桌面：正在连接的条目；演示“前台是管理员窗口”
+  remoteOpts: { quality: "自动（推荐）", refresh: "每 5 秒", monitor: "显示器 1（主）" },
 };
 
 const A = {}; // 动作表：data-a="名称"
@@ -75,11 +76,12 @@ function latBars(ms) {
 function devState(d) {
   // 返回 [圆点类, 是否动态, 状态文字, 标签类]
   if (unreach(d)) return ["off", false, "状态未知", "off"];
+  if (d.via === "lan" && !d.self && !d.paired) return ["warn", false, "未配对", "warn"];
   if (!d.online) return ["off", false, "离线", "off"];
   if (d.noNode) return ["off", false, "未安装 DeskBridge", "off"];
   const c = ctlOf(d);
   if (c !== "none") return [CTL[c].cls, !!CTL[c].live, CTL[c].label, CTL[c].cls];
-  if (d.latency >= 150) return ["warn", false, "延迟高", "warn"];
+  if (d.latency >= 100) return ["warn", false, "延迟高", "warn"];
   return ["", false, "在线", "ok"];
 }
 
@@ -254,7 +256,7 @@ function openMenu(anchor, items) {
   const right = app.right - r.right;
   const top = r.bottom - app.top + 4;
   const html = `<div class="menu" style="top:${top}px;right:${right}px">${items.map(i => i === "-" ? `<div class="sep"></div>` :
-    `<a class="${i.bad ? "bad" : ""}" data-a="menuPick" data-msg="${esc(i.msg || "")}" data-act="${i.act || ""}" data-id="${i.id || ""}">${ic(i.icon)}${i.t}</a>`).join("")}</div>`;
+    `<a class="${i.bad ? "bad" : ""}" data-a="menuPick" data-msg="${esc(i.msg || "")}" data-act="${i.act || ""}" data-id="${i.id || ""}" data-key="${i.key || ""}">${ic(i.icon)}${i.t}</a>`).join("")}</div>`;
   S.menu = { html };
   render();
 }
@@ -336,12 +338,15 @@ function renderProto() {
 function onProto(el) {
   const k = el.dataset.p, v = el.dataset.v;
   if (k === "toggleProto") { $("#proto").classList.toggle("closed"); return; }
-  if (k === "flow") return FLOWS[v]();
+  if (k === "flow") {
+    if (!["welcome", "netdown"].includes(v)) S.scenario = "normal";
+    return FLOWS[v]();
+  }
   if (k === "control") { setCtl(devById("win-pc"), v); render(); return; }
   S[k] = v;
   if (k === "scenario" && v === "netdown") S.netTry = 1;
   if (k === "scenario") applyScenario();
-  if (k === "size") parseRoute();
+  if (k === "size") { if (v === "phone") S.search = ""; parseRoute(); }
   if (k === "scenario") parseRoute();
   render();
 }
@@ -414,6 +419,30 @@ document.addEventListener("input", ev => {
   if (el.dataset.rerender) render();
 });
 
+let longPressTimer = 0, longPressed = false;
+document.addEventListener("pointerdown", ev => {
+  if (!isPhone() || ev.button !== 0) return;
+  const row = ev.target.closest(".drow[data-id]");
+  if (!row || ev.target.closest("button, a")) return;
+  longPressed = false;
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    longPressed = true;
+    openMenu({ getBoundingClientRect: () => row.getBoundingClientRect() }, [
+      { icon: "terminal", t: "终端", act: "rowTerm", key: `${row.dataset.id}@${row.dataset.via}` },
+      { icon: "folder", t: "文件", act: "rowFiles", key: `${row.dataset.id}@${row.dataset.via}` },
+      { icon: "cast", t: "远程桌面", act: "openRemote", key: `${row.dataset.id}@${row.dataset.via}` },
+    ]);
+  }, 450);
+});
+["pointerup", "pointercancel", "pointermove"].forEach(type => document.addEventListener(type, () => clearTimeout(longPressTimer)));
+document.addEventListener("click", ev => {
+  if (!longPressed) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  longPressed = false;
+}, true);
+
 document.addEventListener("keydown", ev => {
   if (ev.key === "Escape") {
     if (S.menu) S.menu = null;
@@ -450,6 +479,7 @@ setInterval(() => {
 window.addEventListener("DOMContentLoaded", () => {
   const q = new URLSearchParams(location.search);
   ["theme", "mode", "size", "scenario", "conn"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
+  if (isPhone()) S.search = "";
   applyScenario();
   if (q.get("conn")) S.conn = q.get("conn");
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");

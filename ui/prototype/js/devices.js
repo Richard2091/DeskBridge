@@ -14,7 +14,7 @@ function viewDevices() {
 // 首页
 // =========================================================
 function isActive(d) { return d.online && !d.noNode; }
-const unpaired = d => d.via === "lan" && !d.paired; // 局域网中发现、尚未配对
+const unpaired = d => d.via === "lan" && !d.self && !d.paired; // 局域网中发现、尚未配对
 
 function statusPill(d) {
   const [, , label, pc] = devState(d);
@@ -33,18 +33,18 @@ function drow(d) {
   else if (d.self) path = `${ic("check", "sm")}可被其他设备和 AI 访问`;
   else if (unpaired(d)) path = `${ic("link", "sm")}未配对`;
   else path = `${ic("route", "sm")}${pathText(d)}`;
-  const pill = statusPill(d) || (S.sessions[entryKey(d)] !== undefined ? `<span class="pill info">${ic("cast", "sm")}远程窗口已打开</span>` : "");
+  const pill = statusPill(d) || (S.sessions[entryKey(d)] !== undefined ? `<span class="pill ok">${ic("cast", "sm")}远程窗口已打开</span>` : "");
   const usable = isActive(d) && !d.self && !down && !unpaired(d);
   const lat = usable ? `${latBars(d.latency)}${d.latency} 毫秒` : "";
   const right = unpaired(d)
-    ? `<button class="btn sm primary" data-a="pairDevice" data-id="${d.id}">配对</button>`
+    ? `<button class="btn sm primary pair-action" data-a="pairDevice" data-id="${d.id}">配对</button>`
     : `${usable ? `<span class="quick">
-        <button class="btn ghost icon sm" title="终端" data-go="${devUrl(d, "term")}">${ic("terminal")}</button>
-        <button class="btn ghost icon sm" title="文件" data-go="${devUrl(d, "files")}">${ic("folder")}</button>
-        ${canRemote(d) ? `<button class="btn ghost icon sm" title="远程桌面" data-a="openRemote" data-key="${entryKey(d)}">${ic("cast")}</button>` : ""}
+        <button class="btn ghost icon sm" title="终端" aria-label="打开 ${d.name} 终端" data-go="${devUrl(d, "term")}">${ic("terminal")}</button>
+        <button class="btn ghost icon sm" title="文件" aria-label="打开 ${d.name} 文件" data-go="${devUrl(d, "files")}">${ic("folder")}</button>
+        ${canRemote(d) ? `<button class="btn ghost icon sm" title="远程桌面" aria-label="打开 ${d.name} 远程桌面" data-a="openRemote" data-key="${entryKey(d)}">${ic("cast")}</button>` : ""}
       </span>` : ""}${ic("chevRight", "sm")}`;
   const nav = unpaired(d) ? `style="cursor:default"` : `data-go="${devUrl(d)}"`;
-  return `<div class="drow ${dim} ${d.self ? "self" : ""}" ${nav}>
+  return `<div class="drow ${dim} ${d.self ? "self" : ""}" data-id="${d.id}" data-via="${d.via}" ${nav}>
     <div class="c-name"><div class="dic">${ic(kindIcon(d))}${dot(d)}</div>
       <div style="min-width:0"><div class="nm">${d.name}${pill}</div><div class="os">${d.os}</div></div></div>
     <div class="c-path">${path}</div>
@@ -70,6 +70,8 @@ function connTabs(match) {
     <button class="btn ghost ${tsAdded() ? "icon " : ""}sm" title="添加连接方式" data-a="addConn">${ic("plus", "sm")}${tsAdded() ? "" : "添加连接方式"}</button></nav>`;
 }
 A.setConn = el => { S.conn = el.dataset.k; render(); };
+A.rowTerm = el => go(devUrl(devByKey(el.dataset.key), "term"));
+A.rowFiles = el => go(devUrl(devByKey(el.dataset.key), "files"));
 
 // 当前连接方式的状态条：状态、账号或本机地址，右侧操作
 function connBar(status, right = "") {
@@ -114,7 +116,7 @@ function lanPane(q, match) {
       <div class="btns"><button class="btn primary lg" data-a="setToggle" data-k="lanOn">开启局域网发现</button></div></div>`;
   }
   const status = `<span class="pill ok"><span class="pulse"></span>已开启</span><span class="conn-meta">本机 <span class="mono">${CONNECTORS[1].ip}</span></span>`;
-  const right = `<button class="btn ghost sm" data-a="showPairCode">${ic("link", "sm")}本机配对码</button><button class="btn ghost sm" data-go="#/settings/network">${ic("sliders", "sm")}设置</button>`;
+  const right = `<button class="btn ghost sm" data-a="showPairCode" aria-haspopup="dialog">${ic("link", "sm")}本机配对码</button><button class="btn ghost sm" data-go="#/settings/network">${ic("sliders", "sm")}设置</button>`;
   const all = DEVICES.filter(d => d.via === "lan");
   const list = all.filter(match);
   const notice = S.lanNotice ? `<div class="banner info conn-note">${ic("info")}<div class="t">局域网中的其他设备能看到本机名称 <b>my-laptop</b>；对方要输入本机显示的配对码才能连接。</div><div class="btns"><button class="btn sm" data-a="lanNoticeOk">知道了</button></div></div>` : "";
@@ -157,7 +159,7 @@ function devicesHome() {
     : `<div class="v2-head"><div><h1>设备</h1><div class="sub">${!tsOn() && !S.set.lanOn ? "还没有可用的连接方式" : `${online} 台在线 · 你和 AI 都可以操作它们`}</div></div>
         <div class="actions"><div class="search" style="width:220px;background:var(--surface)">${ic("search", "sm")}<input id="dsearch" placeholder="搜索设备" value="${esc(S.search)}" data-in="search" data-rerender="1"></div>
         <button class="btn primary" data-a="addDevice">${ic("plus")}添加设备</button></div></div>`;
-  const q = S.search.trim().toLowerCase();
+  const q = isPhone() ? "" : S.search.trim().toLowerCase();
   const match = d => !q || (d.name + d.ip + d.os).toLowerCase().includes(q);
   let body;
   if (S.scenario === "loading") {
@@ -167,7 +169,7 @@ function devicesHome() {
   } else {
     body = S.conn === "tailscale" && tsAdded() ? tsPane(q, match) : lanPane(q, match);
   }
-  return `<div class="v2-page" data-sk="home"><div class="v2-in">${head}${connTabs(match)}${body}</div></div>`;
+  return `<div class="v2-page" data-sk="home"><div class="v2-in">${head}${S.scenario === "normal" ? connTabs(match) : ""}${body}</div></div>`;
 }
 
 A.tsLogin = () => {
@@ -661,10 +663,10 @@ function remoteWindow(d) {
 }
 
 A.popRemote = el => { S.popDev = el.dataset.key; openPop(el, "remote"); };
-POPS.remote = () => shotMode(devByKey(S.popDev)) ? `<div class="ph2">自动刷新</div>${["每 2 秒", "每 5 秒", "每 15 秒", "不自动刷新"].map((q, i) => `<div class="pi"><span class="radio ${i === 1 ? "on" : ""}"></span>${q}</div>`).join("")}
-  <div class="divider"></div><div class="ph2">显示器</div>${["显示器 1（主）", "显示器 2"].map((q, i) => `<div class="pi"><span class="radio ${i === 0 ? "on" : ""}"></span>${q}</div>`).join("")}
-  <div class="divider"></div><div class="pi" style="cursor:default"><span class="muted">实时画面只在局域网直连时可用</span></div>` : `<div class="ph2">画质</div>${["自动（推荐）", "清晰优先", "流畅优先"].map((q, i) => `<div class="pi"><span class="radio ${i === 0 ? "on" : ""}"></span>${q}</div>`).join("")}
-  <div class="divider"></div><div class="ph2">显示器</div>${["显示器 1（主）", "显示器 2"].map((q, i) => `<div class="pi"><span class="radio ${i === 0 ? "on" : ""}"></span>${q}</div>`).join("")}
+POPS.remote = () => shotMode(devByKey(S.popDev)) ? `<div class="ph2">自动刷新</div>${["每 2 秒", "每 5 秒", "每 15 秒", "不自动刷新"].map(q => remoteOption("refresh", q)).join("")}
+  <div class="divider"></div><div class="ph2">显示器</div>${["显示器 1（主）", "显示器 2"].map(q => remoteOption("monitor", q)).join("")}
+  <div class="divider"></div><div class="pi" style="cursor:default"><span class="muted">实时画面只在局域网直连时可用</span></div>` : `<div class="ph2">画质</div>${["自动（推荐）", "清晰优先", "流畅优先"].map(q => remoteOption("quality", q)).join("")}
+  <div class="divider"></div><div class="ph2">显示器</div>${["显示器 1（主）", "显示器 2"].map(q => remoteOption("monitor", q)).join("")}
   <div class="divider"></div><div class="pi" style="cursor:default"><span class="muted">局域网直连 · 7.6 Mbps</span></div>`;
 
 A.openRemote = el => {
@@ -691,6 +693,11 @@ A.focusRemote = el => {
   if (w && !w.closed) w.focus(); else toast("info", `已切换到 ${devByKey(el.dataset.key).name} 的远程窗口`, "原型里这是示例会话");
   render();
 };
+function remoteOption(key, value) {
+  const on = S.remoteOpts[key] === value;
+  return `<button class="pi" data-a="remoteOpt" data-k="${key}" data-v="${value}" aria-pressed="${on}"><span class="radio ${on ? "on" : ""}"></span>${value}</button>`;
+}
+A.remoteOpt = el => { S.remoteOpts[el.dataset.k] = el.dataset.v; toast("ok", `已选择 ${el.dataset.v}`); render(); };
 A.closeSession = el => {
   const k = el.dataset.key, w = S.sessions[k];
   if (w && !w.closed) w.close();

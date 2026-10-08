@@ -131,8 +131,8 @@ function settingsSec(sec) {
         sitem("只在我离开时允许 AI 操作桌面", "本地无输入超过 5 分钟或屏幕已锁定时，才允许 AI 使用鼠标键盘", sw("onlyAway")),
       ]) +
       sgroup("紧急操作（在被控端本机使用）", [
-        sitem("暂停所有远程操作", "中断远程的鼠标键盘，拒绝新的远程操作，后台命令继续", `<span class="kbd" style="margin:0">${s.hkPause}</span><button class="btn sm ghost">修改</button>`),
-        sitem("终止", "暂停，并结束远程一方启动的所有进程", `<span class="kbd" style="margin:0">${s.hkStop}</span><button class="btn sm ghost">修改</button>`),
+        sitem("暂停所有远程操作", "中断远程的鼠标键盘，拒绝新的远程操作，后台命令继续", `<span class="kbd" style="margin:0">${s.hkPause}</span><button class="btn sm ghost" data-a="noop" data-msg="原型未实现">修改</button>`),
+        sitem("终止", "暂停，并结束远程一方启动的所有进程", `<span class="kbd" style="margin:0">${s.hkStop}</span><button class="btn sm ghost" data-a="noop" data-msg="原型未实现">修改</button>`),
         ...(Object.keys(S.stopped).length
           ? Object.entries(S.stopped).map(([id, st]) => sitem(`已紧急停止：${st.who}`, `${id} · ${st.t} 停止，它在这台设备上的请求会被拒绝`, `<button class="btn sm" data-a="resumeAI" data-id="${id}">恢复</button>`))
           : [sitem("已紧急停止的 AI", "被你在设备页停止的 AI 会话", `<span class="muted small">无</span>`)]),
@@ -188,7 +188,7 @@ function settingsSec(sec) {
           : [sitem("还没有 AI 连接", "其他设备上的 AI 客户端通过 MCP 连接后，会显示在这里", "")];
       })());
     case "about": return `<h2>关于</h2><div class="sub">DeskBridge 0.3.0</div>` +
-      sgroup("", [sitem("版本", "0.3.0（2026-10-07）", `<button class="btn sm" data-a="noop" data-msg="已是最新版本">检查更新</button>`), sitem("开源许可证", "以及使用的第三方组件", `<button class="btn sm ghost">${ic("external")}查看</button>`), sitem("日志", "遇到问题时可以附上日志", `<button class="btn sm ghost">打开日志目录</button>`)]);
+      sgroup("", [sitem("版本", "0.3.0（2026-10-07）", `<button class="btn sm" data-a="noop" data-msg="已是最新版本">检查更新</button>`), sitem("开源许可证", "以及使用的第三方组件", `<button class="btn sm ghost" data-a="noop" data-msg="原型未实现">查看</button>`), sitem("日志", "遇到问题时可以附上日志", `<button class="btn sm ghost" data-a="noop" data-msg="原型未实现">打开日志目录</button>`)]);
   }
   return "";
 }
