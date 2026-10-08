@@ -100,7 +100,7 @@ function tsPane(q, match) {
   const inactive = mine.filter(d => !isActive(d));
   const open = S.exp.inactive || q;
   return `${connBar(status, right)}
-    ${netDown() ? `<div class="small muted" style="margin:-6px 0 12px">设备状态可能不是最新的，恢复后会自动刷新。局域网设备不受影响。</div>` : ""}
+    ${netDown() ? `<div class="small muted conn-note">设备状态可能不是最新的，恢复后会自动刷新。局域网设备不受影响。</div>` : ""}
     ${mine.length ? `<div class="dlist">${active.map(drow).join("")}${inactive.length ? (open
       ? `${inactive.map(drow).join("")}${q ? "" : `<div class="drow more" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
       : `<div class="drow more" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`) : ""}</div>`

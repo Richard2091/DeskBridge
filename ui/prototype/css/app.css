@@ -856,7 +856,9 @@ body.rwin .stage { padding: 0; }
 .conn-tabs .btn { margin-left: 4px; }
 .conn-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; margin-bottom: calc(14px - var(--sec)); }
 .conn-bar .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-.conn-meta { color: var(--muted); font-size: 12.5px; }
+.conn-meta { color: var(--muted); font-size: 12.5px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-note { margin: -6px 0 calc(14px - var(--sec)); }
+.app[data-size="phone"] .conn-bar { flex-wrap: nowrap; }
 .conn-empty { border-radius: var(--r-lg); border: 1px dashed var(--border-strong); padding: 48px 24px; }
 a.link { color: var(--accent); cursor: pointer; text-decoration: none; }
 a.link:hover { text-decoration: underline; }
