@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <title>DeskBridge 界面原型</title>
 <!--
-  任务 27：可交互的界面原型（不接后端）。用浏览器直接打开即可。
+  任务 27：可交互的界面原型（初版范围，不接后端）。用浏览器直接打开即可。
   左侧是产品窗口，右侧是原型控制台：切换主题、明暗、窗口尺寸、场景和控制权状态，或跳到某个流程。
-  地址参数（便于截图）：?theme=clean|mono|soft&mode=light|dark&size=desktop|narrow|phone&scenario=…&control=…&proto=closed，
-  页面用 # 路由，例如 #/devices/win-pc/cmd、#/settings/appearance、#/welcome。
+  初版包含：设备页（按连接方式分组：Tailscale、局域网）、设备详情（概览、终端、文件、桌面）、远程画面、操作记录、设置、桌面控制权提示。
+  初版不做：调用被控端的 AI、外部设备和他人共享、访问权限、发起端确认、全局搜索、首次登录向导。
+  地址参数（便于截图）：?theme=clean|mono|soft&mode=light|dark&size=desktop|narrow|phone&scenario=normal|loading|nologin|error|netdown&control=…&proto=closed，
+  页面用 # 路由，例如 #/devices/win-pc/term、#/devices/living-room-pc/overview、#/settings/network。
 -->
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/app.css">

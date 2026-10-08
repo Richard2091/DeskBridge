@@ -1,21 +1,15 @@
-// 设备：首页卡片网格 → 设备页（概览、终端、文件、桌面、AI）。次要信息放进展开器、抽屉和弹出面板。
+// 设备（初版范围）：首页按连接方式分组（Tailscale、局域网）→ 设备页（概览、终端、文件、桌面）。次要信息放进展开器、抽屉和弹出面板。
 
 const TABS = [
   ["overview", "info", "概览"],
   ["term", "terminal", "终端"],
   ["files", "folder", "文件"],
   ["desk", "monitor", "桌面"],
-  ["ai", "bot", "AI"],
 ];
 
 // 设备对某个标签页的可用性：null 表示可用，否则返回 [原因类型, 说明]
 function tabBlock(d, tab) {
   if (tab === "desk" && d.kind === "server") return ["nodesk", "这台设备没有图形桌面"];
-  if (tab === "ai" && d.outdated) return ["old", "需要节点 0.3.0 以上"];
-  if (d.group === "external") {
-    const map = { term: "命令", files: "读文件", desk: "截图", ai: "Agent" };
-    if (map[tab] && !d.perms.includes(map[tab])) return ["perm", `alice 没有授予“${map[tab]}”权限`];
-  }
   return null;
 }
 
@@ -27,6 +21,7 @@ function viewDevices() {
 // 首页
 // =========================================================
 function isActive(d) { return d.online && !d.noNode; }
+const unpaired = d => d.via === "lan" && !d.paired; // 局域网中发现、尚未配对
 
 function statusPill(d) {
   const [, , label, pc] = devState(d);
@@ -36,33 +31,82 @@ function statusPill(d) {
 }
 
 function dcard(d) {
-  const dim = !isActive(d) || (netDown() && !d.self) ? "dim" : "";
+  const down = unreach(d);
+  const dim = !isActive(d) || down ? "dim" : "";
   let foot;
   if (!d.online) foot = `${ic("clock", "sm")}${d.lastSeen}在线`;
   else if (d.noNode) foot = `${ic("info", "sm")}在内网中，没有运行 DeskBridge`;
   else if (d.self) foot = `${ic("check", "sm")}可被其他设备和 AI 访问`;
-  else if (d.group === "external") foot = `${ic("users", "sm")}来自 ${d.owner}`;
+  else if (unpaired(d)) foot = `${ic("link", "sm")}局域网中发现 · 未配对<button class="btn sm primary" style="margin-left:auto" data-a="pairDevice" data-id="${d.id}">配对</button>`;
   else foot = `${ic("route", "sm")}${pathText(d)}`;
   const pill = statusPill(d) || (S.sessions[d.id] !== undefined ? `<span class="pill info">${ic("cast", "sm")}远程窗口已打开</span>` : "");
-  if (pill && isActive(d) && !netDown()) foot = pill;
-  const lat = isActive(d) && !d.self && !netDown() ? `<span class="lat">${latBars(d.latency)}${d.latency} 毫秒</span>` : "";
-  const quick = isActive(d) && !d.self && !netDown() ? `<div class="quick">
+  if (pill && isActive(d) && !down && !unpaired(d)) foot = pill;
+  const usable = isActive(d) && !d.self && !down && !unpaired(d);
+  const lat = usable ? `<span class="lat">${latBars(d.latency)}${d.latency} 毫秒</span>` : "";
+  const quick = usable ? `<div class="quick">
       <button class="btn ghost icon sm" title="终端" data-go="#/devices/${d.id}/term">${ic("terminal")}</button>
       <button class="btn ghost icon sm" title="文件" data-go="#/devices/${d.id}/files">${ic("folder")}</button>
       ${d.kind !== "server" ? `<button class="btn ghost icon sm" title="桌面" data-go="#/devices/${d.id}/desk">${ic("monitor")}</button>` : ""}
     </div>` : "";
-  return `<div class="dcard ${dim} ${d.self ? "self" : ""}" data-go="#/devices/${d.id}/overview">
+  const nav = unpaired(d) ? "" : `data-go="#/devices/${d.id}/overview"`;
+  return `<div class="dcard ${dim} ${d.self ? "self" : ""}" ${nav} ${nav ? "" : `style="cursor:default"`}>
     <div class="top"><div class="dic">${ic(kindIcon(d))}${dot(d)}</div>
       <div style="min-width:0"><div class="nm">${d.name}</div><div class="os">${d.os}</div></div></div>
     <div class="foot">${foot}${lat}</div>${quick}
   </div>`;
 }
 
+// 连接方式分组的组头：名称 + 该连接方式自己的状态 + 右侧操作
+function connHead(icon, name, status, right = "") {
+  return `<div class="sec-h conn-h">${ic(icon, "sm")}<h2>${name}</h2>${status}<span class="right">${right}</span></div>`;
+}
+
+function tsGroup(q, match) {
+  const set = `<button class="btn ghost sm" data-go="#/settings/network">${ic("sliders", "sm")}设置</button>`;
+  if (noLogin()) {
+    const busy = S.tsLogging;
+    return `<section>${connHead("globe", "Tailscale", `<span class="pill off">未登录</span>`)}
+      <div class="empty" style="padding:36px 24px"><div class="art accent">${ic("globe", "xl")}</div>
+        <h3>${busy ? "请在浏览器中完成登录" : "登录 Tailscale"}</h3>
+        <p>${busy ? "已在浏览器中打开登录页，登录完成后会自动回到这里。" : "登录 Tailscale 后，同一账号下的设备会自动出现"}</p>
+        <div class="btns">${busy ? `<span class="spin"></span>` : `<button class="btn primary lg" data-a="tsLogin">${ic("external")}登录 Tailscale</button>`}</div></div></section>`;
+  }
+  const status = netDown()
+    ? `<span class="pill bad"><span class="pulse bad"></span>已断开 · 正在重连（第 ${S.netTry} 次）</span>`
+    : `<span class="pill ok"><span class="pulse"></span>已连接</span><span class="conn-meta">user@example.com · 本机 <span class="mono">${CONNECTORS[0].ip}</span></span>`;
+  const right = (netDown() ? `<button class="btn sm" data-a="netRetry">${ic("refresh", "sm")}立即重试</button>` : "") + set;
+  const mine = DEVICES.filter(d => d.via === "tailscale" && match(d));
+  const active = mine.filter(isActive);
+  const inactive = mine.filter(d => !isActive(d));
+  const open = S.exp.inactive || q;
+  return `<section>${connHead("globe", "Tailscale", status, right)}
+    ${netDown() ? `<div class="small muted" style="margin:-4px 0 12px">设备状态可能不是最新的，恢复后会自动刷新。局域网设备不受影响。</div>` : ""}
+    <div class="dgrid">${active.map(dcard).join("")}</div>
+    ${inactive.length ? `<div style="margin-top:14px">${open
+      ? `<div class="dgrid">${inactive.map(dcard).join("")}</div>${q ? "" : `<div class="collapsed-row" style="margin-top:14px" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
+      : `<div class="collapsed-row" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`}</div>` : ""}
+  </section>`;
+}
+
+function lanGroup(match) {
+  const on = S.set.lanOn;
+  const status = on
+    ? `<span class="pill ok"><span class="pulse"></span>已开启</span><span class="conn-meta">本机 <span class="mono">${CONNECTORS[1].ip}</span></span>`
+    : `<span class="pill off">已关闭</span>`;
+  const right = on ? "" : `<button class="btn sm" data-a="setToggle" data-k="lanOn">开启</button>`;
+  const list = DEVICES.filter(d => d.via === "lan" && match(d));
+  return `<section>${connHead("wifi", "局域网", status, right)}
+    ${!on ? `<div class="muted small">开启后，会在同一局域网中发现运行着 DeskBridge 的设备。</div>`
+      : list.length ? `<div class="dgrid">${list.map(dcard).join("")}</div>`
+      : `<div class="muted small">没有发现其他设备。在对方设备上打开 DeskBridge，并确保在同一局域网内。</div>`}
+  </section>`;
+}
+
 function devicesHome() {
-  const online = DEVICES.filter(d => isActive(d) && !d.self).length;
+  const online = DEVICES.filter(d => isActive(d) && !d.self && !unreach(d) && !(noLogin() && d.via === "tailscale") && !unpaired(d)).length;
   const head = isPhone()
-    ? `<div class="mtop"><h1>设备</h1><button class="btn ghost icon" data-a="openPalette">${ic("search")}</button><button class="btn primary icon" data-a="addDevice">${ic("plus")}</button></div>`
-    : `<div class="v2-head"><div><h1>设备</h1><div class="sub">${netDown() ? "组网断开，状态可能不是最新的" : S.scenario === "empty" ? "只有本机" : `${online} 台在线 · 你和 AI 都可以操作它们`}</div></div>
+    ? `<div class="mtop"><h1>设备</h1><button class="btn primary icon" data-a="addDevice">${ic("plus")}</button></div>`
+    : `<div class="v2-head"><div><h1>设备</h1><div class="sub">${noLogin() ? "还没有登录 Tailscale" : `${online} 台在线 · 你和 AI 都可以操作它们`}</div></div>
         <div class="actions"><div class="search" style="width:220px;background:var(--surface)">${ic("search", "sm")}<input id="dsearch" placeholder="搜索设备" value="${esc(S.search)}" data-in="search" data-rerender="1"></div>
         <button class="btn primary" data-a="addDevice">${ic("plus")}添加设备</button></div></div>`;
   let body;
@@ -70,32 +114,54 @@ function devicesHome() {
     body = `<div class="dgrid">${Array.from({ length: 6 }, () => `<div class="dcard" style="cursor:default"><div class="top"><div class="dic sk" style="border:0"></div><div style="flex:1"><div class="sk" style="height:13px;width:60%"></div><div class="sk" style="height:10px;width:80%;margin-top:8px"></div></div></div><div class="sk" style="height:10px;width:50%"></div></div>`).join("")}</div>`;
   } else if (S.scenario === "error") {
     body = `<div class="empty"><div class="art bad">${ic("alert", "xl")}</div><h3>无法读取设备列表</h3><p>后台服务没有响应，正在重启它。</p><p><span class="errcode">ui_core_timeout</span></p><div class="btns"><button class="btn" data-a="noop" data-msg="已打开日志目录">打开日志</button><button class="btn primary" data-a="retryList">${ic("refresh")}重试</button></div></div>`;
-  } else if (S.scenario === "empty") {
-    body = `<div class="dgrid">${dcard(DEVICES[0])}</div>
-      <div class="empty" style="padding:48px 24px"><div class="art accent">${ic("plus", "xl")}</div><h3>添加你的第一台设备</h3>
-        <p>在另一台电脑、服务器或手机上安装 DeskBridge，用同一账号登录，它会自动出现在这里。</p>
-        <div class="btns"><button class="btn primary lg" data-a="addDevice">${ic("plus")}添加设备</button></div></div>`;
   } else {
     const q = S.search.trim().toLowerCase();
     const match = d => !q || (d.name + d.ip + d.os).toLowerCase().includes(q);
-    const mine = DEVICES.filter(d => d.group === "mine" && match(d));
-    const active = mine.filter(isActive);
-    const inactive = mine.filter(d => !isActive(d));
-    const ext = DEVICES.filter(d => d.group === "external" && match(d));
-    const open = S.exp.inactive || q;
-    body = `<section>
-        <div class="sec-h"><h2>我的设备</h2><span class="count">${active.length}</span></div>
-        <div class="dgrid">${active.map(dcard).join("")}</div>
-        ${inactive.length ? `<div style="margin-top:14px">${open
-          ? `<div class="dgrid">${inactive.map(dcard).join("")}</div>${q ? "" : `<div class="collapsed-row" style="margin-top:14px" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
-          : `<div class="collapsed-row" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`}</div>` : ""}
-      </section>
-      ${ext.length ? `<section><div class="sec-h"><h2>外部设备</h2><span class="count">${ext.length}</span><span class="right"><button class="btn ghost sm" data-go="#/access">访问权限</button></span></div>
-        <div class="dgrid">${ext.map(dcard).join("")}</div></section>` : ""}
-      ${!mine.length && !ext.length ? `<div class="empty"><div class="art">${ic("search", "xl")}</div><h3>没有匹配的设备</h3></div>` : ""}`;
+    body = `${tsGroup(q, match)}${lanGroup(match)}
+      <div class="collapsed-row" data-a="addConn">${ic("plus", "sm")}添加连接方式</div>`;
   }
   return `<div class="v2-page" data-sk="home"><div class="v2-in">${head}${body}</div></div>`;
 }
+
+A.tsLogin = () => {
+  S.tsLogging = true; render();
+  toast("info", "已在浏览器中打开登录页", "登录完成后，同一账号下的设备会自动出现");
+  setTimeout(() => {
+    if (!S.tsLogging) return;
+    S.tsLogging = false;
+    if (noLogin()) { S.scenario = "normal"; toast("ok", "已登录 Tailscale", "发现 6 台设备"); render(); }
+  }, 2000);
+};
+
+// ---------- 局域网配对 ----------
+A.pairDevice = el => { S.modal = { type: "pair", id: el.dataset.id, code: "" }; render(); setTimeout(() => $("#paircode")?.focus(), 0); };
+MODALS.pair = () => {
+  const d = devById(S.modal.id);
+  return modal({
+    title: `配对 ${d.name}`, sub: `局域网 · <span class="mono">${d.ip}</span>`,
+    body: `<p class="muted" style="line-height:1.7">在对方设备上打开 DeskBridge，会显示 6 位配对码。把它输入到下面。</p>
+      <div class="field"><label>配对码</label><input class="input mono" id="paircode" maxlength="6" inputmode="numeric" placeholder="000000" value="${esc(S.modal.code)}" data-in="modal.code" autocomplete="off" style="letter-spacing:.3em;font-size:18px;max-width:200px"></div>`,
+    foot: `<button class="btn" data-a="closeModal">取消</button><button class="btn primary" data-a="pairConfirm">确认</button>`,
+  });
+};
+A.pairConfirm = () => {
+  const m = S.modal;
+  if (!/^\d{6}$/.test(m.code)) return toast("bad", "配对码不正确", "请输入 6 位数字");
+  const d = devById(m.id);
+  d.paired = true; S.modal = null;
+  toast("ok", "已配对，以后自动连接", d.name);
+  render();
+};
+A.unpair = el => { const d = devById(el.dataset.id); d.paired = false; toast("ok", `已取消与 ${d.name} 的配对`, "需要重新输入配对码才能再次连接"); if (S.route.page === "devices") go("#/devices"); else render(); };
+
+// ---------- 添加连接方式 ----------
+A.addConn = () => { S.modal = { type: "addConn" }; render(); };
+MODALS.addConn = () => modal({
+  title: "添加连接方式", sub: "目前支持 Tailscale 和局域网，其余方式后续支持",
+  body: `<div class="list2">${CONNECTORS.filter(c => c.st === "plan").map(c => `<div class="li" style="cursor:default;opacity:.7">
+      <span class="fname">${ic(c.icon, "lg")}</span><div class="b"><div class="t">${c.name}<span class="soon">后续支持</span></div><div class="d">${c.d}</div></div></div>`).join("")}</div>`,
+  foot: `<button class="btn" data-a="closeModal">知道了</button>`,
+});
 
 A.toggleExp = el => { const k = el.dataset.k; S.exp[k] = !S.exp[k]; render(); };
 A.retryList = () => { S.scenario = "loading"; render(); setTimeout(() => { S.scenario = "normal"; parseRoute(); render(); toast("ok", "设备列表已刷新"); }, 1200); };
@@ -103,28 +169,29 @@ A.retryList = () => { S.scenario = "loading"; render(); setTimeout(() => { S.sce
 // =========================================================
 // 设备页
 // =========================================================
-function canRemote(d) { return !netDown() && isActive(d) && !["server", "phone"].includes(d.kind) && !d.self && d.group !== "external"; }
+function canRemote(d) { return !unreach(d) && isActive(d) && !["server", "phone"].includes(d.kind) && !d.self && !unpaired(d); }
 
 function devicePage(d) {
   const [, , label, pc] = devState(d);
   const line = [d.os];
-  if (isActive(d) && !netDown()) line.push(d.self ? `${VIA_LABEL[d.via]} · <span class="mono">${d.ip}</span>` : `${VIA_LABEL[d.via]} · ${pathText(d)} · ${d.latency} 毫秒`);
+  if (isActive(d) && !unreach(d) && !unpaired(d)) line.push(d.self ? `${VIA_LABEL[d.via]} · <span class="mono">${d.ip}</span>` : `${VIA_LABEL[d.via]} · ${pathText(d)} · ${d.latency} 毫秒`);
   if (!d.online) line.push(`${d.lastSeen}在线`);
+  const shown = isActive(d) && !unreach(d) && !unpaired(d); // 可以操作
   const head = `<div class="dhead">
       <div class="big">${ic(kindIcon(d))}</div>
       <div style="min-width:0"><h1>${d.name}${d.self ? `<span class="pill line">本机</span>` : `<span class="pill ${pc}">${pc === "ai" ? `<span class="pulse ai live"></span>` : pc === "ok" ? `<span class="pulse"></span>` : ""}${label}</span>`}</h1>
         <div class="line">${line.join(`<span class="faint">·</span>`)}</div></div>
       <div class="actions">
         ${canRemote(d) ? `<button class="btn primary" data-a="openRemote">${ic(S.sessions[d.id] !== undefined ? "external" : "cast")}${S.sessions[d.id] !== undefined ? "切换到远程窗口" : "远程画面"}</button>` : ""}
-        ${isActive(d) && !netDown() ? `<button class="btn icon" data-a="devMenu" title="更多">${ic("more")}</button>` : ""}
+        ${shown ? `<button class="btn icon" data-a="devMenu" title="更多">${ic("more")}</button>` : ""}
       </div></div>`;
-  const tabs = isActive(d) ? `<nav class="tabs2">${TABS.map(([k, icon, l]) => {
+  const tabs = shown || (unreach(d) && isActive(d)) ? `<nav class="tabs2">${TABS.map(([k, icon, l]) => {
     const blk = tabBlock(d, k);
-    return `<a class="${S.route.tab === k ? "on" : ""} ${blk ? "dim" : ""}" data-go="#/devices/${d.id}/${k}">${ic(blk && blk[0] === "perm" ? "lock" : icon)}${l}${k === "ai" ? `<span class="soon">规划中</span>` : ""}</a>`;
+    return `<a class="${S.route.tab === k ? "on" : ""} ${blk ? "dim" : ""}" data-go="#/devices/${d.id}/${k}">${ic(icon)}${l}</a>`;
   }).join("")}</nav>` : "";
   const top = isPhone()
     ? `<div class="mtop"><button class="btn ghost icon" data-go="#/devices">${ic("chevLeft", "lg")}</button><h2 class="muted" style="font-size:14px;font-weight:500">设备</h2>
-        ${canRemote(d) ? `<button class="btn ghost icon" data-a="openRemote">${ic("cast")}</button>` : ""}${isActive(d) && !netDown() ? `<button class="btn ghost icon" data-a="devMenu">${ic("more")}</button>` : ""}</div>`
+        ${canRemote(d) ? `<button class="btn ghost icon" data-a="openRemote">${ic("cast")}</button>` : ""}${shown ? `<button class="btn ghost icon" data-a="devMenu">${ic("more")}</button>` : ""}</div>`
     : "";
   return `${top}<div class="work">
     <div class="dtop">${isPhone() ? "" : `<a class="back" data-go="#/devices">${ic("chevLeft", "sm")}设备</a>`}${head}${statusBar(d)}${tabs}</div>
@@ -134,7 +201,7 @@ function devicePage(d) {
 
 // 只显示一条最重要的状态，点击展开说明
 function statusBar(d) {
-  if (netDown() || !isActive(d)) return "";
+  if (unreach(d) || !isActive(d) || unpaired(d)) return "";
   let b = null;
   if (d.id === "win-pc") {
     b = {
@@ -151,8 +218,6 @@ function statusBar(d) {
   }
   if (!b && d.path === "relay") b = { k: "warn", lead: ic("route"), t: `<b>经中继连接，延迟较高</b> · 远程画面不可用`, btns: "",
     x: `当前经${d.relay}的中继连接，延迟 ${d.latency} 毫秒。命令和文件可以正常使用；远程画面暂时只支持局域网直连。<a data-a="noop" data-msg="正在重新探测直连路径…" style="text-decoration:underline;cursor:pointer">重新探测</a>` };
-  if (!b && d.group === "external") b = { k: "info", lead: ic("users"), t: `<b>alice 共享给你的设备</b> · ${d.perms.join("、")}`, btns: "",
-    x: "你只能使用 alice 授予的权限。操作会同时记录在你和 alice 的操作记录中。" };
   if (!b) return "";
   const open = S.exp["bar-" + d.id];
   return `<div class="statusbar ${b.k}" data-a="toggleExp" data-k="bar-${d.id}">${b.lead}<span class="t">${b.t}</span>
@@ -161,21 +226,19 @@ function statusBar(d) {
 }
 
 function devicePane(d) {
-  if (netDown() && !d.self) {
+  if (unreach(d)) {
     if (S.route.tab === "overview" && isActive(d)) return `<div class="banner warn">${ic("clock")}<div class="t"><b>显示的是 2 分钟前的信息</b> <span class="d">组网恢复后自动刷新。</span></div></div>` + paneOverview(d);
     return `<div class="empty"><div class="art warn">${ic("wifiOff", "xl")}</div><h3>暂时无法连接 ${d.name}</h3><p>组网断开了，恢复后会自动重新连接。</p><div class="btns"><button class="btn" data-a="netRetry">${ic("refresh")}立即重试</button></div></div>`;
   }
+  if (unpaired(d)) return `<div class="empty"><div class="art">${ic("link", "xl")}</div><h3>${d.name} 还没有配对</h3><p>在局域网中发现了它，配对后才能操作。</p><div class="btns"><button class="btn primary" data-a="pairDevice" data-id="${d.id}">配对</button></div></div>`;
   if (!d.online) return paneOffline(d);
   if (d.noNode) return paneNoNode(d);
   const blk = tabBlock(d, S.route.tab);
-  if (blk) {
-    return `<div class="empty"><div class="art">${ic(blk[0] === "perm" ? "lock" : "monitor", "xl")}</div><h3>${blk[0] === "perm" ? "没有权限" : "不可用"}</h3><p>${blk[1]}。</p>${blk[0] === "perm" ? `<div class="btns"><button class="btn" data-a="noop" data-msg="已向 alice 发送权限申请">向 alice 申请</button></div>` : ""}</div>`;
-  }
+  if (blk) return `<div class="empty"><div class="art">${ic("monitor", "xl")}</div><h3>不可用</h3><p>${blk[1]}。</p></div>`;
   switch (S.route.tab) {
     case "term": return paneTerm(d);
     case "files": return paneFiles(d);
     case "desk": return paneDesk(d);
-    case "ai": return paneAI(d);
     default: return paneOverview(d);
   }
 }
@@ -203,7 +266,7 @@ function sparkSvg(arr) {
 }
 
 function actVerb(a) {
-  return { "proc.exec": "执行命令", "input.click": "点击", "control.preempt": "抢回桌面", "fs.write": "上传文件", "agent.run": "调用 Agent", "screen.capture": "截图", "ui.tree": "读取界面元素", "fs.read": "读取文件" }[a.tool] || a.tool;
+  return { "proc.exec": "执行命令", "input.click": "点击", "control.preempt": "抢回桌面", "fs.write": "上传文件", "screen.capture": "截图", "ui.tree": "读取界面元素", "fs.read": "读取文件" }[a.tool] || a.tool;
 }
 
 function actItem(a) {
@@ -218,7 +281,7 @@ function paneOverview(d) {
   const tile = (go, icon, t, desc, off) => `<div class="tile ${off ? "off" : ""}" ${go.startsWith("#") ? `data-go="${go}"` : `data-a="${go}"`}><span class="ti">${ic(icon)}</span><div><div class="tt">${t}</div><div class="td">${desc}</div></div></div>`;
   const ctl = { none: ["空闲", "本地用户空闲 2 分钟"], ai: ["Claude Code", "AI 正在使用鼠标键盘"], local: ["本地用户", "AI 在排队"], human: ["你", "正在远程操作"], paused: ["已暂停", "本地用户暂停了远程操作"] }[S.control];
   const recent = ACTIVITY.filter(a => a.dev === d.id).slice(0, 3);
-  const caps = [["terminal", "命令", true], ["folder", "文件", true], ["image", "截图", d.kind !== "server"], ["layers", "界面元素", d.kind !== "server" && !d.outdated], ["mouse", "鼠标键盘", d.kind !== "server"], ["bot", "Agent", !d.outdated && d.kind !== "server"]];
+  const caps = [["terminal", "命令", true], ["folder", "文件", true], ["image", "截图", d.kind !== "server"], ["layers", "界面元素", d.kind !== "server" && !d.outdated], ["mouse", "鼠标键盘", d.kind !== "server"],];
   return `
     <div class="tiles">
       ${tile(`#/devices/${d.id}/term`, "terminal", "终端", "执行命令", tabBlock(d, "term"))}
@@ -234,8 +297,7 @@ function paneOverview(d) {
     <section><div class="sec-h"><h2>最近操作</h2><span class="right"><button class="btn ghost sm" data-a="actForDev" data-dev="${d.id}">全部${ic("chevRight", "sm")}</button></span></div>
       ${recent.length ? `<div class="list2">${recent.map(actItem).join("")}</div>` : `<div class="muted small">暂无操作</div>`}</section>
     ${expander("info-" + d.id, "info", "设备详情", "系统、连接、能力和节点信息", `
-      ${d.merged ? `<div class="banner info">${ic("info")}<div class="t">${d.merged}。</div><div class="btns"><button class="btn sm" data-a="noop" data-msg="已拆分为两个设备">拆分显示</button></div></div>` : ""}
-      ${d.outdated ? `<div class="banner info">${ic("info")}<div class="t">节点版本 ${d.version} 较旧，界面元素和 Agent 需要 0.3.0 以上。</div><div class="btns"><button class="btn sm" data-a="noop" data-msg="已发送更新请求">远程更新</button></div></div>` : ""}
+      ${d.outdated ? `<div class="banner info">${ic("info")}<div class="t">节点版本 ${d.version} 较旧，界面元素需要 0.3.0 以上。</div><div class="btns"><button class="btn sm" data-a="noop" data-msg="已发送更新请求">远程更新</button></div></div>` : ""}
       <div class="ov">
         <div><div class="small muted" style="margin-bottom:8px">延迟（最近 10 分钟）</div>${d.spark ? sparkSvg(d.spark) : ""}</div>
         <dl class="kv"><dt>连接方式</dt><dd>${VIA_LABEL[d.via]} · ${pathText(d)}</dd><dt>地址</dt><dd class="mono">${d.ip}</dd><dt>桌面会话</dt><dd>${d.session || "—"}</dd><dt>显示器</dt><dd>${d.displays ? d.displays + " 个" : "无"}</dd><dt>运行方式</dt><dd>${d.runMode || "—"}</dd></dl>
@@ -301,7 +363,7 @@ function updateTerm() {
   const o = $("#out"); if (o) { o.outerHTML = termHTML(); const n = $("#out"); n.scrollTop = n.scrollHeight; }
 }
 A.runCmd = () => {
-  if (netDown()) return toast("bad", "无法执行", "组网已断开");
+  if (unreach(devById(S.route.dev))) return toast("bad", "无法执行", "组网已断开");
   if (S.control === "paused") return toast("bad", "被拒绝", "被控端已暂停远程操作");
   const c = S.cmd;
   if (!c.text.trim()) return;
@@ -433,7 +495,7 @@ A.takeShot = () => {
   S.shot.taking = true; render();
   setTimeout(() => {
     S.shot.taking = false;
-    S.shot.list.unshift({ t: new Date().toTimeString().slice(0, 8), by: "示例用户", mon: S.shot.mon === "all" ? "全部显示器" : "显示器 " + S.shot.mon });
+    S.shot.list.unshift({ t: new Date().toTimeString().slice(0, 8), by: "我", mon: S.shot.mon === "all" ? "全部显示器" : "显示器 " + S.shot.mon });
     S.shot.sel = 0; render();
   }, 900);
 };
@@ -481,51 +543,6 @@ DRAWERS.uia = () => {
   });
 };
 
-// ---------- AI（规划中） ----------
-const AGENT_STEPS = [
-  ["ai", "sparkles", "理解任务", "读取项目结构，准备编译"],
-  ["run", "terminal", "执行命令", "<code>go build ./...</code>"],
-  ["run", "alert", "发现 2 个编译错误", "internal/proto/codec.go:42、cmd/node/main.go:88"],
-  ["run", "edit", "修改文件", "<code>internal/proto/codec.go</code>（+6 −2）"],
-  ["run", "edit", "修改文件", "<code>cmd/node/main.go</code>（+1 −1）"],
-  ["run", "terminal", "重新编译", "<code>go build ./...</code> 通过"],
-  ["ok", "check", "完成", "修改了 2 个文件，编译通过。用时 1 分 48 秒"],
-];
-
-function paneAI(d) {
-  const g = S.agent;
-  const steps = g.steps.map((s, i) => {
-    const last = i === g.steps.length - 1 && g.running;
-    return `<div class="step"><span class="si ${last ? "run" : s[0] === "ai" ? "ai" : "ok"}">${last ? `<span class="spin" style="width:10px;height:10px"></span>` : ic(s[1], "sm")}</span><div class="sb"><div>${s[2]}</div><div class="sd">${s[3]}</div></div></div>`;
-  }).join("");
-  return `<div class="small muted row">${ic("info", "sm")}规划中的功能（任务 22）：把任务交给这台设备上已有的 Agent，使用它的 MCP 服务器和 Skill。</div>
-    <div class="card"><div class="card-b col" style="gap:14px;padding:var(--cp)">
-      <div class="row"><span class="muted small">交给</span><div class="segmented">${AGENTS.filter(a => a.ok).map(a => `<button class="${g.who === a.n ? "on" : ""}" data-a="agentWho" data-v="${a.n}">${a.n}</button>`).join("")}</div></div>
-      <textarea class="textarea" rows="3" id="agentin" data-in="agent.prompt">${esc(g.prompt)}</textarea>
-      <div class="row" style="flex-wrap:wrap"><span class="tag mono">${ic("folder", "sm")}D:\\data\\projects\\deskbridge</span><span class="tag">${ic("shield", "sm")}写入前询问我</span><span class="spacer"></span>
-        ${g.running ? `<button class="btn danger-soft" data-a="agentStop">${ic("stop")}取消任务</button>` : `<button class="btn primary" data-a="agentRun">${ic("send")}交给 ${g.who}</button>`}</div>
-    </div></div>
-    ${g.steps.length ? `<section><div class="sec-h"><h2>任务过程</h2>${g.running ? `<span class="pill info">进行中</span>` : `<span class="pill ok">已完成</span>`}<span class="right small faint">断线后可以回来继续查看</span></div><div class="card"><div class="steps" data-sk="steps">${steps}</div></div></section>` : ""}
-    ${expander("aicap", "box", "这台设备上的 AI 能力", `${AGENTS.filter(a => a.ok).length} 个 Agent · ${MCP_SERVERS.length} 个 MCP 服务器 · ${SKILLS.length} 个 Skill`, `
-      <div class="list2">${AGENTS.map(a => `<div class="li" style="cursor:default"><span class="avatar sm ${a.avc}">${a.av}</span><div class="b"><div class="t">${a.n}</div><div class="d">${a.v || "—"}</div></div><span class="pill ${a.ok ? "ok" : "off"}">${a.st}</span></div>`).join("")}</div>
-      <div class="list2">${MCP_SERVERS.map(m => `<div class="li" style="cursor:default">${ic("plug")}<div class="b"><div class="t mono">${m.n}</div><div class="d">${m.tools} 个工具</div></div><span class="pill ${m.ok ? "ok" : "off"}">${m.st}</span></div>`).join("")}</div>
-      <div class="chips">${SKILLS.map(s => `<span class="tag mono">${s}</span>`).join("")}</div>`)}`;
-}
-let agentTimer = null;
-A.agentWho = el => { S.agent.who = el.dataset.v; render(); };
-A.agentRun = () => {
-  const g = S.agent; g.running = true; g.steps = [AGENT_STEPS[0]]; render();
-  let i = 1;
-  clearInterval(agentTimer);
-  agentTimer = setInterval(() => {
-    if (!g.running) return clearInterval(agentTimer);
-    g.steps.push(AGENT_STEPS[i++]);
-    if (i >= AGENT_STEPS.length) { g.running = false; clearInterval(agentTimer); toast("ok", `${g.who} 完成了任务`, "修改了 2 个文件，编译通过"); }
-    render();
-  }, 900);
-};
-A.agentStop = () => { S.agent.running = false; S.agent.steps.push(["ok", "stop", "已取消", "已通知被控端结束 Agent 会话"]); render(); };
-
 // =========================================================
 // 远程画面
 // =========================================================
@@ -571,7 +588,7 @@ POPS.remote = () => `<div class="ph2">画质</div>${["自动（推荐）", "清�
 
 A.openRemote = () => {
   const d = devById(S.route.dev || "win-pc");
-  if (netDown()) return toast("bad", "无法打开远程画面", "连接已断开");
+  if (unreach(d)) return toast("bad", "无法打开远程画面", "连接已断开");
   if (d.path !== "lan") { S.modal = { type: "noRemote", dev: d.id }; render(); return; }
   if (S.sessions[d.id] !== undefined) return A.focusRemote({ dataset: { dev: d.id } });
   if (isPhone() || S.set.remoteMode !== "独立窗口") { S.remote = d.id; render(); return; }
@@ -601,18 +618,20 @@ A.closeRemote = () => {
 A.takeover = () => { if (S.control === "ai") { S.modal = { type: "takeover" }; render(); return; } S.control = "human"; toast("info", "你已获得 win-pc 的桌面控制权"); render(); };
 A.release = () => { S.control = "none"; toast("ok", "已释放控制权", "Claude Code 可以继续排队获取"); render(); };
 A.stopAI = () => { S.modal = { type: "stopAI", opt: "stop" }; render(); };
-A.devMenu = el => openMenu(el, [
-  { icon: "edit", t: "重命名", msg: "重命名（原型未实现）" },
-  { icon: "copy", t: "复制内网地址", msg: "已复制 100.64.0.2" },
-  { icon: "terminal", t: "复制命令行用法", msg: "已复制：deskbridge exec win-pc \"…\"" },
-  "-",
-  { icon: "fileText", t: "查看节点日志", msg: "已打开节点日志" },
-  { icon: "refresh", t: "重启节点", msg: "已向 win-pc 发送重启请求" },
-  { icon: "shield", t: "谁能访问这台设备", msg: "请在“访问权限”中查看（原型）" },
-  { icon: "share", t: "共享给别人…", msg: "请在“访问权限”中共享" },
-  "-",
-  { icon: "trash", t: "从列表隐藏", msg: "已隐藏", bad: true },
-]);
+A.devMenu = el => {
+  const d = devById(S.route.dev);
+  openMenu(el, [
+    { icon: "edit", t: "重命名", msg: "重命名（原型未实现）" },
+    { icon: "copy", t: "复制地址", msg: `已复制 ${d.ip}` },
+    { icon: "terminal", t: "复制命令行用法", msg: `已复制：deskbridge exec ${d.name} "…"` },
+    "-",
+    { icon: "fileText", t: "查看节点日志", msg: "已打开节点日志" },
+    { icon: "refresh", t: "重启节点", msg: `已向 ${d.name} 发送重启请求` },
+    ...(d.via === "lan" && d.paired ? ["-", { icon: "link", t: "取消配对", act: "unpair", id: d.id, bad: true }] : []),
+    "-",
+    { icon: "trash", t: "从列表隐藏", msg: "已隐藏", bad: true },
+  ]);
+};
 A.noop = el => { if (el && el.dataset.msg) toast("ok", el.dataset.msg); };
 
 // =========================================================
@@ -653,26 +672,14 @@ A.doStopAI = () => {
   render();
 };
 
-A.addDevice = () => { S.modal = { type: "addDevice", kind: "pc" }; render(); };
-MODALS.addDevice = () => {
-  const k = S.modal.kind;
-  const tab = (v, icon, l) => `<button class="${k === v ? "on" : ""}" data-a="modalOpt" data-k="kind" data-v="${v}">${ic(icon, "sm")}${l}</button>`;
-  const body = {
-    pc: `<div class="col" style="gap:16px">
-        <div class="feature"><div class="fi">1</div><div><div class="t">在另一台电脑上下载 DeskBridge</div><div class="d">Windows 10/11（macOS 版规划中）· <a style="cursor:pointer;text-decoration:underline" data-a="noop" data-msg="已复制下载链接">复制下载链接</a></div></div></div>
-        <div class="feature"><div class="fi">2</div><div><div class="t">用同一种连接方式登录</div><div class="d">Tailscale 账号 user@example.com</div></div></div>
-        <div class="feature"><div class="fi">3</div><div><div class="t">它会自动出现在设备列表</div><div class="d">不需要输入地址或配对码</div></div></div></div>`,
-    server: `<div class="col" style="gap:12px"><div class="muted">在 Linux 服务器上运行：</div>
-        <div class="snippet"><div class="codebox">curl -fsSL https://example.com/deskbridge/install.sh | sh\ndeskbridge login</div><button class="btn sm" data-a="noop" data-msg="已复制">${ic("copy")}复制</button></div>
-        <div class="muted small">没有浏览器的服务器可以用授权密钥登录，密钥在“设置 → 连接方式”中生成。</div></div>`,
-    phone: `<div class="row" style="gap:18px;align-items:flex-start"><div style="width:112px;height:112px;flex:none;border-radius:10px;background:repeating-conic-gradient(var(--text) 0 25%, var(--surface) 0 50%) 0 0/16px 16px;border:6px solid var(--surface);box-shadow:0 0 0 1px var(--border)"></div>
-        <div class="col" style="gap:8px"><div style="font-weight:600">用安卓手机扫码安装</div><div class="muted small" style="line-height:1.6">手机目前作为控制端使用。让电脑控制手机还在调研中。</div></div></div>`,
-  }[k];
-  return modal({
-    title: "添加设备", sub: "新设备用同一种连接方式登录后会自动出现",
-    body: `<div class="segmented">${tab("pc", "monitor", "电脑")}${tab("server", "server", "服务器")}${tab("phone", "phone", "手机")}<button disabled style="opacity:.5">WireGuard<span class="soon">规划中</span></button></div>${body}
-      <div class="row small muted" style="gap:10px"><span class="spin"></span>正在等待新设备上线…<span class="spacer"></span><a style="cursor:pointer;text-decoration:underline" data-a="simNewDevice">模拟新设备上线</a></div>`,
-    foot: `<button class="btn" data-a="closeModal">完成</button>`,
-  });
-};
-A.simNewDevice = () => { S.modal = null; toast("ok", "发现新设备 new-pc", "Windows 11 · 局域网直连 · 3 毫秒"); render(); };
+A.addDevice = () => { S.modal = { type: "addDevice" }; render(); };
+MODALS.addDevice = () => modal({
+  title: "添加设备", sub: "先在要添加的设备上安装 DeskBridge，然后二选一",
+  body: `<div class="col" style="gap:16px">
+      <div class="feature"><div class="fi">1</div><div><div class="t">安装 DeskBridge</div><div class="d">Windows 10/11 · Linux · <a style="cursor:pointer;text-decoration:underline" data-a="noop" data-msg="已复制下载链接">复制下载链接</a></div></div></div>
+      <div class="feature"><div class="fi">${ic("globe")}</div><div><div class="t">方式一：登录同一个 Tailscale 账号</div><div class="d">在新设备上用 user@example.com 登录，它会自动出现在 Tailscale 分组，不需要输入地址或配对码</div></div></div>
+      <div class="feature"><div class="fi">${ic("wifi")}</div><div><div class="t">方式二：在同一局域网中配对</div><div class="d">新设备和本机在同一局域网时，会出现在“局域网”分组。点“配对”，输入对方显示的 6 位配对码</div></div></div></div>
+    <div class="row small muted" style="gap:10px"><span class="spin"></span>正在等待新设备上线…<span class="spacer"></span><a style="cursor:pointer;text-decoration:underline" data-a="simNewDevice">模拟新设备上线</a></div>`,
+  foot: `<button class="btn" data-a="closeModal">完成</button>`,
+});
+A.simNewDevice = () => { S.modal = null; toast("ok", "发现新设备 new-pc", "Windows 11 · Tailscale · 跨网直连 · 24 毫秒"); render(); };
