@@ -649,7 +649,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .li .t b { font-weight: 600; }
 .li .d { color: var(--muted); font-size: var(--fs-xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .li .r { flex: none; display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: var(--fs-xs); }
-.day { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin: 6px 0 -12px; }
+.day { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin: 6px 0 0; }
 
 /* 侧栏（第二版：更少入口） */
 .app .shell { grid-template-columns: 208px minmax(0, 1fr); }
@@ -728,7 +728,7 @@ body.rwin .stage { padding: 0; }
 .conn-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; margin-bottom: 14px; }
 .conn-bar .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .conn-meta { color: var(--muted); font-size: var(--fs-xs); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.conn-note { margin: -6px 0 calc(14px - var(--sec)); }
+.conn-note { margin: 0 0 14px; }
 .app[data-size="phone"] .conn-bar { flex-wrap: nowrap; }
 .conn-empty { border-radius: var(--r-lg); border: 1px dashed var(--border-strong); padding: 48px 24px; }
 a.link { color: var(--accent); cursor: pointer; text-decoration: none; }
