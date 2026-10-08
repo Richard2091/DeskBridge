@@ -417,7 +417,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .progress { height: 6px; border-radius: 3px; background: var(--surface3); overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
 
-/* 截图与远程画面中的模拟桌面 */
+/* 远程桌面和操作记录中的模拟桌面 */
 .shot { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 12px; min-height: 0; }
 .shot-view { display: flex; flex-direction: column; min-height: 0; }
 .shot-canvas { flex: 1; min-height: 0; display: grid; place-items: center; background: var(--surface3); border-radius: var(--r); padding: 14px; overflow: hidden; position: relative; }
@@ -465,7 +465,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .ag .n { font-weight: 600; font-size: 13px; }
 .ag .r { margin-left: auto; }
 
-/* 远程画面（全窗口） */
+/* 远程桌面（全窗口） */
 .remote { position: absolute; inset: 0; z-index: 30; background: #0b0b0f; display: flex; flex-direction: column; color: #e5e5ea; }
 .remote-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #16161c; border-bottom: 1px solid #26262e; font-size: 12.5px; flex: none; }
 .remote-bar .btn { background: #22222a; border-color: #32323c; color: #ddd; box-shadow: none; }

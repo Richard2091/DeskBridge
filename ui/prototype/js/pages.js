@@ -56,7 +56,7 @@ DRAWERS.act = () => {
     body: `<div class="row"><span class="pill ${stc}">${stl}</span><span class="muted small">耗时 ${a.du}</span></div>
       <div><div class="small muted" style="margin-bottom:8px">内容</div><div class="codebox">${esc(a.sum)}</div></div>
       <div><div class="small muted" style="margin-bottom:8px">调用链</div><div class="chain">${chain}</div></div>
-      <div><div class="small muted" style="margin-bottom:8px">结果</div><div class="codebox">${esc(a.out)}</div></div>
+      <div><div class="small muted" style="margin-bottom:8px">结果</div>${a.tool === "screen.capture" ? `<div class="shot-box">${desktopArt({ ai: true })}</div><div class="small muted" style="margin-top:6px">${esc(a.out)}</div>` : `<div class="codebox">${esc(a.out)}</div>`}</div>
       ${expander("actArgs", "terminal", "参数", "敏感字段已脱敏", `<div class="codebox">${esc(a.args)}</div><div class="small muted">请求编号 <span class="mono">req_7f3a${S.drawer.i}c91e</span></div>`)}`,
     foot: `<button class="btn" data-go="#/devices/${a.dev}/overview">${ic("monitor")}打开设备</button><button class="btn ghost" data-a="noop" data-msg="已复制请求编号">${ic("copy")}复制编号</button>`,
   });
@@ -93,7 +93,7 @@ function settingsSec(sec) {
   switch (sec) {
     case "general": return `<h2>通用</h2><div class="sub">启动方式、语言和通知</div>` +
       sgroup("启动", [sitem("开机时自动启动", "登录 Windows 后在后台运行，其他设备和 AI 才能连接到本机", sw("autostart")), sitem("关闭窗口时最小化到托盘", "", sw("tray"))]) +
-      sgroup("远程画面", [sitem("打开方式", "独立窗口可以同时操作多台设备，每台一个窗口", sel("remoteMode", ["独立窗口", "在主窗口中打开"]))]) +
+      sgroup("远程桌面", [sitem("打开方式", "独立窗口可以同时操作多台设备，每台一个窗口", sel("remoteMode", ["独立窗口", "在主窗口中打开"]))]) +
       sgroup("语言和通知", [sitem("界面语言", "", sel("lang", ["简体中文", "English"])), sitem("AI 操作桌面时通知我", "AI 开始在任何设备上使用鼠标键盘时通知", `<button class="switch on"></button>`)]);
     case "appearance": return `<h2>外观</h2><div class="sub">主题、明暗和显示密度</div>` +
       `<div class="sgroup"><h3>主题</h3><div class="card"><div class="themes">
@@ -126,9 +126,9 @@ function settingsSec(sec) {
     case "network": {
       const ts = CONNECTORS[0];
       const paired = DEVICES.filter(d => d.via === "lan" && d.paired);
-      const tsPill = noLogin() ? `<span class="pill off">未登录</span>` : netDown() ? `<span class="pill bad">已断开</span>` : `<span class="pill ok">已连接</span>`;
-      const tsItems = noLogin()
-        ? [sitem("账号", "登录后，同一账号下的设备会自动出现", `<button class="btn sm primary" data-a="tsLogin">${ic("external")}登录 Tailscale</button>`)]
+      const tsPill = !tsAdded() ? `<span class="pill off">未添加</span>` : !tsOn() ? `<span class="pill off">未登录</span>` : netDown() ? `<span class="pill bad">已断开</span>` : `<span class="pill ok">已连接</span>`;
+      const tsItems = !tsOn()
+        ? [sitem("账号", "登录后，同一账号下的设备会自动出现在设备页的“Tailscale”中", `<button class="btn sm primary" data-a="tsLogin">${ic("external")}${tsAdded() ? "登录 Tailscale" : "添加并登录"}</button>`)]
         : [
           sitem(`<span class="row">${netDown() ? `<span class="pulse bad"></span>正在重连（第 ${S.netTry} 次）` : `<span class="pulse"></span>本机 <span class="mono">${ts.ip}</span>`}</span>`, netDown() ? "最近错误：无法连接控制服务器（超时）" : "最近一次同步 10 秒前", `<button class="btn sm" data-a="${netDown() ? "netRetry" : "noop"}" data-msg="诊断完成：连接正常">${ic("refresh")}${netDown() ? "立即重试" : "诊断"}</button>`),
           sitem("账号", ts.acct, `<button class="btn sm ghost danger-soft" data-a="noop" data-msg="退出登录需要确认（原型未实现）">${ic("logout")}退出登录</button>`),
@@ -138,12 +138,12 @@ function settingsSec(sec) {
         ...(s.server === "自建 Headscale" ? [sitem("服务器地址", "", `<input class="input mono" placeholder="https://headscale.example.com" value="${esc(s.serverUrl)}" data-in="set.serverUrl" style="width:260px">`)] : []),
         sitem("授权密钥", "给没有浏览器的服务器登录用", `<button class="btn sm" data-a="noop" data-msg="已生成授权密钥（示例）">生成密钥</button>`),
       );
-      return `<h2>连接方式</h2><div class="sub">DeskBridge 通过连接方式和其他设备通信。初版支持 Tailscale 和局域网</div>` +
+      return `<h2>连接方式</h2><div class="sub">DeskBridge 通过连接方式和其他设备通信。局域网默认开启，Tailscale 需要添加并登录</div>` +
       sgroup(`<span class="row">${ic("globe", "sm")}Tailscale${tsPill}</span>`, tsItems) +
       sgroup(`<span class="row">${ic("wifi", "sm")}局域网${s.lanOn ? `<span class="pill ok">已开启</span>` : `<span class="pill off">已关闭</span>`}</span>`, [
         sitem("在局域网中发现设备并允许配对", `本机 <span class="mono">${CONNECTORS[1].ip}</span> · 关闭后不会被局域网中的其他设备发现`, sw("lanOn")),
         ...(paired.length ? paired.map(d => sitem(`<span class="row">${ic(kindIcon(d), "sm")}${d.name}</span>`, `已配对 · <span class="mono">${d.ip}</span>`, `<button class="btn sm ghost danger-soft" data-a="unpair" data-id="${d.id}">取消配对</button>`))
-          : [sitem("已配对的设备", "还没有配对的设备。在设备页的“局域网”分组中点“配对”", "")]),
+          : [sitem("已配对的设备", "还没有配对的设备。在设备页的“局域网”中点“配对”", "")]),
       ]) +
       sgroup(`<span class="row">${ic("link", "sm")}WireGuard 直连<span class="soon">后续支持</span></span>`, [
         sitem("两台设备配对后直接连接", "不依赖账号，适合不想使用 Tailscale 的情况", `<button class="btn sm" disabled style="opacity:.5">配对设备</button>`),

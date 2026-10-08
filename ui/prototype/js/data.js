@@ -68,6 +68,8 @@ const ACTIVITY = [
     chain: ["claude", "win-pc:proc.exec"], args: 'shell: "pwsh"\ncommand: "Get-ChildItem D:\\\\data -Recurse | Measure-Object -Sum Length"\ntimeout: 120s', out: "已扫描 1,284 个文件…" },
   { day: "今天", t: "14:01", actor: "claude", dev: "win-pc", tool: "input.click", sum: "点击“保存”按钮（记事本）", st: "ok", du: "0.2 秒",
     chain: ["claude", "win-pc:input.click"], args: 'window: "无标题 - 记事本"\ntarget: ui://Button[name="保存"]\n控制权: AI 持有（租约 15 秒）', out: "成功" },
+  { day: "今天", t: "14:01", actor: "claude", dev: "win-pc", tool: "screen.capture", sum: "截取显示器 1", st: "ok", du: "0.3 秒",
+    chain: ["claude", "win-pc:screen.capture"], args: 'monitor: 1\nformat: "png"', out: "1920 × 1080 · 286 KB" },
   { day: "今天", t: "13:58", actor: "local", dev: "win-pc", tool: "control.preempt", sum: "本地用户移动鼠标，AI 的前台输入被中断", st: "pre", du: "—",
     chain: ["local"], args: "被抢占的请求: input.type（输入 42 个字符中的第 17 个）", out: "preempted，3 秒无操作后自动释放" },
   { day: "今天", t: "13:41", actor: "me", dev: "win-pc", tool: "fs.write", sum: "上传 设计草稿.pdf → D:\\data\\projects", st: "ok", du: "1.8 秒",
@@ -117,35 +119,6 @@ const FILES = {
     { n: "build.log", s: "246 KB", m: "2026/10/07 11:03", text: "[11:02:51] go build ./...\n[11:02:58] ok  deskbridge/cmd\n[11:03:02] cargo build --release\n[11:03:40]    Compiling desk-helper v0.1.0\n[11:03:44]     Finished release [optimized]\n[11:03:44] 编译完成，用时 53 秒\n" },
     { n: "设计草稿.pdf", s: "200 KB", m: "2026/10/07 13:41" },
   ],
-};
-
-const UI_WINDOWS = [
-  { id: "np", n: "无标题 - 记事本", app: "notepad.exe" },
-  { id: "ex", n: "文件资源管理器", app: "explorer.exe" },
-  { id: "st", n: "设置", app: "SystemSettings.exe" },
-  { id: "vs", n: "deskbridge - VS Code", app: "Code.exe", elevated: false },
-  { id: "tm", n: "任务管理器", app: "Taskmgr.exe", elevated: true },
-];
-
-const UI_TREE = {
-  id: "w", ty: "Window", nm: "无标题 - 记事本", open: true, kids: [
-    { id: "tb", ty: "TitleBar", nm: "", kids: [
-      { id: "min", ty: "Button", nm: "最小化" }, { id: "max", ty: "Button", nm: "最大化" }, { id: "cls", ty: "Button", nm: "关闭" },
-    ] },
-    { id: "mb", ty: "MenuBar", nm: "应用程序", open: true, kids: [
-      { id: "mf", ty: "MenuItem", nm: "文件" }, { id: "me", ty: "MenuItem", nm: "编辑" }, { id: "mv", ty: "MenuItem", nm: "查看" },
-    ] },
-    { id: "doc", ty: "Document", nm: "文本编辑器" },
-    { id: "sb", ty: "StatusBar", nm: "", kids: [
-      { id: "s1", ty: "Text", nm: "第 1 行，第 1 列" }, { id: "s2", ty: "Text", nm: "UTF-8" },
-    ] },
-  ],
-};
-
-const UI_PROPS = {
-  doc: { ty: "Document", nm: "文本编辑器", aid: "RichEditD2DPT", cls: "RichEditD2DPT", rect: "(312, 188) 960 × 540", pat: ["Text", "Value", "Scroll"], en: true },
-  mf: { ty: "MenuItem", nm: "文件", aid: "File", cls: "MenuItem", rect: "(320, 150) 40 × 28", pat: ["Invoke", "ExpandCollapse"], en: true },
-  cls: { ty: "Button", nm: "关闭", aid: "Close", cls: "Button", rect: "(1226, 112) 46 × 32", pat: ["Invoke"], en: true },
 };
 
 const CMD_OUTPUTS = {

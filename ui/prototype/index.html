@@ -6,9 +6,9 @@
 <!--
   任务 27：可交互的界面原型（初版范围，不接后端）。用浏览器直接打开即可。
   左侧是产品窗口，右侧是原型控制台：切换主题、明暗、窗口尺寸、场景和控制权状态，或跳到某个流程。
-  初版包含：设备页（按连接方式横向切换：Tailscale、局域网，每台设备一行）、设备详情（概览、终端、文件、桌面）、远程画面、操作记录、设置、桌面控制权提示。
+  初版包含：设备页（按连接方式横向切换，默认只有局域网，Tailscale 通过“添加连接方式”加入；每台设备一行）、设备详情（概览、终端、文件）、远程桌面（局域网直连为实时画面，其他路径为截图模式）、操作记录、设置、桌面控制权提示。
   初版不做：调用被控端的 AI、外部设备和他人共享、访问权限、发起端确认、全局搜索、首次登录向导。
-  地址参数（便于截图）：?theme=clean|mono|soft&mode=light|dark&size=desktop|narrow|phone&scenario=normal|loading|nologin|error|netdown&control=…&conn=tailscale|lan&proto=closed，
+  地址参数（便于截图）：?theme=clean|mono|soft&mode=light|dark&size=desktop|narrow|phone&scenario=normal|loading|firstrun|error|netdown&control=…&conn=tailscale|lan&proto=closed，
   页面用 # 路由，例如 #/devices/win-pc/term、#/devices/living-room-pc/overview、#/settings/network。
 -->
 <link rel="stylesheet" href="css/theme.css">

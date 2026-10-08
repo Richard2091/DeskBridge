@@ -4,21 +4,17 @@ const S = {
   // 原型控制台
   theme: "clean", mode: "light", size: "desktop", scenario: "normal", control: "ai",
   // 路由
-  route: { page: "devices", dev: "win-pc", tab: "overview", sec: "appearance" },
+  route: { page: "devices", dev: null, tab: "overview", sec: "appearance" },
   // 浮层
   modal: null, remote: null, menu: null, toasts: [], drawer: null, pop: null,
-  exp: {}, deskMode: "shot",
-  conn: "tailscale", // 设备首页当前显示的连接方式
+  exp: {},
+  conn: "lan", // 设备首页当前显示的连接方式
+  ts: "none", // Tailscale：none 未添加（默认只有局域网）、login 已添加未登录、on 已登录
+  lanNotice: true, // 默认开启局域网发现时提示一次“其他设备能看到本机名称”
   // 各页面状态
   filter: "all", search: "",
   cmd: { shell: "PowerShell 7", text: "Get-ChildItem D:\\data -Recurse | Measure-Object -Sum Length", status: "run", lines: CMD_OUTPUTS.default.slice(0, 12), started: Date.now() - 8400, timeout: true, utf8: true },
   fs: { path: "D:\\data\\projects", sel: "readme.md", upload: null },
-  shot: { mon: "1", sel: 0, taking: false, list: [
-    { t: "14:03:22", by: "我", mon: "显示器 1" },
-    { t: "14:01:05", by: "Claude Code", mon: "显示器 1", ai: true },
-    { t: "13:20:41", by: "Claude Code", mon: "全部", ai: true },
-  ] },
-  uia: { win: "np", sel: "doc", open: { w: true, mb: true, tb: false, sb: false } },
   act: { who: "all", dev: "all", open: "0" },
   // 已打开的远程窗口：设备 ID → 窗口对象（截图用的假会话为 null）
   sessions: {}, win: null,
@@ -38,7 +34,8 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 const devById = id => DEVICES.find(d => d.id === id);
 const isPhone = () => S.size === "phone";
 const netDown = () => S.scenario === "netdown";
-const noLogin = () => S.scenario === "nologin"; // 未登录 Tailscale
+const tsAdded = () => S.ts !== "none"; // 已添加 Tailscale 连接方式
+const tsOn = () => S.ts === "on"; // 已登录 Tailscale
 const unreach = d => !d.self && d.via === "tailscale" && netDown(); // 组网断开只影响经 Tailscale 的设备，局域网设备不受影响
 const kindIcon = d => d.kind;
 
@@ -94,10 +91,12 @@ function parseRoute() {
   const p = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   const r = { page: p[0] || "devices", dev: null, tab: "overview", sec: null };
   if (r.page === "devices") { r.dev = p[1] || null; r.tab = p[2] || "overview"; }
-  if (r.dev && devById(r.dev)) S.conn = devById(r.dev).via; // 从设备页返回时回到它所在的连接方式
+  const routeDev = r.dev && devById(r.dev);
+  if (r.dev && (!routeDev || (routeDev.via === "tailscale" && !tsAdded()))) { r.dev = null; S.conn = "lan"; }
+  else if (routeDev) S.conn = routeDev.via; // 从设备页返回时回到它所在的连接方式
   if (r.page === "settings") r.sec = p[1] || null;
   if (r.tab === "cmd") r.tab = "term";
-  if (["shot", "uia"].includes(r.tab)) { S.deskMode = r.tab; r.tab = "desk"; }
+  if (["desk", "shot", "uia"].includes(r.tab)) r.tab = "overview"; // “桌面”标签已并入远程桌面
   if (r.page === "settings" && !r.sec && !isPhone()) r.sec = "appearance";
   S.route = r;
 }
@@ -261,17 +260,17 @@ function renderProto() {
     <div><h4>主题</h4>${seg("theme", [["clean", "清爽"], ["mono", "黑白"], ["soft", "柔光"]])}</div>
     <div><h4>明暗</h4>${seg("mode", [["light", "浅色"], ["dark", "深色"], ["system", "跟随系统"]])}</div>
     <div><h4>窗口</h4>${seg("size", [["desktop", "桌面"], ["narrow", "窄窗口"], ["phone", "安卓手机"]])}</div>
-    <div><h4>场景</h4>${seg("scenario", [["normal", "正常"], ["loading", "加载中"], ["nologin", "未登录"], ["error", "出错"], ["netdown", "组网断开"]])}</div>
+    <div><h4>场景</h4>${seg("scenario", [["normal", "正常"], ["loading", "加载中"], ["firstrun", "首次启动"], ["error", "出错"], ["netdown", "组网断开"]])}</div>
     <div><h4>win-pc 的桌面控制权</h4>${seg("control", [["none", "空闲"], ["ai", "AI 操作中"], ["local", "本地用户在用"], ["human", "我在远程操作"], ["paused", "被控端已暂停"]])}</div>
     <div><h4>流程与页面</h4><div class="links">
-      <a data-p="flow" data-v="welcome">① 首次启动（未登录 Tailscale）</a>
+      <a data-p="flow" data-v="welcome">① 首次启动（只有局域网）→ 添加 Tailscale</a>
       <a data-p="flow" data-v="add">② 添加设备</a>
       <a data-p="flow" data-v="cmd">③ 执行并取消命令</a>
       <a data-p="flow" data-v="takeover">④ AI 操作中：提示与抢回</a>
       <a data-p="flow" data-v="preempt">⑤ 模拟本地用户动鼠标</a>
       <a data-p="flow" data-v="netdown">⑥ 断线与重连</a>
-      <a data-p="flow" data-v="remote">⑦ 远程画面（独立窗口）</a>
-      <a data-p="flow" data-v="relay">⑧ 高延迟设备（中继）</a>
+      <a data-p="flow" data-v="remote">⑦ 远程桌面（独立窗口）</a>
+      <a data-p="flow" data-v="relay">⑧ 高延迟设备（中继，截图模式）</a>
       <a data-p="flow" data-v="offline">⑨ 离线设备</a>
       <a data-p="flow" data-v="nonode">⑩ 未安装 DeskBridge 的设备</a>
       <a data-p="flow" data-v="lan">⑪ 局域网设备配对</a>
@@ -285,22 +284,29 @@ function onProto(el) {
   if (k === "flow") return FLOWS[v]();
   S[k] = v;
   if (k === "scenario" && v === "netdown") S.netTry = 1;
+  if (k === "scenario") applyScenario();
   if (k === "size") parseRoute();
   if (k === "scenario") parseRoute();
   render();
 }
 
+// 场景只负责修正演示前提：默认和首次启动只有局域网；列表加载、错误和断线流程先临时启用 Tailscale
+function applyScenario() {
+  if (S.scenario === "firstrun") { S.ts = "none"; S.conn = "lan"; S.lanNotice = true; S.tsLogging = false; }
+  else if (["loading", "error", "netdown"].includes(S.scenario) && S.ts === "none") S.ts = "on";
+}
+
 const FLOWS = {
-  welcome: () => { S.scenario = "nologin"; S.conn = "tailscale"; go("#/devices"); },
+  welcome: () => { S.scenario = "firstrun"; applyScenario(); go("#/devices"); },
   add: () => { go("#/devices"); setTimeout(A.addDevice, 0); },
-  cmd: () => { S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
-  takeover: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
-  preempt: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
-  netdown: () => { S.scenario = "netdown"; S.netTry = 1; S.conn = "tailscale"; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
-  remote: () => { go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
-  relay: () => go("#/devices/old-laptop/overview"),
-  offline: () => go("#/devices/redmi-phone/overview"),
-  nonode: () => go("#/devices/nas/overview"),
+  cmd: () => { S.ts = "on"; S.conn = "tailscale"; S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
+  takeover: () => { S.ts = "on"; S.conn = "tailscale"; S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
+  preempt: () => { S.ts = "on"; S.conn = "tailscale"; S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
+  netdown: () => { S.scenario = "netdown"; applyScenario(); S.netTry = 1; S.conn = "tailscale"; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
+  remote: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
+  relay: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/old-laptop/overview"); setTimeout(A.openRemote, 0); },
+  offline: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/redmi-phone/overview"); },
+  nonode: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/nas/overview"); },
   lan: () => { S.scenario = "normal"; devById("study-pc").paired = false; S.conn = "lan"; go("#/devices"); setTimeout(() => A.pairDevice({ dataset: { id: "study-pc" } }), 0); },
 };
 
@@ -372,9 +378,11 @@ setInterval(() => {
 window.addEventListener("DOMContentLoaded", () => {
   const q = new URLSearchParams(location.search);
   ["theme", "mode", "size", "scenario", "control", "conn"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
+  applyScenario();
+  if (q.get("conn")) S.conn = q.get("conn");
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");
   // 远程窗口：?win=remote&dev=win-pc，由主窗口用 window.open 打开
-  if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程画面`; }
+  if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程桌面`; }
   // 截图用：?sess=win-pc,old-laptop 假装已打开这些远程窗口
   if (q.get("sess")) q.get("sess").split(",").forEach(id => { S.sessions[id] = null; });
   parseRoute();
@@ -387,5 +395,5 @@ POPS.sessions = () => `<div class="ph2">远程窗口</div>${Object.keys(S.sessio
   const d = devById(id);
   return `<div class="pi" style="cursor:default">${ic(kindIcon(d))}<div style="flex:1;min-width:0"><div>${d.name}</div><div class="small muted">${pathText(d)} · ${d.latency} 毫秒</div></div>
     <button class="btn sm" data-a="focusRemote" data-dev="${id}">切换</button><button class="btn ghost sm danger-soft" data-a="closeSession" data-dev="${id}">断开</button></div>`;
-}).join("")}<div class="small muted" style="padding:6px 8px 4px;line-height:1.6">每台设备的远程画面在独立窗口中打开，可以同时操作多台。</div>`;
+}).join("")}<div class="small muted" style="padding:6px 8px 4px;line-height:1.6">每台设备的远程桌面在独立窗口中打开，可以同时操作多台。</div>`;
 A.popSessions = el => openPop(el, "sessions");
