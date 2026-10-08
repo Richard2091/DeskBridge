@@ -85,9 +85,9 @@
       },
       {
         "id": 2,
-        "title": "内置组网：tsnet 节点与登录",
-        "description": "程序内置 Tailscale（tsnet），OAuth 登录后加入内网，可切换到 Headscale。",
-        "details": "见 ADR-0003。首次运行打印/打开登录链接；状态目录保存在用户目录并限制权限；控制服务器地址可配置（Headscale）；主机名可配置。验收：新设备登录后加入内网；重启无需重新登录；Linux 与 Windows 之间能互相访问；配置 Headscale 地址后可登录（待有 Headscale 环境时验证）。",
+        "title": "连接层接口与 Tailscale 实现",
+        "description": "定义连接层接口，上层只依赖接口；内置 Tailscale（tsnet）是第一种实现，OAuth 登录后加入内网，可切换到 Headscale。",
+        "details": "见 ADR-0003。首次运行打印/打开登录链接；状态目录保存在用户目录并限制权限；控制服务器地址可配置（Headscale）；主机名可配置。验收：新设备登录后加入内网；重启无需重新登录；Linux 与 Windows 之间能互相访问；配置 Headscale 地址后可登录（待有 Headscale 环境时验证）。\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007：节点协议、设备列表、权限、MCP 和界面只依赖连接层接口，不直接调用 tsnet。接口包括：启动、登录（返回登录链接或需要的参数）、退出，状态为已连接、需要登录、断开及原因；对端列表（连接方式内的 ID、名称、地址、是否在线、路径类型、延迟）；拨号到对端端口、在本机监听；身份（统一结构：主人、设备、连接方式）；事件（对端上下线、路径变化、断线和重连）。接口按 Tailscale 和 WireGuard（任务 19）两种情况设计。Headscale 只是控制服务器地址不同；“使用系统已安装的 Tailscale”是同一实现的另一种模式。首次运行生成 DeskBridge 设备 ID（密钥对，私钥存系统密钥库）。原有验收项不变，另加：上层代码中没有对 tsnet 的直接引用。\n</info added on 2026-10-08T03:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -97,8 +97,8 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "实现 tsnet 节点启动与状态目录",
-            "description": "",
+            "title": "定义连接层接口；实现 tsnet 节点启动与状态目录",
+            "description": "先定义连接层接口（启动登录、对端列表、拨号监听、身份、事件），tsnet 作为第一种实现；生成 DeskBridge 设备 ID。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -138,7 +138,7 @@
           {
             "id": 5,
             "title": "检测系统已安装的 Tailscale 并记录共存行为",
-            "description": "",
+            "description": "作为 Tailscale 实现的“使用系统已安装的 Tailscale”模式评估（ADR-0003、ADR-0007）。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -150,8 +150,8 @@
       {
         "id": 3,
         "title": "设备发现与设备列表",
-        "description": "列出同账号的节点，识别哪些运行 DeskBridge，显示在线状态和连接方式。",
-        "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：设备列表要记录路径类型（局域网直连、跨网直连、中继及中继位置）和延迟，供远程画面的开放判断使用。节点之间一律用 Tailscale 内网地址通信，不直接用局域网 IP。\n</info added on 2026-10-07T12:00:00.000Z>",
+        "description": "从连接层获取对端，识别哪些运行 DeskBridge，按设备 ID 合并，显示在线状态、连接方式、路径和延迟。",
+        "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：设备列表要记录路径类型（局域网直连、跨网直连、中继及中继位置）和延迟，供远程画面的开放判断使用。节点之间一律用 Tailscale 内网地址通信，不直接用局域网 IP。\n</info added on 2026-10-07T12:00:00.000Z>\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007：设备列表来自连接层接口，不直接读 tsnet 状态。同一台设备经多种连接方式连通时，按能力报告中的 DeskBridge 设备 ID 合并成一条；设备上同时装了 Tailscale 客户端、出现两个节点时也这样合并。分组改为“我的设备”“外部设备”（Tailscale 为同账号节点，WireGuard 为配对过的设备），不叫“Tailscale 设备”。设备信息显示“连接方式 · 路径 · 延迟”，如“Tailscale · 局域网直连 · 4 毫秒”。多条路径时选最快：局域网直连 > 跨网直连 > 中继；功能分层（ADR-0006）按实际使用的路径判断。\n</info added on 2026-10-08T03:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -161,7 +161,7 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "读取内网节点列表",
+            "title": "从连接层读取对端列表",
             "description": "",
             "details": "",
             "status": "pending",
@@ -181,7 +181,7 @@
           },
           {
             "id": 3,
-            "title": "显示连接方式（直连/中继）和延迟",
+            "title": "显示连接方式、路径（局域网直连/跨网直连/中继）和延迟",
             "description": "",
             "details": "",
             "status": "pending",
@@ -191,8 +191,8 @@
           },
           {
             "id": 4,
-            "title": "设备分组数据结构（tailscale/wireguard/external）",
-            "description": "",
+            "title": "设备分组数据结构（我的设备/外部设备）",
+            "description": "分组按连接方式判断归属，不按连接方式命名（ADR-0007 第 5、7 条）。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -201,8 +201,8 @@
           },
           {
             "id": 5,
-            "title": "同一设备双节点的合并显示（待验证场景）",
-            "description": "",
+            "title": "按 DeskBridge 设备 ID 合并同一设备",
+            "description": "同一设备的多种连接方式、同一设备的两个 Tailscale 节点都合并成一条，多条路径时选最快的。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -214,8 +214,8 @@
       {
         "id": 4,
         "title": "节点协议与身份认证",
-        "description": "节点提供 HTTP+JSON 接口：能力报告、工具调用、超时、取消、结构化错误；用 WhoIs 识别身份。",
-        "details": "见 docs/architecture.md 节点协议一节。GET /v1/capability；POST /v1/tools/{name}；DELETE /v1/requests/{id}；错误码统一（如 unsupported_platform、timeout、forbidden、invalid_args）。每个工具声明 JSON Schema。用 tsnet WhoIs 识别调用者；默认只允许同账号。请求上下文预留操作记录字段（操作者类型、身份、设备）。验收：契约测试覆盖成功、超时、取消、非法参数、非同账号拒绝。",
+        "description": "节点提供 HTTP+JSON 接口：能力报告、工具调用、超时、取消、结构化错误；用连接层返回的统一身份识别调用者。",
+        "details": "见 docs/architecture.md 节点协议一节。GET /v1/capability；POST /v1/tools/{name}；DELETE /v1/requests/{id}；错误码统一（如 unsupported_platform、timeout、forbidden、invalid_args）。每个工具声明 JSON Schema。用 tsnet WhoIs 识别调用者；默认只允许同账号。请求上下文预留操作记录字段（操作者类型、身份、设备）。验收：契约测试覆盖成功、超时、取消、非法参数、非同账号拒绝。\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007、ADR-0008：身份使用连接层返回的统一结构（主人、设备、连接方式），WhoIs 只在 Tailscale 实现内部使用。能力报告返回 DeskBridge 设备 ID。是否在连接层之上再做一次双向认证，在本任务确定（待验证）。错误码 forbidden 改为 permission_denied，并说明缺少哪项权限。请求上下文记录发起者（身份 + 人工或 AI），供任务 17 的被控端权限判断。\n</info added on 2026-10-08T03:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -265,8 +265,8 @@
           },
           {
             "id": 5,
-            "title": "实现 WhoIs 身份识别与同账号授权",
-            "description": "",
+            "title": "用连接层统一身份识别调用者与同账号授权",
+            "description": "不直接调用 tsnet WhoIs；能力报告返回 DeskBridge 设备 ID；确定是否需要双向认证（待验证）。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -276,7 +276,7 @@
           {
             "id": 6,
             "title": "统一错误码与契约测试",
-            "description": "",
+            "description": "错误码使用 permission_denied（附缺少的权限），不用 forbidden。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -286,7 +286,7 @@
           {
             "id": 7,
             "title": "请求上下文预留操作记录字段",
-            "description": "",
+            "description": "记录发起者：身份 + 人工或 AI，供被控端权限判断（任务 17）。",
             "details": "",
             "status": "pending",
             "dependencies": [],
@@ -945,8 +945,8 @@
       {
         "id": 15,
         "title": "人工远程画面（局域网）",
-        "description": "在内网里用 WebRTC 传输屏幕画面和输入，允许卡顿。",
-        "details": "pion/webrtc；信令走节点 WebSocket；画面编码方案待定（软件编码起步）；客户端显示与输入转发。只参考 RustDesk 设计。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：暂时只支持局域网直连。传输方式随任务 24 决定（不一定是 WebRTC）。必须做码率自适应、只保留最新帧、截图降级；画面是否开放由可替换的判断函数决定（输入：路径类型、实测带宽和往返时间），现在的规则是只有局域网直连才开放。\n</info added on 2026-10-07T12:00:00.000Z>\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：先验证 Flutter 在 Windows 上显示 H.264 流（Media Foundation 解码写入纹理，或经 Rust 辅助进程解码），记录帧率、延迟、CPU；不可行时远程画面改用嵌入 WebView2 + WebCodecs。\n</info added on 2026-10-07T13:00:00.000Z>",
+        "description": "在局域网直连时传输屏幕画面和输入，允许卡顿；默认在独立窗口打开，每台设备一个窗口。",
+        "details": "pion/webrtc；信令走节点 WebSocket；画面编码方案待定（软件编码起步）；客户端显示与输入转发。只参考 RustDesk 设计。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：暂时只支持局域网直连。传输方式随任务 24 决定（不一定是 WebRTC）。必须做码率自适应、只保留最新帧、截图降级；画面是否开放由可替换的判断函数决定（输入：路径类型、实测带宽和往返时间），现在的规则是只有局域网直连才开放。\n</info added on 2026-10-07T12:00:00.000Z>\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：先验证 Flutter 在 Windows 上显示 H.264 流（Media Foundation 解码写入纹理，或经 Rust 辅助进程解码），记录帧率、延迟、CPU；不可行时远程画面改用嵌入 WebView2 + WebCodecs。\n</info added on 2026-10-07T13:00:00.000Z>\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007 和 docs/ui-design.md：远程画面默认在独立窗口打开，每台设备一个窗口，可以同时打开多台；主窗口标题栏的“远程窗口”可以切换和断开；设置中可改为“在主窗口中打开”；手机上仍在应用内全屏。先验证 Flutter 桌面多窗口的实现方式（待验证）。画面是否开放按连接层上报的实际路径判断。\n</info added on 2026-10-08T03:00:00.000Z>",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -971,9 +971,9 @@
       },
       {
         "id": 17,
-        "title": "权限、审批与外部设备",
-        "description": "工具级权限、危险操作审批、他人共享设备、紧急停止、操作记录防篡改。",
-        "details": "外部设备默认只给明确授予的权限；危险操作暂停等待人批准；紧急停止取消某设备上的全部 AI 请求；操作记录哈希链和双端存储。",
+        "title": "权限与外部设备",
+        "description": "被控端按发起者权限放行或拒绝，危险操作在发起端确认；他人共享设备、紧急停止、操作记录防篡改。",
+        "details": "见 ADR-0008 和 docs/ui-design.md。\n- 取消被控端审批：被控端不暂停等人批准，按发起者（身份 + 人工或 AI）的权限立即放行或拒绝；拒绝时返回 permission_denied，说明缺少哪项权限。\n- 权限项：查看屏幕、鼠标、键盘、剪贴板、执行命令、读取/写入/删除文件及文件范围、调用本机 Agent、使用本机 MCP、重启关机。预设：完全访问、标准、只看。分组：我本人、我的 AI、共享给别人。“只在我离开时允许 AI 操作桌面”作为权限条件保留（ADR-0005）。\n- 允许“执行命令”或“键盘”时，文件范围和删除限制可被绕过，界面要提示。\n- 发起端确认：规则在发起方的“操作确认”中设置；确认请求发到 AI 客户端（MCP elicitation，待验证）或本账号的 DeskBridge 窗口和手机；超时拒绝。\n- 外部设备默认只给明确授予的权限；他人共享：邀请链接、有效期、撤销。\n- 紧急停止：取消某设备上的全部 AI 请求。\n- 操作记录：哈希链，双端存储。\n- 设计权限在多台设备之间的同步。",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
@@ -998,7 +998,7 @@
         "updatedAt": "2026-10-06T16:20:24.456Z"
       },
       {
-        "id": "19",
+        "id": 19,
         "title": "WireGuard 传输",
         "description": "连接层的第二种实现（ADR-0007），不依赖 Tailscale 账号，设备配对后直接连接，自带配对和密钥。",
         "details": "按 ADR-0007 实现与 Tailscale 相同的连接层接口（接口在任务 2 和 4 中细化）：启动/退出与连接状态、对端列表（连接方式内 ID、名称、地址、是否在线、路径类型、延迟）、拨号到对端端口和本机监听、身份识别（返回统一身份结构：主人、设备、来自哪种连接方式）、对端上线下线/路径变化/断线重连事件。无需账号：两台设备配对后直接连接；配对流程生成并交换 WireGuard 密钥，私钥存系统密钥库（go-keyring，见 docs/architecture.md 的存储约定），不写入 SQLite 和配置文件。不再单独设 \"WireGuard 设备\" 分组：每台设备在能力报告中返回 DeskBridge 设备 ID（密钥对，私钥同样存系统密钥库），与其他连接方式下的同一设备按设备 ID 合并为一条显示；设备信息显示 \"WireGuard · 路径 · 延迟\"，配对过的设备归入 \"我的设备\"（ADR-0007 第 5、7 条）。向上层上报路径类型（局域网直连/跨网直连/中继）和延迟，供连接层选路（局域网直连 > 跨网直连 > 中继）。在连接层内实现，上层（节点协议、设备列表、权限、MCP、界面）只依赖接口，不得直接调用 WireGuard 细节。",
