@@ -91,7 +91,8 @@
   --accent: #0a0a0a; --accent-hover: #333333; --accent-soft: #f2f2f2; --accent-text: #ffffff;
   --logo-grad: #0a0a0a;
   --ai: #8b5cf6; --ai-soft: #f3efff;
-  --ai-bg: #fafafa; --ai-border: #eaeaea; --ai-text: #0a0a0a;
+  /* AI 是黑白主题里唯一保留的彩色：AI 操作中必须一眼看得出（设计原则 4） */
+  --ai-bg: #f5f1ff; --ai-border: #ddd0fc; --ai-text: #4c1d95;
   --r-lg: 10px; --r-xl: 12px;
   --shadow-sm: none; --shadow: 0 0 0 1px rgba(0, 0, 0, .04);
 }
@@ -105,7 +106,7 @@
   --bad: #ff5c5c; --bad-soft: rgba(255, 92, 92, .12); --info: #52a8ff; --info-soft: rgba(82, 168, 255, .12);
   --ai: #a78bfa; --ai-soft: rgba(167, 139, 250, .14);
   --code-bg: #000000; --code-text: #ededed;
-  --ai-bg: #0a0a0a; --ai-border: #262626; --ai-text: #ededed;
+  --ai-bg: rgba(167, 139, 250, .10); --ai-border: rgba(167, 139, 250, .32); --ai-text: #ddd6fe;
   --shadow: 0 0 0 1px rgba(255, 255, 255, .04); --shadow-lg: 0 24px 64px rgba(0, 0, 0, .8);
 }
 

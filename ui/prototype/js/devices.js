@@ -234,20 +234,18 @@ function devicePage(d) {
 // 只显示一条最重要的状态，点击展开说明
 function statusBar(d) {
   if (unreach(d) || !isActive(d) || unpaired(d)) return "";
-  let b = null;
-  if (d.id === "win-pc") {
-    b = {
+  const id = `data-id="${d.id}"`;
+  let b = {
       ai: { k: "ai", lead: `<span class="pulse ai live"></span>${avatar("claude", "sm")}`, t: `<b>Claude Code 正在操作桌面</b> · 2 分 14 秒`,
-        btns: `<button class="btn sm" data-a="takeover">${ic("hand")}接管</button><button class="btn sm danger-soft" data-a="stopAI">${ic("stop")}停止</button>`,
+        btns: `<button class="btn sm" data-a="takeover" ${id}>${ic("hand")}接管</button><button class="btn sm danger-soft" data-a="stopAI" ${id}>${ic("stop")}停止</button>`,
         x: "来自 linux-server。本地用户动一下鼠标键盘，AI 会立即停下；也可以在这里接管或紧急停止。命令和文件操作不受控制权影响。" },
       local: { k: "info", lead: ic("mouse"), t: `<b>本地用户正在使用</b> · Claude Code 在排队`, btns: "",
         x: "AI 的鼠标键盘操作已暂停，本地停止操作 3 秒后自动继续。可以在“设置 → 桌面控制权”中修改这个时间。" },
-      human: { k: "info", lead: ic("hand"), t: `<b>你正在远程操作桌面</b>`, btns: `<button class="btn sm" data-a="release">释放</button>`,
+      human: { k: "info", lead: ic("hand"), t: `<b>你正在远程操作桌面</b>`, btns: `<button class="btn sm" data-a="release" ${id}>释放</button>`,
         x: "Claude Code 的鼠标键盘操作在排队。你 60 秒不操作会自动释放。" },
       paused: { k: "bad", lead: ic("pause"), t: `<b>被控端已暂停所有远程操作</b>`, btns: "",
         x: "本地用户在 13:58 按下了暂停。新的远程操作会被拒绝，正在运行的后台命令继续。只能在被控端解除。" },
-    }[S.control] || null;
-  }
+    }[ctlOf(d)] || null;
   if (!b && d.path === "relay") b = { k: "warn", lead: ic("route"), t: `<b>经中继连接，延迟较高</b> · 远程桌面为截图模式`, btns: "",
     x: `当前经${d.relay}的中继连接，延迟 ${d.latency} 毫秒。命令和文件可以正常使用；实时画面暂时只支持局域网直连，其他路径下远程桌面改为截图模式：可以点击和输入，每次操作后刷新截图。<a data-a="noop" data-msg="正在重新探测直连路径…" style="text-decoration:underline;cursor:pointer">重新探测</a>` };
   if (!b) return "";
@@ -308,7 +306,8 @@ function actItem(a) {
 
 function paneOverview(d) {
   const tile = (go, icon, t, desc, off) => `<div class="tile ${off ? "off" : ""}" ${go.startsWith("#") ? `data-go="${go}"` : `data-a="${go}" data-id="${d.id}" data-dev="${d.id}"`}><span class="ti">${ic(icon)}</span><div><div class="tt">${t}</div><div class="td">${desc}</div></div></div>`;
-  const ctl = { none: ["空闲", "本地用户空闲 2 分钟"], ai: ["Claude Code", "AI 正在使用鼠标键盘"], local: ["本地用户", "AI 在排队"], human: ["你", "正在远程操作"], paused: ["已暂停", "本地用户暂停了远程操作"] }[S.control];
+  const c = CTL[ctlOf(d)];
+  const desk = d.kind === "server" ? ["无桌面", "—"] : ctlOf(d) === "none" ? [c.stat, d.session || "—"] : [c.stat, c.sub];
   const recent = ACTIVITY.filter(a => a.dev === d.id).slice(0, 3);
   const caps = [["terminal", "命令", true], ["folder", "文件", true], ["image", "截图", d.kind !== "server"], ["layers", "界面元素", d.kind !== "server" && !d.outdated], ["mouse", "鼠标键盘", d.kind !== "server"],];
   return `
@@ -320,7 +319,7 @@ function paneOverview(d) {
     </div>
     <div class="stats">
       <div class="stat"><div class="l">${ic("route", "sm")}连接</div><div class="v">${d.self ? "本机" : `${d.latency} 毫秒`}</div><div class="s">${pathText(d)}${d.latency >= 150 ? " · 波动较大" : " · 稳定"}</div></div>
-      <div class="stat"><div class="l">${ic("hand", "sm")}桌面</div><div class="v">${d.id === "win-pc" ? ctl[0] : d.kind === "server" ? "无桌面" : "空闲"}</div><div class="s">${d.id === "win-pc" ? ctl[1] : d.session || "—"}</div></div>
+      <div class="stat"><div class="l">${ic("hand", "sm")}桌面</div><div class="v">${desk[0]}</div><div class="s">${desk[1]}</div></div>
       <div class="stat"><div class="l">${ic("cpu", "sm")}系统</div><div class="v">${d.os}</div><div class="s">节点 ${d.version}${d.outdated ? " · 可更新" : ""}</div></div>
     </div>
     <section><div class="sec-h"><h2>最近操作</h2><span class="right"><button class="btn ghost sm" data-a="actForDev" data-dev="${d.id}">全部${ic("chevRight", "sm")}</button></span></div>
@@ -342,27 +341,42 @@ function expander(key, icon, title, desc, body) {
 
 A.actForDev = el => { S.act.dev = el.dataset.dev; go("#/activity"); };
 
-// ---------- 终端 ----------
-function termHTML() {
-  const c = S.cmd;
-  const st = {
+// ---------- 终端（每台设备一份状态） ----------
+function cmdOf(id) {
+  if (!S.cmds[id]) {
+    const d = devById(id), win = isWin(d);
+    S.cmds[id] = { shell: win ? "PowerShell 7" : "bash", text: win ? "Get-ChildItem D:\\data -Recurse | Measure-Object -Sum Length" : "systemctl status deskbridge",
+      status: "idle", lines: [], timeout: true, admin: false };
+    // 示例：win-pc 上有一条正在运行的命令
+    if (id === "win-pc") Object.assign(S.cmds[id], { status: "run", lines: CMD_OUTPUTS.default.slice(0, 12), started: Date.now() - 8400, ran: S.cmds[id].text });
+  }
+  return S.cmds[id];
+}
+
+function termStatus(c) {
+  return {
     idle: `<span class="st faint" style="font-weight:500">就绪</span>`,
     run: `<span class="st"><span class="spin"></span>运行中</span><span id="runtime">${fmtSec(Date.now() - c.started)}</span>`,
     ok: `<span class="st" style="color:var(--ok)">${ic("check", "sm")}完成</span><span>退出码 0 · ${c.dur}</span>`,
     cancel: `<span class="st" style="color:var(--muted)">${ic("stop", "sm")}已取消</span><span>${c.dur}</span>`,
   }[c.status];
+}
+
+function termHTML(d) {
+  const c = cmdOf(d.id);
   const lines = c.lines.map(([k, t]) => {
     const html = esc(t).replace(/&lt;hl&gt;(.*?)&lt;\/hl&gt;/g, '<span class="hl">$1</span>');
     return k ? `<span class="${k}">${html}</span>` : html;
   }).join("\n");
   const head = c.status === "idle" ? "" : `<span class="dim">$ ${esc(c.ran || c.text)}</span>\n`;
   const tail = c.status === "run" ? ` <span class="cursor"></span>` : c.status === "cancel" ? `\n<span class="warn">^C 已取消，进程树已结束</span>` : "";
-  return `<div class="out" id="out">${c.status === "idle" ? `<span class="dim">输入命令后按回车执行。输出会实时显示，Windows 上的中文会自动转成 UTF-8。</span>` : head + lines + tail}</div>`;
+  const hint = `输入命令后按回车执行。输出会实时显示${isWin(d) ? "，Windows 上的中文会自动转成 UTF-8" : ""}。`;
+  return `<div class="out" id="out">${c.status === "idle" ? `<span class="dim">${hint}</span>` : head + lines + tail}</div>`;
 }
 
-function termBar() {
-  const c = S.cmd;
-  return `<div class="bar" id="tbar">${{ idle: `<span class="st faint" style="font-weight:500">就绪</span>`, run: `<span class="st"><span class="spin"></span>运行中</span><span id="runtime">${fmtSec(Date.now() - c.started)}</span>`, ok: `<span class="st" style="color:var(--ok)">${ic("check", "sm")}完成</span><span>退出码 0 · ${c.dur}</span>`, cancel: `<span class="st" style="color:var(--muted)">${ic("stop", "sm")}已取消</span><span>${c.dur}</span>` }[c.status]}
+function termBar(d) {
+  const c = cmdOf(d.id);
+  return `<div class="bar" id="tbar">${termStatus(c)}
     <span class="tools">
       <button class="btn ghost sm" data-a="popHistory">${ic("history")}历史</button>
       <button class="btn ghost sm" data-a="popOptions">${ic("sliders")}选项</button>
@@ -372,83 +386,102 @@ function termBar() {
 }
 
 function paneTerm(d) {
-  const c = S.cmd;
-  const shells = d.os.startsWith("Windows") ? ["PowerShell 7", "命令提示符"] : ["bash", "sh"];
-  if (!shells.includes(c.shell)) c.shell = shells[0];
+  const c = cmdOf(d.id);
+  const shells = isWin(d) ? ["PowerShell 7", "命令提示符"] : ["bash", "sh"];
   return `<div class="term2" id="term">
-    ${termBar()}
-    ${termHTML()}
+    ${termBar(d)}
+    ${termHTML(d)}
     <div class="inrow">
       <span class="sh" data-a="cycleShell" data-v="${shells.join("|")}" title="切换命令行">${c.shell}${ic("chevDown", "sm")}</span>
       <span class="prompt">›</span>
-      <input id="cmdin" value="${esc(c.text)}" data-in="cmd.text" placeholder="输入命令，回车执行" autocomplete="off" spellcheck="false">
+      <input id="cmdin" value="${esc(c.text)}" data-in="cmds.${d.id}.text" placeholder="输入命令，回车执行" autocomplete="off" spellcheck="false">
       ${c.status === "run" ? `<button class="btn danger-soft" data-a="cancelCmd">${ic("stop")}取消</button>` : `<button class="btn primary" data-a="runCmd">${ic("play")}执行</button>`}
     </div>
   </div>`;
 }
 
-let cmdTimer = null;
-function updateTerm() {
-  const o = $("#out"); if (o) { o.outerHTML = termHTML(); const n = $("#out"); n.scrollTop = n.scrollHeight; }
+const cmdTimers = {};
+function updateTerm(id) {
+  if (S.route.dev !== id || S.route.tab !== "term") return;
+  const o = $("#out"); if (o) { o.outerHTML = termHTML(devById(id)); const n = $("#out"); n.scrollTop = n.scrollHeight; }
 }
 A.runCmd = () => {
-  if (unreach(devById(S.route.dev))) return toast("bad", "无法执行", "组网已断开");
-  if (S.control === "paused") return toast("bad", "被拒绝", "被控端已暂停远程操作");
-  const c = S.cmd;
+  const d = devById(S.route.dev), c = cmdOf(d.id);
+  if (unreach(d)) return toast("bad", "无法执行", "组网已断开");
+  if (ctlOf(d) === "paused") return toast("bad", "被拒绝", "被控端已暂停远程操作");
   if (!c.text.trim()) return;
-  clearInterval(cmdTimer);
-  const src = /ping/i.test(c.text) ? CMD_OUTPUTS.ping : CMD_OUTPUTS.default;
+  clearInterval(cmdTimers[d.id]);
+  const src = /ping/i.test(c.text) ? CMD_OUTPUTS.ping : isWin(d) ? CMD_OUTPUTS.default : CMD_OUTPUTS.linux;
   Object.assign(c, { status: "run", lines: [], started: Date.now(), ran: c.text });
   render();
   let i = 0;
-  cmdTimer = setInterval(() => {
-    if (c.status !== "run") return clearInterval(cmdTimer);
+  cmdTimers[d.id] = setInterval(() => {
+    if (c.status !== "run") return clearInterval(cmdTimers[d.id]);
     c.lines.push(src[i++]);
-    if (i >= src.length) { clearInterval(cmdTimer); c.status = "ok"; c.dur = fmtSec(Date.now() - c.started); render(); return; }
-    updateTerm();
+    if (i >= src.length) { clearInterval(cmdTimers[d.id]); c.status = "ok"; c.dur = fmtSec(Date.now() - c.started); if (S.route.dev === d.id) render(); return; }
+    updateTerm(d.id);
   }, 450);
 };
 A.cancelCmd = () => {
-  clearInterval(cmdTimer);
-  const c = S.cmd;
+  const id = S.route.dev, c = cmdOf(id);
+  clearInterval(cmdTimers[id]);
   c.status = "cancel"; c.dur = fmtSec(Date.now() - c.started);
   toast("ok", "已取消", "命令及其子进程已结束");
   render();
 };
-A.clearCmd = () => { S.cmd.status = "idle"; S.cmd.lines = []; render(); };
-A.fillCmd = el => { S.cmd.text = el.dataset.c; S.pop = null; render(); $("#cmdin")?.focus(); };
-A.cycleShell = el => { const s = el.dataset.v.split("|"); S.cmd.shell = s[(s.indexOf(S.cmd.shell) + 1) % s.length]; render(); };
-A.optToggle = el => { S.cmd[el.dataset.k] = !S.cmd[el.dataset.k]; render(); };
+A.clearCmd = () => { Object.assign(cmdOf(S.route.dev), { status: "idle", lines: [] }); render(); };
+A.fillCmd = el => { cmdOf(S.route.dev).text = el.dataset.c; S.pop = null; render(); $("#cmdin")?.focus(); };
+A.cycleShell = el => { const c = cmdOf(S.route.dev), s = el.dataset.v.split("|"); c.shell = s[(s.indexOf(c.shell) + 1) % s.length]; render(); };
+A.optToggle = el => { const c = cmdOf(S.route.dev); c[el.dataset.k] = !c[el.dataset.k]; render(); };
 A.popHistory = el => openPop(el, "history");
 A.popOptions = el => openPop(el, "options");
 
-POPS.history = () => `<div class="ph2">最近执行</div>${RECENT_RUNS.map(r => `<div class="pi" data-a="fillCmd" data-c="${esc(r.c)}"><span class="pill ${r.st === "ok" ? "ok" : r.st === "err" ? "bad" : "off"}">${r.st === "ok" ? "成功" : r.st === "err" ? `退出码 ${r.code}` : "已取消"}</span><span class="c">${esc(r.c)}</span><span class="w">${r.w}</span></div>`).join("")}`;
+POPS.history = () => {
+  const os = isWin(devById(S.route.dev)) ? "win" : "linux";
+  return `<div class="ph2">最近执行</div>${RECENT_RUNS.filter(r => r.os === os).map(r => `<div class="pi" data-a="fillCmd" data-c="${esc(r.c)}"><span class="pill ${r.st === "ok" ? "ok" : r.st === "err" ? "bad" : "off"}">${r.st === "ok" ? "成功" : r.st === "err" ? `退出码 ${r.code}` : "已取消"}</span><span class="c">${esc(r.c)}</span><span class="w">${r.w}</span></div>`).join("")}`;
+};
 POPS.options = () => {
-  const c = S.cmd;
+  const d = devById(S.route.dev), c = cmdOf(d.id);
   return `<div class="ph2">执行选项</div>
     <div class="pi" data-a="optToggle" data-k="timeout"><span class="check ${c.timeout ? "on" : ""}"></span>超时 120 秒后结束</div>
     <div class="pi" data-a="optToggle" data-k="admin"><span class="check ${c.admin ? "on" : ""}"></span>以管理员身份（需要服务模式，规划中）</div>
     <div class="divider"></div>
-    <div class="pi" style="cursor:default">${ic("folder", "sm")}<span class="muted">工作目录</span><span class="c" style="text-align:right">D:\\data\\projects</span></div>`;
+    <div class="pi" style="cursor:default">${ic("folder", "sm")}<span class="muted">工作目录</span><span class="c" style="text-align:right">${esc(fsOf(d.id).path)}</span></div>`;
 };
 
-// ---------- 文件 ----------
+// ---------- 文件（每台设备一份状态；Windows 用 \，Linux 用 /） ----------
+function fsOf(id) {
+  if (!S.fss[id]) S.fss[id] = { path: isWin(devById(id)) ? "D:\\data\\projects" : "/etc", upload: null };
+  return S.fss[id];
+}
+const fsTree = d => isWin(d) ? FILES : FILES_LINUX;
+// 路径拆成面包屑：[[名称, 完整路径], …]
+function fsCrumbs(d, path) {
+  if (!isWin(d)) {
+    const p = path.split("/").filter(Boolean);
+    return [["/", "/"], ...p.map((n, i) => [n, "/" + p.slice(0, i + 1).join("/")])];
+  }
+  const p = path.split("\\").filter(Boolean);
+  return p.map((n, i) => [n, p.slice(0, i + 1).join("\\") + (i === 0 ? "\\" : "")]);
+}
+function fsChild(d, path, name) {
+  if (isWin(d)) return path.endsWith("\\") ? path + name : path + "\\" + name;
+  return path === "/" ? "/" + name : path + "/" + name;
+}
+
 function paneFiles(d) {
-  const f = S.fs;
-  const parts = f.path.split("\\").filter(Boolean);
-  const crumbs = parts.map((p, i) => {
-    const path = parts.slice(0, i + 1).join("\\") + (i === 0 ? "\\" : "");
-    return `<a data-a="cd" data-p="${esc(path)}">${esc(p)}</a>`;
-  }).join(`<span class="sep">${ic("chevRight", "sm")}</span>`);
-  const list = FILES[f.path];
+  const f = fsOf(d.id);
+  const crumbs = fsCrumbs(d, f.path).map(([n, p]) => `<a data-a="cd" data-p="${esc(p)}">${esc(n)}</a>`).join(`<span class="sep">${ic("chevRight", "sm")}</span>`);
+  const list = fsTree(d)[f.path];
+  const priv = isWin(d) ? "D:\\data\\private" : null;
   let body;
-  if (f.path === "D:\\data\\private") {
-    body = `<div class="empty"><div class="art bad">${ic("lock", "xl")}</div><h3>拒绝访问</h3><p>节点以普通用户身份运行，没有读取这个文件夹的权限。</p><p><span class="errcode">permission_denied</span></p><div class="btns"><button class="btn" data-a="cd" data-p="D:\\data">返回上一级</button></div></div>`;
+  if (f.path === priv) {
+    body = `<div class="empty"><div class="art bad">${ic("lock", "xl")}</div><h3>拒绝访问</h3><p>节点以普通用户身份运行，没有读取这个文件夹的权限。</p><p><span class="errcode">permission_denied</span></p><div class="btns"><button class="btn" data-a="cdUp">返回上一级</button></div></div>`;
   } else if (!list) {
     body = `<div class="empty"><div class="art">${ic("folder", "xl")}</div><h3>空文件夹</h3><p>把文件拖到这里即可上传。</p></div>`;
   } else {
-    const rows = list.concat(f.path === "D:\\data" ? [{ n: "private", d: true, m: "—" }] : []);
-    body = `<div class="list2">${rows.map(x => `<div class="li" data-a="${x.d ? "cd" : "fileDrawer"}" data-p="${esc(f.path + "\\" + x.n)}" data-n="${esc(x.n)}">
+    const rows = list.concat(isWin(d) && f.path === "D:\\data" ? [{ n: "private", d: true, m: "—" }] : []);
+    body = `<div class="list2">${rows.map(x => `<div class="li" data-a="${x.d ? "cd" : "fileDrawer"}" data-p="${esc(fsChild(d, f.path, x.n))}" data-n="${esc(x.n)}">
         ${x.d ? `<span class="fname"><span class="folder">${ic("folder", "lg")}</span></span>` : `<span class="fname">${ic(x.text ? "fileText" : "file", "lg")}</span>`}
         <div class="b"><div class="t">${esc(x.n)}</div></div>
         <div class="r"><span class="hide-m">${x.m}</span><span style="width:64px;text-align:right">${x.d ? "" : x.s}</span><span style="width:14px;display:inline-flex">${x.d ? ic("chevRight", "sm") : ""}</span></div></div>`).join("")}</div>`;
@@ -463,24 +496,29 @@ function paneFiles(d) {
     ${up ? `<div class="card" style="padding:12px 16px"><div class="row small"><span>${ic("upload", "sm")}上传 <b>${up.n}</b></span><span class="spacer"></span><span class="muted">${up.p}%</span><button class="btn ghost sm" data-a="cancelUpload">取消</button></div><div class="progress" style="margin-top:8px"><i style="width:${up.p}%"></i></div></div>` : ""}
     ${body}`;
 }
-A.cd = el => { S.fs.path = el.dataset.p; render(); };
-A.cdUp = () => { const p = S.fs.path.split("\\").filter(Boolean); if (p.length > 1) { p.pop(); S.fs.path = p.join("\\") + (p.length === 1 ? "\\" : ""); render(); } };
+A.cd = el => { fsOf(S.route.dev).path = el.dataset.p; render(); };
+A.cdUp = () => {
+  const d = devById(S.route.dev), f = fsOf(d.id), c = fsCrumbs(d, f.path);
+  if (c.length > 1) { f.path = c[c.length - 2][1]; render(); }
+};
 A.fileDrawer = el => { S.drawer = { type: "file", n: el.dataset.n }; render(); };
-let upTimer = null;
+const upTimers = {};
 A.upload = () => {
-  S.fs.upload = { n: "报告-2026Q3.xlsx", p: 0 }; render();
-  clearInterval(upTimer);
-  upTimer = setInterval(() => {
-    if (!S.fs.upload) return clearInterval(upTimer);
-    S.fs.upload.p = Math.min(100, S.fs.upload.p + 17);
-    if (S.fs.upload.p >= 100) { clearInterval(upTimer); S.fs.upload = null; toast("ok", "上传完成", "报告-2026Q3.xlsx → " + S.fs.path); }
+  const id = S.route.dev, f = fsOf(id);
+  f.upload = { n: "报告-2026Q3.xlsx", p: 0 }; render();
+  clearInterval(upTimers[id]);
+  upTimers[id] = setInterval(() => {
+    if (!f.upload) return clearInterval(upTimers[id]);
+    f.upload.p = Math.min(100, f.upload.p + 17);
+    if (f.upload.p >= 100) { clearInterval(upTimers[id]); f.upload = null; toast("ok", "上传完成", `报告-2026Q3.xlsx → ${id}:${f.path}`); }
     render();
   }, 400);
 };
-A.cancelUpload = () => { clearInterval(upTimer); S.fs.upload = null; toast("ok", "已取消上传"); render(); };
+A.cancelUpload = () => { const id = S.route.dev; clearInterval(upTimers[id]); fsOf(id).upload = null; toast("ok", "已取消上传"); render(); };
 
 DRAWERS.file = () => {
-  const x = (FILES[S.fs.path] || []).find(f => f.n === S.drawer.n) || {};
+  const d = devById(S.route.dev);
+  const x = (fsTree(d)[fsOf(d.id).path] || []).find(f => f.n === S.drawer.n) || {};
   return drawer({
     title: esc(x.n), sub: `${x.s || ""} · 修改于 ${x.m || ""}`,
     body: x.text ? `<div class="codebox" style="font-size:12.5px;line-height:1.7">${esc(x.text)}</div>` : `<div class="empty"><div class="art">${ic("file", "xl")}</div><p>这种文件不支持预览。</p></div>`,
@@ -511,9 +549,9 @@ function desktopArt({ ai = false, small = false } = {}) {
 const shotMode = d => d.path !== "lan";
 
 function remoteBar(d, inWindow) {
-  const ctl = S.control;
-  const ctlText = { ai: `<span class="pill ai"><span class="pulse ai live"></span>AI 正在操作 · 你在观看</span>`, human: `<span class="pill info">${ic("hand", "sm")}你正在控制</span>`, local: `<span class="pill info">本地用户正在使用</span>`, none: `<span class="pill off">只观看</span>`, paused: `<span class="pill bad">被控端已暂停</span>` }[ctl];
-  const ctlBtn = ctl === "human" ? `<button class="btn sm" data-a="release">释放控制权</button>` : ctl === "paused" || ctl === "local" ? "" : `<button class="btn sm" data-a="takeover">${ic("hand")}${ctl === "ai" ? "接管" : "开始控制"}</button>`;
+  const ctl = ctlOf(d), c = CTL[ctl], id = `data-id="${d.id}"`;
+  const ctlText = `<span class="pill ${c.cls}">${c.live ? `<span class="pulse ai live"></span>` : ""}${ctl === "human" ? ic("hand", "sm") : ""}${c.label}${ctl === "human" ? "" : " · 你在观看"}</span>`;
+  const ctlBtn = ctl === "human" ? `<button class="btn sm" data-a="release" ${id}>释放控制权</button>` : ctl === "paused" || ctl === "local" ? "" : `<button class="btn sm" data-a="takeover" ${id}>${ic("hand")}${ctl === "ai" ? "接管" : "开始控制"}</button>`;
   return `<div class="remote-bar">
       ${inWindow ? `<span class="logo">${ic("bridge")}</span>` : `<button class="btn sm" data-a="closeRemote">${ic("chevLeft")}返回</button>`}
       <b>${d.name}</b><span class="rstat">${latBars(d.latency)}${pathText(d)} · ${d.latency} 毫秒 · ${shotMode(d) ? "截图模式" : "58 帧"}</span>
@@ -528,7 +566,7 @@ function remoteBar(d, inWindow) {
 }
 
 function remoteBody(d) {
-  const ctl = S.control;
+  const ctl = ctlOf(d);
   const shot = shotMode(d) ? `${ic("image", "sm")}截图模式：经${d.path === "relay" ? `${d.relay}的中继` : pathText(d)}连接，实时画面不可用 · 截于 14:03:22 · 每 5 秒自动刷新，操作后立即刷新 · ` : "";
   return `<div class="remote-body">${desktopArt({ ai: ctl === "ai" })}
       <div class="remote-hint">${shot}${ctl === "human" ? `${ic("keyboard", "sm")}键盘和鼠标已发送到 ${d.name} · 按右 Ctrl 释放键盘捕获` : `${ic("eye", "sm")}正在观看 · 点击“${ctl === "ai" ? "接管" : "开始控制"}”后才会发送鼠标键盘`}</div>
@@ -556,7 +594,7 @@ A.openRemote = el => {
   if (unreach(d)) return toast("bad", "无法打开远程桌面", "连接已断开");
   if (S.sessions[d.id] !== undefined) return A.focusRemote({ dataset: { dev: d.id } });
   if (isPhone() || S.set.remoteMode !== "独立窗口") { S.remote = d.id; render(); return; }
-  const q = new URLSearchParams({ win: "remote", dev: d.id, theme: S.theme, mode: S.mode, control: d.id === "win-pc" ? S.control : "none" });
+  const q = new URLSearchParams({ win: "remote", dev: d.id, theme: S.theme, mode: S.mode, control: ctlOf(d) });
   const w = window.open(`${location.href.split(/[?#]/)[0]}?${q}`, "remote-" + d.id, "width=1280,height=760");
   if (!w) { S.remote = d.id; toast("warn", "浏览器阻止了新窗口", "改为在当前窗口中显示"); render(); return; }
   S.sessions[d.id] = w;
@@ -577,11 +615,19 @@ A.closeSession = el => {
 };
 A.closeRemote = () => {
   if (S.win === "remote") { window.close(); toast("info", "已断开", "窗口没有自动关闭时可以直接关掉"); return; }
-  S.remote = null; S.pop = null; if (S.control === "human") S.control = "none"; render();
+  const d = devById(S.remote);
+  if (ctlOf(d) === "human") setCtl(d, "none");
+  S.remote = null; S.pop = null; render();
 };
-A.takeover = () => { if (S.control === "ai") { S.modal = { type: "takeover" }; render(); return; } S.control = "human"; toast("info", "你已获得 win-pc 的桌面控制权"); render(); };
-A.release = () => { S.control = "none"; toast("ok", "已释放控制权", "Claude Code 可以继续排队获取"); render(); };
-A.stopAI = () => { S.modal = { type: "stopAI", opt: "stop" }; render(); };
+// 控制权操作作用于按钮所属的设备：data-id，或当前远程桌面、当前设备页
+const ctxDev = el => devById(el?.dataset?.id || S.remote || S.route.dev);
+A.takeover = el => {
+  const d = ctxDev(el);
+  if (ctlOf(d) === "ai") { S.modal = { type: "takeover", id: d.id }; render(); return; }
+  setCtl(d, "human"); toast("info", `你已获得 ${d.name} 的桌面控制权`); render();
+};
+A.release = el => { setCtl(ctxDev(el), "none"); toast("ok", "已释放控制权", "Claude Code 可以继续排队获取"); render(); };
+A.stopAI = el => { S.modal = { type: "stopAI", opt: "stop", id: ctxDev(el).id }; render(); };
 A.devMenu = el => {
   const d = devById(S.route.dev);
   openMenu(el, [
@@ -602,17 +648,17 @@ A.noop = el => { if (el && el.dataset.msg) toast("ok", el.dataset.msg); };
 // 对话框
 // =========================================================
 MODALS.takeover = () => modal({
-  title: "从 AI 手中接管桌面？", sub: "Claude Code 正在操作 win-pc 的鼠标键盘",
+  title: "从 AI 手中接管桌面？", sub: `Claude Code 正在操作 ${S.modal.id} 的鼠标键盘`,
   body: `<p class="muted" style="line-height:1.7">接管后，AI 当前的鼠标键盘操作会立即中断，它会排队等你释放控制权。它在后台运行的命令不受影响。</p>`,
   foot: `<button class="btn" data-a="closeModal">取消</button><button class="btn primary" data-a="doTakeover">${ic("hand")}接管</button>`,
 });
-A.doTakeover = () => { S.modal = null; S.control = "human"; toast("info", "你已接管 win-pc", "Claude Code 在排队"); render(); };
+A.doTakeover = () => { const d = devById(S.modal.id); S.modal = null; setCtl(d, "human"); toast("info", `你已接管 ${d.name}`, "Claude Code 在排队"); render(); };
 
 MODALS.stopAI = () => {
   const o = S.modal.opt;
   const opt = (v, t, d) => `<div class="opt ${o === v ? "on" : ""}" data-a="modalOpt" data-k="opt" data-v="${v}"><span class="radio ${o === v ? "on" : ""}"></span><div><div class="t">${t}</div><div class="d">${d}</div></div></div>`;
   return modal({
-    title: "停止 Claude Code", sub: "它正在操作 win-pc",
+    title: "停止 Claude Code", sub: `它正在操作 ${S.modal.id}`,
     body: opt("stop", "紧急停止", "取消它在这台设备上的全部请求，并拒绝后续请求，直到你恢复。") +
       opt("kill", "紧急停止并结束它启动的进程", "另外结束它启动的 2 个进程。做了一半的操作可能留下不完整的文件。") +
       opt("take", "只接管鼠标键盘", "由你远程控制；它的后台命令继续运行。"),
@@ -620,9 +666,9 @@ MODALS.stopAI = () => {
   });
 };
 A.doStopAI = () => {
-  const o = S.modal.opt; S.modal = null;
-  if (o === "take") { S.control = "human"; toast("info", "你已接管 win-pc"); }
-  else { S.control = "none"; toast("ok", o === "kill" ? "已停止 Claude Code 并结束 2 个进程" : "已紧急停止 Claude Code", "可以在“设置 → 桌面控制权”中恢复"); }
+  const o = S.modal.opt, d = devById(S.modal.id); S.modal = null;
+  if (o === "take") { setCtl(d, "human"); toast("info", `你已接管 ${d.name}`); }
+  else { setCtl(d, "none"); toast("ok", o === "kill" ? "已停止 Claude Code 并结束 2 个进程" : "已紧急停止 Claude Code", "可以在“设置 → 桌面控制权”中恢复"); }
   render();
 };
 

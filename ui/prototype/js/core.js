@@ -2,7 +2,9 @@
 
 const S = {
   // 原型控制台
-  theme: "clean", mode: "light", size: "desktop", scenario: "normal", control: "ai",
+  theme: "clean", mode: "light", size: "desktop", scenario: "normal",
+  // 桌面控制权：设备 ID → 状态（none、ai、local、human、paused），没有记录的设备为空闲。原型控制台只调 win-pc
+  ctl: { "win-pc": "ai" },
   // 路由
   route: { page: "devices", dev: null, tab: "overview", sec: "appearance" },
   // 浮层
@@ -13,8 +15,8 @@ const S = {
   lanNotice: true, // 默认开启局域网发现时提示一次“其他设备能看到本机名称”
   // 各页面状态
   filter: "all", search: "",
-  cmd: { shell: "PowerShell 7", text: "Get-ChildItem D:\\data -Recurse | Measure-Object -Sum Length", status: "run", lines: CMD_OUTPUTS.default.slice(0, 12), started: Date.now() - 8400, timeout: true, utf8: true },
-  fs: { path: "D:\\data\\projects", sel: "readme.md", upload: null },
+  // 终端和文件按设备分开保存：设备 ID → 状态，第一次打开时创建（见 devices.js 的 cmdOf、fsOf）
+  cmds: {}, fss: {},
   act: { who: "all", dev: "all", open: "0" },
   // 已打开的远程窗口：设备 ID → 窗口对象（截图用的假会话为 null）
   sessions: {}, win: null,
@@ -38,6 +40,18 @@ const tsAdded = () => S.ts !== "none"; // 已添加 Tailscale 连接方式
 const tsOn = () => S.ts === "on"; // 已登录 Tailscale
 const unreach = d => !d.self && d.via === "tailscale" && netDown(); // 组网断开只影响经 Tailscale 的设备，局域网设备不受影响
 const kindIcon = d => d.kind;
+const isWin = d => d.os.startsWith("Windows");
+
+// 桌面控制权的 5 种状态：设备行、设备页、概览和远程桌面都从这里取文字和颜色，保证一致
+const CTL = {
+  none: { label: "空闲", cls: "off", stat: "空闲" },
+  ai: { label: "AI 操作中", cls: "ai", live: true, stat: "Claude Code", sub: "AI 正在使用鼠标键盘" },
+  local: { label: "本地用户在用", cls: "info", stat: "本地用户", sub: "AI 在排队" },
+  human: { label: "我在远程操作", cls: "info", stat: "你", sub: "正在远程操作" },
+  paused: { label: "被控端已暂停", cls: "bad", stat: "已暂停", sub: "本地用户暂停了远程操作" },
+};
+const ctlOf = d => (d && S.ctl[d.id]) || "none";
+function setCtl(d, v) { if (v === "none") delete S.ctl[d.id]; else S.ctl[d.id] = v; }
 
 function latBars(ms) {
   const q = ms < 30 ? 3 : ms < 100 ? 2 : 1;
@@ -49,9 +63,8 @@ function devState(d) {
   if (unreach(d)) return ["off", false, "状态未知", "off"];
   if (!d.online) return ["off", false, "离线", "off"];
   if (d.noNode) return ["off", false, "未安装 DeskBridge", "off"];
-  if (d.id === "win-pc" && S.control === "ai") return ["ai", true, "AI 操作中", "ai"];
-  if (d.id === "win-pc" && S.control === "local") return ["info", false, "本地用户使用中", "info"];
-  if (d.id === "win-pc" && S.control === "paused") return ["bad", false, "已暂停远程操作", "bad"];
+  const c = ctlOf(d);
+  if (c !== "none") return [CTL[c].cls, !!CTL[c].live, CTL[c].label, CTL[c].cls];
   if (d.latency >= 150) return ["warn", false, "延迟高", "warn"];
   return ["", false, "在线", "ok"];
 }
@@ -124,7 +137,7 @@ function render() {
     if (el) { el.focus(); try { el.setSelectionRange(selStart, selStart); } catch (e) { /* 非文本输入 */ } }
   }
   const out = $("#out");
-  if (out && S.cmd.status === "run") out.scrollTop = out.scrollHeight;
+  if (out && S.route.dev && cmdOf(S.route.dev).status === "run") out.scrollTop = out.scrollHeight;
   renderToasts();
   if (S.win !== "remote") renderProto();
 }
@@ -253,15 +266,16 @@ A.modalToggle = el => { const k = el.dataset.k; S.modal[k] = !S.modal[k]; render
 
 // ---------- 原型控制台 ----------
 function renderProto() {
+  const cur = key => key === "control" ? ctlOf(devById("win-pc")) : S[key];
   const seg = (key, opts) => `<div class="seg">${opts.map(([v, l]) =>
-    `<button class="${S[key] === v ? "on" : ""}" data-p="${key}" data-v="${v}">${l}</button>`).join("")}</div>`;
+    `<button class="${cur(key) === v ? "on" : ""}" data-p="${key}" data-v="${v}">${l}</button>`).join("")}</div>`;
   $("#proto").innerHTML = `
     <div class="proto-head"><span>原型控制台</span><button data-p="toggleProto" title="收起或展开">⇆</button></div>
     <div><h4>主题</h4>${seg("theme", [["clean", "清爽"], ["mono", "黑白"], ["soft", "柔光"]])}</div>
     <div><h4>明暗</h4>${seg("mode", [["light", "浅色"], ["dark", "深色"], ["system", "跟随系统"]])}</div>
     <div><h4>窗口</h4>${seg("size", [["desktop", "桌面"], ["narrow", "窄窗口"], ["phone", "安卓手机"]])}</div>
     <div><h4>场景</h4>${seg("scenario", [["normal", "正常"], ["loading", "加载中"], ["firstrun", "首次启动"], ["error", "出错"], ["netdown", "组网断开"]])}</div>
-    <div><h4>win-pc 的桌面控制权</h4>${seg("control", [["none", "空闲"], ["ai", "AI 操作中"], ["local", "本地用户在用"], ["human", "我在远程操作"], ["paused", "被控端已暂停"]])}</div>
+    <div><h4>win-pc 的桌面控制权</h4>${seg("control", Object.entries(CTL).map(([v, c]) => [v, c.label]))}</div>
     <div><h4>流程与页面</h4><div class="links">
       <a data-p="flow" data-v="welcome">① 首次启动（只有局域网）→ 添加 Tailscale</a>
       <a data-p="flow" data-v="add">② 添加设备</a>
@@ -282,6 +296,7 @@ function onProto(el) {
   const k = el.dataset.p, v = el.dataset.v;
   if (k === "toggleProto") { $("#proto").classList.toggle("closed"); return; }
   if (k === "flow") return FLOWS[v]();
+  if (k === "control") { setCtl(devById("win-pc"), v); render(); return; }
   S[k] = v;
   if (k === "scenario" && v === "netdown") S.netTry = 1;
   if (k === "scenario") applyScenario();
@@ -299,9 +314,9 @@ function applyScenario() {
 const FLOWS = {
   welcome: () => { S.scenario = "firstrun"; applyScenario(); go("#/devices"); },
   add: () => { go("#/devices"); setTimeout(A.addDevice, 0); },
-  cmd: () => { S.ts = "on"; S.conn = "tailscale"; S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
-  takeover: () => { S.ts = "on"; S.conn = "tailscale"; S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
-  preempt: () => { S.ts = "on"; S.conn = "tailscale"; S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
+  cmd: () => { S.ts = "on"; S.conn = "tailscale"; Object.assign(cmdOf("win-pc"), { status: "idle", lines: [] }); go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
+  takeover: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
+  preempt: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
   netdown: () => { S.scenario = "netdown"; applyScenario(); S.netTry = 1; S.conn = "tailscale"; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
   remote: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
   relay: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/old-laptop/overview"); setTimeout(A.openRemote, 0); },
@@ -311,12 +326,12 @@ const FLOWS = {
 };
 
 A.simLocal = () => {
-  if (S.control !== "ai") return;
-  S.control = "local";
+  if (S.ctl["win-pc"] !== "ai") return;
+  S.ctl["win-pc"] = "local";
   toast("warn", "本地用户开始使用 win-pc", "AI 的前台输入已被中断（preempted），3 秒无操作后自动继续");
   render();
   setTimeout(() => {
-    if (S.control === "local") { S.control = "ai"; toast("ai", "本地用户已空闲 3 秒", "Claude Code 继续操作桌面"); render(); }
+    if (S.ctl["win-pc"] === "local") { S.ctl["win-pc"] = "ai"; toast("ai", "本地用户已空闲 3 秒", "Claude Code 继续操作桌面"); render(); }
   }, 6000);
 };
 
@@ -355,7 +370,12 @@ document.addEventListener("keydown", ev => {
     else if (S.pop) S.pop = null;
     else if (S.drawer) S.drawer = null;
     else if (S.modal) S.modal = null;
-    else if (S.remote) S.remote = null;
+    else if (S.remote) {
+      // 正在控制远程桌面时，Esc 发给远端，不关闭远程桌面；独立远程窗口里 Esc 也不关闭窗口
+      const d = devById(S.remote);
+      if (ctlOf(d) === "human") { toast("info", `Esc 已发送到 ${d.name}`, "要断开远程桌面，请点工具栏上的“断开”"); return; }
+      if (S.win !== "remote") S.remote = null;
+    }
     render();
     return;
   }
@@ -372,17 +392,19 @@ setInterval(() => {
   const closed = Object.entries(S.sessions).filter(([, w]) => w && w.closed).map(([id]) => id);
   if (closed.length) { closed.forEach(id => delete S.sessions[id]); render(); }
   const rt = $("#runtime");
-  if (rt && S.cmd.status === "run") rt.textContent = fmtSec(Date.now() - S.cmd.started);
+  const rc = S.route.dev && S.cmds[S.route.dev];
+  if (rt && rc && rc.status === "run") rt.textContent = fmtSec(Date.now() - rc.started);
 }, 1000);
 
 window.addEventListener("DOMContentLoaded", () => {
   const q = new URLSearchParams(location.search);
-  ["theme", "mode", "size", "scenario", "control", "conn"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
+  ["theme", "mode", "size", "scenario", "conn"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
   applyScenario();
   if (q.get("conn")) S.conn = q.get("conn");
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");
   // 远程窗口：?win=remote&dev=win-pc，由主窗口用 window.open 打开
   if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程桌面`; }
+  if (q.get("control")) { S.ctl = {}; setCtl(devById(S.remote || "win-pc"), q.get("control")); }
   // 截图用：?sess=win-pc,old-laptop 假装已打开这些远程窗口
   if (q.get("sess")) q.get("sess").split(",").forEach(id => { S.sessions[id] = null; });
   parseRoute();

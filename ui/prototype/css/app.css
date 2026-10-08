@@ -70,8 +70,6 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .logo { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: var(--logo-grad); flex: none; }
 .app[data-theme="mono"][data-mode="dark"] .logo { color: #0a0a0a; }
 .logo svg.i { width: 15px; height: 15px; stroke-width: 2.2; }
-.quick { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 10px; border-radius: var(--r);
-  background: var(--surface); border: 1px solid var(--border); color: var(--faint); box-shadow: var(--shadow-sm); cursor: pointer; }
 .kbd { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); background: var(--surface2); font-family: inherit; white-space: nowrap; }
 .nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-sm); color: var(--muted); text-decoration: none; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .nav a:hover { background: var(--hover); color: var(--text); }
@@ -89,7 +87,6 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .app[data-size="narrow"] .nav .label, .app[data-size="narrow"] .nav .count,
 .app[data-size="narrow"] .nav .kbd, .app[data-size="narrow"] .me > div, .app[data-size="narrow"] .netcard .s { display: none; }
 .app[data-size="narrow"] .brand { padding: 6px 0 14px; }
-.app[data-size="narrow"] .quick { padding: 8px; margin-bottom: 10px; }
 .app[data-size="narrow"] .nav a { padding: 9px; position: relative; }
 .app[data-size="narrow"] .nav a .badge { position: absolute; top: 2px; right: 0; transform: scale(.85); }
 .app[data-size="narrow"] .netcard { padding: 9px; }
@@ -337,13 +334,10 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
    ========================================================= */
 .devices { flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
 .app[data-size="narrow"] .devices { grid-template-columns: 250px 1fr; }
-.dlist { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .dlist-h { display: flex; align-items: center; gap: 8px; padding: 16px 16px 10px; }
 .dlist-h h2 { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
 .dlist-h .sub { color: var(--faint); font-size: 12px; }
 .dlist-h .btn { margin-left: auto; }
-.dlist .search { margin: 0 16px 8px; }
-.dlist .chips { padding: 0 14px 8px; }
 .groups { overflow: auto; padding: 0 10px 12px; flex: 1; }
 .gtitle { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--faint); padding: 10px 8px 6px; display: flex; align-items: center; gap: 6px; }
 .gtitle span:last-child { margin-left: auto; font-weight: 500; }
@@ -579,7 +573,6 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 
 .app[data-size="phone"] { font-size: 14px; }
 .app[data-size="phone"] .devices { display: flex; flex-direction: column; }
-.app[data-size="phone"] .dlist { border-right: 0; flex: 1; }
 .app[data-size="phone"] .dh { padding: 4px 16px 12px; }
 .app[data-size="phone"] .dh .big { width: 40px; height: 40px; }
 .app[data-size="phone"] .dh .actions { display: none; }
@@ -816,7 +809,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .tb-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid transparent; background: transparent;
   color: var(--muted); font-size: 12.5px; cursor: pointer; white-space: nowrap; }
 .tb-chip:hover { background: var(--hover); color: var(--text); }
-.tb-chip .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; display: grid; place-items: center; }
+.tb-chip .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accent-text); font-size: 11px; display: grid; place-items: center; }
 .titlebar .ctl { margin-left: 4px; }
 .titlebar .ctl span { color: var(--muted); }
 .app[data-size="narrow"] .tb-brand { width: auto; }

@@ -121,6 +121,22 @@ const FILES = {
   ],
 };
 
+// Linux 设备的示例文件（路径用 /）
+const FILES_LINUX = {
+  "/": [
+    { n: "etc", d: true, m: "2026/10/06 08:00" },
+    { n: "home", d: true, m: "2026/09/30 10:12" },
+    { n: "var", d: true, m: "2026/10/07 14:00" },
+  ],
+  "/etc": [
+    { n: "nginx", d: true, m: "2026/10/05 20:31" },
+    { n: "hostname", s: "13 B", m: "2026/09/01 09:00", text: "linux-server\n" },
+  ],
+  "/etc/nginx": [
+    { n: "nginx.conf", s: "3.2 KB", m: "2026/10/05 20:31", text: "user www-data;\nworker_processes auto;\n\nevents {\n    worker_connections 768;\n}\n" },
+  ],
+};
+
 const CMD_OUTPUTS = {
   ping: [
     ["dim", "正在 Ping 100.64.0.3 具有 32 字节的数据:"],
@@ -149,11 +165,20 @@ const CMD_OUTPUTS = {
     ["", "Count    : 1284"],
     ["", "Sum      : 3418265904"],
   ],
+  linux: [
+    ["", "● deskbridge.service - DeskBridge 节点"],
+    ["", "     Loaded: loaded (/etc/systemd/system/deskbridge.service; enabled)"],
+    ["", "     Active: <hl>active (running)</hl> since Wed 2026-10-07 08:00:12 UTC"],
+    ["", "   Main PID: 1234 (deskbridge)"],
+    ["dim", "     Memory: 38.2M"],
+  ],
 };
 
+// 终端历史：按系统区分示例（win：Windows，linux：Linux）
 const RECENT_RUNS = [
-  { c: "systemctl status deskbridge", st: "ok", code: 0, w: "10:30", dev: "linux-server" },
-  { c: "Get-Process | Sort-Object CPU -Desc | Select -First 5", st: "ok", code: 0, w: "09:12" },
-  { c: "Remove-Item -Recurse D:\\tmp\\cache", st: "cancel", code: null, w: "昨天" },
-  { c: "git -C D:\\data\\projects\\deskbridge pull --ff-only", st: "err", code: 1, w: "昨天" },
+  { c: "systemctl status deskbridge", st: "ok", code: 0, w: "10:30", os: "linux" },
+  { c: "journalctl -u deskbridge -n 50", st: "ok", code: 0, w: "昨天", os: "linux" },
+  { c: "Get-Process | Sort-Object CPU -Desc | Select -First 5", st: "ok", code: 0, w: "09:12", os: "win" },
+  { c: "Remove-Item -Recurse D:\\tmp\\cache", st: "cancel", code: null, w: "昨天", os: "win" },
+  { c: "git -C D:\\data\\projects\\deskbridge pull --ff-only", st: "err", code: 1, w: "昨天", os: "win" },
 ];
