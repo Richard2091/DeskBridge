@@ -371,7 +371,7 @@ setInterval(() => {
 
 window.addEventListener("DOMContentLoaded", () => {
   const q = new URLSearchParams(location.search);
-  ["theme", "mode", "size", "scenario", "control"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
+  ["theme", "mode", "size", "scenario", "control", "conn"].forEach(k => { if (q.get(k)) S[k] = q.get(k); });
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");
   // 远程窗口：?win=remote&dev=win-pc，由主窗口用 window.open 打开
   if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程画面`; }
