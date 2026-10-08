@@ -393,7 +393,7 @@ A.netRetry = () => {
 // ---------- 事件 ----------
 document.addEventListener("click", ev => {
   const p = ev.target.closest("[data-p]");
-  if (p) { onProto(p); return; }
+  if (p) { ev.preventDefault(); onProto(p); return; }
   if (S.menu && !ev.target.closest(".menu")) { S.menu = null; render(); if (!ev.target.closest("[data-a]")) return; }
   if (S.pop && !ev.target.closest(".pop") && !ev.target.closest("[data-a^=pop]")) { S.pop = null; render(); if (!ev.target.closest("[data-a],[data-go]")) return; }
   const g = ev.target.closest("[data-go]");
