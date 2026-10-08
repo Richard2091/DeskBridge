@@ -8,6 +8,7 @@ const S = {
   // 浮层
   modal: null, remote: null, menu: null, toasts: [], drawer: null, pop: null,
   exp: {}, deskMode: "shot",
+  conn: "tailscale", // 设备首页当前显示的连接方式
   // 各页面状态
   filter: "all", search: "",
   cmd: { shell: "PowerShell 7", text: "Get-ChildItem D:\\data -Recurse | Measure-Object -Sum Length", status: "run", lines: CMD_OUTPUTS.default.slice(0, 12), started: Date.now() - 8400, timeout: true, utf8: true },
@@ -93,6 +94,7 @@ function parseRoute() {
   const p = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   const r = { page: p[0] || "devices", dev: null, tab: "overview", sec: null };
   if (r.page === "devices") { r.dev = p[1] || null; r.tab = p[2] || "overview"; }
+  if (r.dev && devById(r.dev)) S.conn = devById(r.dev).via; // 从设备页返回时回到它所在的连接方式
   if (r.page === "settings") r.sec = p[1] || null;
   if (r.tab === "cmd") r.tab = "term";
   if (["shot", "uia"].includes(r.tab)) { S.deskMode = r.tab; r.tab = "desk"; }
@@ -289,17 +291,17 @@ function onProto(el) {
 }
 
 const FLOWS = {
-  welcome: () => { S.scenario = "nologin"; go("#/devices"); },
+  welcome: () => { S.scenario = "nologin"; S.conn = "tailscale"; go("#/devices"); },
   add: () => { go("#/devices"); setTimeout(A.addDevice, 0); },
   cmd: () => { S.cmd.status = "idle"; S.cmd.lines = []; go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
   takeover: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
   preempt: () => { S.control = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
-  netdown: () => { S.scenario = "netdown"; S.netTry = 1; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
+  netdown: () => { S.scenario = "netdown"; S.netTry = 1; S.conn = "tailscale"; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
   remote: () => { go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
   relay: () => go("#/devices/old-laptop/overview"),
   offline: () => go("#/devices/redmi-phone/overview"),
   nonode: () => go("#/devices/nas/overview"),
-  lan: () => { S.scenario = "normal"; devById("study-pc").paired = false; go("#/devices"); setTimeout(() => A.pairDevice({ dataset: { id: "study-pc" } }), 0); },
+  lan: () => { S.scenario = "normal"; devById("study-pc").paired = false; S.conn = "lan"; go("#/devices"); setTimeout(() => A.pairDevice({ dataset: { id: "study-pc" } }), 0); },
 };
 
 A.simLocal = () => {

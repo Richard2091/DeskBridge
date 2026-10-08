@@ -1,4 +1,4 @@
-// 设备（初版范围）：首页按连接方式分组（Tailscale、局域网）→ 设备页（概览、终端、文件、桌面）。次要信息放进展开器、抽屉和弹出面板。
+// 设备（初版范围）：首页按连接方式横向切换（Tailscale、局域网），每台设备一行→ 设备页（概览、终端、文件、桌面）。次要信息放进展开器、抽屉和弹出面板。
 
 const TABS = [
   ["overview", "info", "概览"],
@@ -30,46 +30,66 @@ function statusPill(d) {
   return `<span class="pill ${pc}">${pc === "ai" ? `<span class="pulse ai live"></span>` : ""}${label}</span>`;
 }
 
-function dcard(d) {
+// 设备行：图标和状态点、名称和系统、路径、延迟；右侧是配对按钮或悬停时的快捷按钮
+function drow(d) {
   const down = unreach(d);
   const dim = !isActive(d) || down ? "dim" : "";
-  let foot;
-  if (!d.online) foot = `${ic("clock", "sm")}${d.lastSeen}在线`;
-  else if (d.noNode) foot = `${ic("info", "sm")}在内网中，没有运行 DeskBridge`;
-  else if (d.self) foot = `${ic("check", "sm")}可被其他设备和 AI 访问`;
-  else if (unpaired(d)) foot = `${ic("link", "sm")}未配对<button class="btn sm primary" style="margin-left:auto" data-a="pairDevice" data-id="${d.id}">配对</button>`;
-  else foot = `${ic("route", "sm")}${pathText(d)}`;
+  let path;
+  if (!d.online) path = `${ic("clock", "sm")}${d.lastSeen}在线`;
+  else if (d.noNode) path = `${ic("info", "sm")}没有运行 DeskBridge`;
+  else if (d.self) path = `${ic("check", "sm")}可被其他设备和 AI 访问`;
+  else if (unpaired(d)) path = `${ic("link", "sm")}未配对`;
+  else path = `${ic("route", "sm")}${pathText(d)}`;
   const pill = statusPill(d) || (S.sessions[d.id] !== undefined ? `<span class="pill info">${ic("cast", "sm")}远程窗口已打开</span>` : "");
-  if (pill && isActive(d) && !down && !unpaired(d)) foot = pill;
   const usable = isActive(d) && !d.self && !down && !unpaired(d);
-  const lat = usable ? `<span class="lat">${latBars(d.latency)}${d.latency} 毫秒</span>` : "";
-  const quick = usable ? `<div class="quick">
-      <button class="btn ghost icon sm" title="终端" data-go="#/devices/${d.id}/term">${ic("terminal")}</button>
-      <button class="btn ghost icon sm" title="文件" data-go="#/devices/${d.id}/files">${ic("folder")}</button>
-      ${d.kind !== "server" ? `<button class="btn ghost icon sm" title="桌面" data-go="#/devices/${d.id}/desk">${ic("monitor")}</button>` : ""}
-    </div>` : "";
-  const nav = unpaired(d) ? "" : `data-go="#/devices/${d.id}/overview"`;
-  return `<div class="dcard ${dim} ${d.self ? "self" : ""}" ${nav} ${nav ? "" : `style="cursor:default"`}>
-    <div class="top"><div class="dic">${ic(kindIcon(d))}${dot(d)}</div>
-      <div style="min-width:0"><div class="nm">${d.name}</div><div class="os">${d.os}</div></div></div>
-    <div class="foot">${foot}${lat}</div>${quick}
+  const lat = usable ? `${latBars(d.latency)}${d.latency} 毫秒` : "";
+  const right = unpaired(d)
+    ? `<button class="btn sm primary" data-a="pairDevice" data-id="${d.id}">配对</button>`
+    : `${usable ? `<span class="quick">
+        <button class="btn ghost icon sm" title="终端" data-go="#/devices/${d.id}/term">${ic("terminal")}</button>
+        <button class="btn ghost icon sm" title="文件" data-go="#/devices/${d.id}/files">${ic("folder")}</button>
+        ${d.kind !== "server" ? `<button class="btn ghost icon sm" title="桌面" data-go="#/devices/${d.id}/desk">${ic("monitor")}</button>` : ""}
+      </span>` : ""}${ic("chevRight", "sm")}`;
+  const nav = unpaired(d) ? `style="cursor:default"` : `data-go="#/devices/${d.id}/overview"`;
+  return `<div class="drow ${dim} ${d.self ? "self" : ""}" ${nav}>
+    <div class="c-name"><div class="dic">${ic(kindIcon(d))}${dot(d)}</div>
+      <div style="min-width:0"><div class="nm">${d.name}${pill}</div><div class="os">${d.os}</div></div></div>
+    <div class="c-path">${path}</div>
+    <div class="c-lat">${lat}</div>
+    <div class="c-act">${right}</div>
   </div>`;
 }
 
-// 连接方式分组的组头：名称 + 该连接方式自己的状态 + 右侧操作
-function connHead(icon, name, status, right = "") {
-  return `<div class="sec-h conn-h">${ic(icon, "sm")}<h2>${name}</h2>${status}<span class="right">${right}</span></div>`;
+// 连接方式切换：每种连接方式一页，横向切换；标签上显示状态点和设备数
+function connState(id) {
+  if (id === "tailscale") return noLogin() ? ["off", "未登录"] : netDown() ? ["bad", "已断开"] : ["ok", "已连接"];
+  return S.set.lanOn ? ["ok", "已开启"] : ["off", "已关闭"];
+}
+function connTabs(match) {
+  const tab = (id, icon, name) => {
+    const [c, label] = connState(id);
+    const n = (id === "tailscale" && noLogin()) || (id === "lan" && !S.set.lanOn) ? 0 : DEVICES.filter(d => d.via === id && match(d)).length;
+    return `<a class="${S.conn === id ? "on" : ""}" data-a="setConn" data-k="${id}" title="${name} · ${label}">${ic(icon, "sm")}${name}<span class="pulse ${c}"></span>${n ? `<span class="cnt">${n}</span>` : ""}</a>`;
+  };
+  return `<nav class="conn-tabs">${tab("tailscale", "globe", "Tailscale")}${tab("lan", "wifi", "局域网")}
+    <button class="btn ghost icon sm" title="添加连接方式" data-a="addConn">${ic("plus", "sm")}</button></nav>`;
+}
+A.setConn = el => { S.conn = el.dataset.k; render(); };
+
+// 当前连接方式的状态条：状态、账号或本机地址，右侧操作
+function connBar(status, right = "") {
+  return `<div class="conn-bar">${status}<span class="right">${right}</span></div>`;
 }
 
-function tsGroup(q, match) {
+function tsPane(q, match) {
   const set = `<button class="btn ghost sm" data-go="#/settings/network">${ic("sliders", "sm")}设置</button>`;
   if (noLogin()) {
     const busy = S.tsLogging;
-    return `<section>${connHead("globe", "Tailscale", `<span class="pill off">未登录</span>`)}
-      <div class="empty" style="padding:36px 24px"><div class="art accent">${ic("globe", "xl")}</div>
+    return `<div class="empty conn-empty"><div class="art accent">${ic("globe", "xl")}</div>
         <h3>${busy ? "请在浏览器中完成登录" : "登录 Tailscale"}</h3>
-        <p>${busy ? "已在浏览器中打开登录页，登录完成后会自动回到这里。" : "登录 Tailscale 后，同一账号下的设备会自动出现"}</p>
-        <div class="btns">${busy ? `<span class="spin"></span>` : `<button class="btn primary lg" data-a="tsLogin">${ic("external")}登录 Tailscale</button>`}</div></div></section>`;
+        <p>${busy ? "已在浏览器中打开登录页，登录完成后会自动回到这里。" : "登录 Tailscale 后，同一账号下的设备会自动出现在这里"}</p>
+        <div class="btns">${busy ? `<span class="spin"></span>` : `<button class="btn primary lg" data-a="tsLogin">${ic("external")}登录 Tailscale</button>`}</div>
+        ${busy ? "" : `<p class="small"><a class="link" data-go="#/settings/network">使用自建控制服务器（Headscale）</a></p>`}</div>`;
   }
   const status = netDown()
     ? `<span class="pill bad"><span class="pulse bad"></span>已断开 · 正在重连（第 ${S.netTry} 次）</span>`
@@ -79,48 +99,55 @@ function tsGroup(q, match) {
   const active = mine.filter(isActive);
   const inactive = mine.filter(d => !isActive(d));
   const open = S.exp.inactive || q;
-  return `<section>${connHead("globe", "Tailscale", status, right)}
-    ${netDown() ? `<div class="small muted" style="margin:-4px 0 12px">设备状态可能不是最新的，恢复后会自动刷新。局域网设备不受影响。</div>` : ""}
-    <div class="dgrid">${active.map(dcard).join("")}</div>
-    ${inactive.length ? `<div style="margin-top:14px">${open
-      ? `<div class="dgrid">${inactive.map(dcard).join("")}</div>${q ? "" : `<div class="collapsed-row" style="margin-top:14px" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
-      : `<div class="collapsed-row" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`}</div>` : ""}
-  </section>`;
+  return `${connBar(status, right)}
+    ${netDown() ? `<div class="small muted" style="margin:-6px 0 12px">设备状态可能不是最新的，恢复后会自动刷新。局域网设备不受影响。</div>` : ""}
+    ${mine.length ? `<div class="dlist">${active.map(drow).join("")}${inactive.length ? (open
+      ? `${inactive.map(drow).join("")}${q ? "" : `<div class="drow more" data-a="toggleExp" data-k="inactive">${ic("chevDown", "sm")}收起</div>`}`
+      : `<div class="drow more" data-a="toggleExp" data-k="inactive">${ic("chevRight", "sm")}还有 ${inactive.length} 台离线或未安装 DeskBridge 的设备</div>`) : ""}</div>`
+      : noMatch(q)}`;
 }
 
-function lanGroup(match) {
-  const on = S.set.lanOn;
-  const status = on
-    ? `<span class="pill ok"><span class="pulse"></span>已开启</span><span class="conn-meta">本机 <span class="mono">${CONNECTORS[1].ip}</span></span>`
-    : `<span class="pill off">已关闭</span>`;
-  const right = on ? "" : `<button class="btn sm" data-a="setToggle" data-k="lanOn">开启</button>`;
-  const list = DEVICES.filter(d => d.via === "lan" && match(d));
-  return `<section>${connHead("wifi", "局域网", status, right)}
-    ${!on ? `<div class="muted small">开启后，会在同一局域网中发现运行着 DeskBridge 的设备。</div>`
-      : list.length ? `<div class="dgrid">${list.map(dcard).join("")}</div>`
-      : `<div class="muted small">没有发现其他设备。在对方设备上打开 DeskBridge，并确保在同一局域网内。</div>`}
-  </section>`;
+function lanPane(q, match) {
+  if (!S.set.lanOn) {
+    return `<div class="empty conn-empty"><div class="art">${ic("wifi", "xl")}</div><h3>局域网发现已关闭</h3>
+      <p>开启后，会在同一局域网中发现运行着 DeskBridge 的设备，配对后就能使用。</p>
+      <div class="btns"><button class="btn primary lg" data-a="setToggle" data-k="lanOn">开启局域网发现</button></div></div>`;
+  }
+  const status = `<span class="pill ok"><span class="pulse"></span>已开启</span><span class="conn-meta">本机 <span class="mono">${CONNECTORS[1].ip}</span></span>`;
+  const right = `<button class="btn ghost sm" data-go="#/settings/network">${ic("sliders", "sm")}设置</button>`;
+  const all = DEVICES.filter(d => d.via === "lan");
+  const list = all.filter(match);
+  return `${connBar(status, right)}
+    ${list.length ? `<div class="dlist">${list.map(drow).join("")}</div>`
+      : all.length ? noMatch(q)
+      : `<div class="empty conn-empty"><div class="art">${ic("wifi", "xl")}</div><h3>没有发现其他设备</h3><p>在对方设备上打开 DeskBridge，并确保在同一局域网内。</p></div>`}`;
+}
+
+// 搜索时当前连接方式里没有结果，提示其他连接方式里的匹配
+function noMatch(q) {
+  const other = S.conn === "tailscale" ? "lan" : "tailscale";
+  const n = q ? DEVICES.filter(d => d.via === other && (d.name + d.ip + d.os).toLowerCase().includes(q)).length : 0;
+  return `<div class="empty conn-empty"><h3>没有匹配的设备</h3>${n ? `<p><a class="link" data-a="setConn" data-k="${other}">${other === "lan" ? "局域网" : "Tailscale"}中有 ${n} 台匹配</a></p>` : ""}</div>`;
 }
 
 function devicesHome() {
   const online = DEVICES.filter(d => isActive(d) && !d.self && !unreach(d) && !(noLogin() && d.via === "tailscale") && !unpaired(d)).length;
   const head = isPhone()
     ? `<div class="mtop"><h1>设备</h1><button class="btn primary icon" data-a="addDevice">${ic("plus")}</button></div>`
-    : `<div class="v2-head"><div><h1>设备</h1><div class="sub">${noLogin() ? "还没有登录 Tailscale" : `${online} 台在线 · 你和 AI 都可以操作它们`}</div></div>
+    : `<div class="v2-head"><div><h1>设备</h1><div class="sub">${noLogin() && !S.set.lanOn ? "还没有可用的连接方式" : `${online} 台在线 · 你和 AI 都可以操作它们`}</div></div>
         <div class="actions"><div class="search" style="width:220px;background:var(--surface)">${ic("search", "sm")}<input id="dsearch" placeholder="搜索设备" value="${esc(S.search)}" data-in="search" data-rerender="1"></div>
         <button class="btn primary" data-a="addDevice">${ic("plus")}添加设备</button></div></div>`;
+  const q = S.search.trim().toLowerCase();
+  const match = d => !q || (d.name + d.ip + d.os).toLowerCase().includes(q);
   let body;
   if (S.scenario === "loading") {
-    body = `<div class="dgrid">${Array.from({ length: 6 }, () => `<div class="dcard" style="cursor:default"><div class="top"><div class="dic sk" style="border:0"></div><div style="flex:1"><div class="sk" style="height:13px;width:60%"></div><div class="sk" style="height:10px;width:80%;margin-top:8px"></div></div></div><div class="sk" style="height:10px;width:50%"></div></div>`).join("")}</div>`;
+    body = `<div class="dlist">${Array.from({ length: 5 }, () => `<div class="drow" style="cursor:default"><div class="c-name"><div class="dic sk" style="border:0"></div><div style="flex:1"><div class="sk" style="height:13px;width:40%"></div><div class="sk" style="height:10px;width:60%;margin-top:8px"></div></div></div><div class="c-path"><div class="sk" style="height:10px;width:70%"></div></div><div class="c-lat"></div><div class="c-act"></div></div>`).join("")}</div>`;
   } else if (S.scenario === "error") {
     body = `<div class="empty"><div class="art bad">${ic("alert", "xl")}</div><h3>无法读取设备列表</h3><p>后台服务没有响应，正在重启它。</p><p><span class="errcode">ui_core_timeout</span></p><div class="btns"><button class="btn" data-a="noop" data-msg="已打开日志目录">打开日志</button><button class="btn primary" data-a="retryList">${ic("refresh")}重试</button></div></div>`;
   } else {
-    const q = S.search.trim().toLowerCase();
-    const match = d => !q || (d.name + d.ip + d.os).toLowerCase().includes(q);
-    body = `${tsGroup(q, match)}${lanGroup(match)}
-      <div class="collapsed-row" data-a="addConn">${ic("plus", "sm")}添加连接方式</div>`;
+    body = S.conn === "lan" ? lanPane(q, match) : tsPane(q, match);
   }
-  return `<div class="v2-page" data-sk="home"><div class="v2-in">${head}${body}</div></div>`;
+  return `<div class="v2-page" data-sk="home"><div class="v2-in">${head}${connTabs(match)}${body}</div></div>`;
 }
 
 A.tsLogin = () => {
