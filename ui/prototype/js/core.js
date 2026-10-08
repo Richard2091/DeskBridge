@@ -25,7 +25,9 @@ const S = {
     release: "3", lease: "15", idle: "60", onlyAway: false, remoteMode: "独立窗口", lanOn: true,
     hkPause: "Ctrl + Alt + P", hkStop: "Ctrl + Alt + End", server: "默认（Tailscale 官方）", serverUrl: "",
   },
-  netTry: 3, tsLogging: false,
+  netTry: 3, tsLogging: false, tsErr: false, tsFailNext: false,
+  stopped: {}, // 被紧急停止的 AI：设备 ID → { who, t, kill }
+  connecting: {}, elevated: false, // 远程桌面：正在连接的条目；演示“前台是管理员窗口”
 };
 
 const A = {}; // 动作表：data-a="名称"
@@ -33,12 +35,24 @@ const A = {}; // 动作表：data-a="名称"
 // ---------- 工具函数 ----------
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const devById = id => DEVICES.find(d => d.id === id);
+// 设备条目：同一台设备在每种连接方式里各有一条，用“设备 ID@连接方式”区分
+const devById = (id, via) => DEVICES.find(d => d.id === id && (!via || d.via === via));
+const entryKey = d => `${d.id}@${d.via}`;
+const devByKey = k => { const [id, via] = String(k).split("@"); return devById(id, via); };
+const curDev = () => devById(S.route.dev, S.route.via);
+const devUrl = (d, tab = "overview") => `#/devices/${d.via}/${d.id}/${tab}`;
 const isPhone = () => S.size === "phone";
 const netDown = () => S.scenario === "netdown";
 const tsAdded = () => S.ts !== "none"; // 已添加 Tailscale 连接方式
 const tsOn = () => S.ts === "on"; // 已登录 Tailscale
-const unreach = d => !d.self && d.via === "tailscale" && netDown(); // 组网断开只影响经 Tailscale 的设备，局域网设备不受影响
+// 无法连接的原因：每种连接方式互相独立，Tailscale 断开不影响局域网里的同一台设备
+function unreachWhy(d) {
+  if (d.self) return "";
+  if (d.via === "tailscale") return !tsOn() ? "tsoff" : netDown() ? "netdown" : "";
+  if (d.via === "lan") return S.set.lanOn ? "" : "lanoff";
+  return "";
+}
+const unreach = d => !!unreachWhy(d);
 const kindIcon = d => d.kind;
 const isWin = d => d.os.startsWith("Windows");
 
@@ -84,6 +98,12 @@ function avatar(key, cls = "") {
   return `<span class="avatar ${a.avc} ${cls}">${a.av}</span>`;
 }
 
+// 打开某台设备时选哪一条：优先当前连接方式，其次局域网，再次已添加的 Tailscale
+function pickEntry(id) {
+  const all = DEVICES.filter(d => d.id === id && (d.via !== "tailscale" || tsAdded()));
+  return all.find(d => d.via === S.conn) || all.find(d => d.via === "lan") || all[0] || null;
+}
+
 function fmtSec(ms) {
   return (ms / 1000).toFixed(1) + " 秒";
 }
@@ -102,10 +122,20 @@ function go(hash) {
 // ---------- 路由 ----------
 function parseRoute() {
   const p = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-  const r = { page: p[0] || "devices", dev: null, tab: "overview", sec: null };
-  if (r.page === "devices") { r.dev = p[1] || null; r.tab = p[2] || "overview"; }
-  const routeDev = r.dev && devById(r.dev);
-  if (r.dev && (!routeDev || (routeDev.via === "tailscale" && !tsAdded()))) { r.dev = null; S.conn = "lan"; }
+  const r = { page: p[0] || "devices", dev: null, via: null, tab: "overview", sec: null };
+  // 设备页地址：#/devices/<连接方式>/<设备>/<标签>
+  if (r.page === "devices" && p[1]) {
+    if (VIA_LABEL[p[1]]) { r.via = p[1]; r.dev = p[2] || null; r.tab = p[3] || "overview"; }
+    else { r.dev = p[1]; r.tab = p[2] || "overview"; const e = pickEntry(r.dev); r.via = e && e.via; } // 不带连接方式的旧地址
+  }
+  const routeDev = r.dev && devById(r.dev, r.via);
+  if (r.dev && (!routeDev || (routeDev.via === "tailscale" && !tsAdded()))) {
+    // 这种连接方式里没有这台设备（或连接方式已移除）：回到设备列表并说明原因
+    const name = r.dev;
+    r.dev = null; r.via = null;
+    history.replaceState(null, "", "#/devices");
+    setTimeout(() => toast("info", `当前的连接方式里没有 ${name}`, tsAdded() ? "" : "它可能在 Tailscale 里，添加 Tailscale 后可以打开"), 0);
+  }
   else if (routeDev) S.conn = routeDev.via; // 从设备页返回时回到它所在的连接方式
   if (r.page === "settings") r.sec = p[1] || null;
   if (r.tab === "cmd") r.tab = "term";
@@ -143,7 +173,7 @@ function render() {
 }
 
 function frame() {
-  if (S.win === "remote") return remoteWindow(devById(S.remote)) + overlays();
+  if (S.win === "remote") return remoteWindow(devByKey(S.remote)) + overlays();
   const top = isPhone()
     ? `<div class="phonebar"><span>9:41</span><span class="notch"></span><span class="row" style="gap:5px">${ic("wifi", "sm")}<b style="font-size:12px">87%</b></span></div>`
     : titlebar();
@@ -262,6 +292,13 @@ function modal({ title, sub = "", body, foot, wide = false, icon = "" }) {
 A.closeModal = () => { S.modal = null; render(); };
 A.closeModalBg = (el, ev) => { if (ev.target === el) A.closeModal(); };
 A.modalOpt = el => { S.modal[el.dataset.k] = el.dataset.v; render(); };
+// 通用确认框：危险或难以撤销的操作先确认
+function confirmBox({ title, body, ok, act, danger = false }) { S.modal = { type: "confirm", title, body, ok, act, danger }; render(); }
+MODALS.confirm = () => modal({
+  title: S.modal.title, body: `<p class="muted" style="line-height:1.7">${S.modal.body}</p>`,
+  foot: `<button class="btn" data-a="closeModal">取消</button><button class="btn ${S.modal.danger ? "danger" : "primary"}" data-a="confirmOk">${S.modal.ok}</button>`,
+});
+A.confirmOk = () => { const act = S.modal.act; S.modal = null; A[act](); };
 A.modalToggle = el => { const k = el.dataset.k; S.modal[k] = !S.modal[k]; render(); };
 
 // ---------- 原型控制台 ----------
@@ -287,7 +324,11 @@ function renderProto() {
       <a data-p="flow" data-v="relay">⑧ 高延迟设备（中继，截图模式）</a>
       <a data-p="flow" data-v="offline">⑨ 离线设备</a>
       <a data-p="flow" data-v="nonode">⑩ 未安装 DeskBridge 的设备</a>
-      <a data-p="flow" data-v="lan">⑪ 局域网设备配对</a>
+      <a data-p="flow" data-v="lan">⑪ 局域网设备配对（含输错）</a>
+      <a data-p="flow" data-v="mycode">⑫ 显示本机配对码</a>
+      <a data-p="flow" data-v="tsfail">⑬ Tailscale 登录失败</a>
+      <a data-p="flow" data-v="cmderr">⑭ 命令失败和超时</a>
+      <a data-p="flow" data-v="elevated">⑮ 远程桌面：前台是管理员窗口</a>
     </div></div>
     <div class="note">这是不接后端的原型，所有数据都是示例。点击界面中的按钮、标签页和列表都有反应。</div>`;
 }
@@ -314,15 +355,24 @@ function applyScenario() {
 const FLOWS = {
   welcome: () => { S.scenario = "firstrun"; applyScenario(); go("#/devices"); },
   add: () => { go("#/devices"); setTimeout(A.addDevice, 0); },
-  cmd: () => { S.ts = "on"; S.conn = "tailscale"; Object.assign(cmdOf("win-pc"), { status: "idle", lines: [] }); go("#/devices/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
-  takeover: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
-  preempt: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/win-pc/overview"); setTimeout(A.simLocal, 600); },
+  cmd: () => { S.ts = "on"; S.conn = "tailscale"; Object.assign(cmdOf("win-pc"), { status: "idle", lines: [] }); go("#/devices/tailscale/win-pc/term"); setTimeout(() => { A.runCmd(); toast("info", "命令开始执行", "运行几秒后点“取消”，看看取消后的状态"); }, 200); },
+  takeover: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/tailscale/win-pc/overview"); setTimeout(() => toast("ai", "Claude Code 正在操作 win-pc 的桌面", "点提示条上的“停止”或“接管”"), 100); },
+  preempt: () => { S.ts = "on"; S.conn = "tailscale"; S.ctl["win-pc"] = "ai"; go("#/devices/tailscale/win-pc/overview"); setTimeout(A.simLocal, 600); },
   netdown: () => { S.scenario = "netdown"; applyScenario(); S.netTry = 1; S.conn = "tailscale"; go("#/devices"); setTimeout(() => { if (netDown()) { S.netTry = 2; render(); } }, 1500); },
-  remote: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/win-pc/overview"); setTimeout(A.openRemote, 0); },
-  relay: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/old-laptop/overview"); setTimeout(A.openRemote, 0); },
-  offline: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/redmi-phone/overview"); },
-  nonode: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/nas/overview"); },
-  lan: () => { S.scenario = "normal"; devById("study-pc").paired = false; S.conn = "lan"; go("#/devices"); setTimeout(() => A.pairDevice({ dataset: { id: "study-pc" } }), 0); },
+  remote: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/tailscale/win-pc/overview"); setTimeout(A.openRemote, 0); },
+  relay: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/tailscale/old-laptop/overview"); setTimeout(A.openRemote, 0); },
+  offline: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/tailscale/redmi-phone/overview"); },
+  nonode: () => { S.ts = "on"; S.conn = "tailscale"; go("#/devices/tailscale/nas/overview"); },
+  lan: () => { S.scenario = "normal"; devById("study-pc", "lan").paired = false; S.conn = "lan"; go("#/devices"); setTimeout(() => A.pairDevice({ dataset: { id: "study-pc" } }), 0); },
+  mycode: () => { S.scenario = "normal"; S.conn = "lan"; devById("media-pc", "lan").paired = false; go("#/devices"); setTimeout(A.showPairCode, 0); },
+  tsfail: () => { S.scenario = "normal"; if (S.ts === "on") S.ts = "login"; S.tsLogging = false; S.tsFailNext = true; S.conn = "tailscale"; go("#/devices"); setTimeout(A.tsLogin, 0); },
+  cmderr: () => {
+    S.scenario = "normal"; S.ts = "on"; S.conn = "tailscale";
+    Object.assign(cmdOf("win-pc"), { status: "idle", lines: [], text: "git -C D:\\data\\projects\\deskbridge pull --ff-only" });
+    go("#/devices/tailscale/win-pc/term");
+    setTimeout(() => { A.runCmd(); toast("info", "这条命令会失败", "再试试输入 winget upgrade --all，看超时的样子"); }, 200);
+  },
+  elevated: () => { S.scenario = "normal"; S.elevated = true; S.conn = "lan"; go("#/devices/lan/win-pc/overview"); setTimeout(() => { S.remote = "win-pc@lan"; render(); }, 0); },
 };
 
 A.simLocal = () => {
@@ -372,7 +422,7 @@ document.addEventListener("keydown", ev => {
     else if (S.modal) S.modal = null;
     else if (S.remote) {
       // 正在控制远程桌面时，Esc 发给远端，不关闭远程桌面；独立远程窗口里 Esc 也不关闭窗口
-      const d = devById(S.remote);
+      const d = devByKey(S.remote);
       if (ctlOf(d) === "human") { toast("info", `Esc 已发送到 ${d.name}`, "要断开远程桌面，请点工具栏上的“断开”"); return; }
       if (S.win !== "remote") S.remote = null;
     }
@@ -381,6 +431,7 @@ document.addEventListener("keydown", ev => {
   }
   if (ev.key === "Enter") {
     if (ev.target.id === "cmdin") { ev.preventDefault(); A.runCmd(); }
+    if (ev.target.id === "paircode") { ev.preventDefault(); A.pairConfirm(); }
   }
 });
 
@@ -402,20 +453,21 @@ window.addEventListener("DOMContentLoaded", () => {
   applyScenario();
   if (q.get("conn")) S.conn = q.get("conn");
   if (q.get("proto") === "closed") $("#proto").classList.add("closed");
-  // 远程窗口：?win=remote&dev=win-pc，由主窗口用 window.open 打开
-  if (q.get("win") === "remote") { S.win = "remote"; S.remote = q.get("dev") || "win-pc"; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${S.remote} - 远程桌面`; }
-  if (q.get("control")) { S.ctl = {}; setCtl(devById(S.remote || "win-pc"), q.get("control")); }
-  // 截图用：?sess=win-pc,old-laptop 假装已打开这些远程窗口
-  if (q.get("sess")) q.get("sess").split(",").forEach(id => { S.sessions[id] = null; });
+  // 远程窗口：?win=remote&dev=win-pc&via=lan，由主窗口用 window.open 打开
+  if (q.get("win") === "remote") { S.win = "remote"; S.remote = `${q.get("dev") || "win-pc"}@${q.get("via") || "lan"}`; S.size = "remote"; document.body.classList.add("rwin"); document.title = `${q.get("dev") || "win-pc"} - 远程桌面`; }
+  if (S.win === "remote") startConnecting(S.remote);
+  if (q.get("control")) { S.ctl = {}; setCtl(S.remote ? devByKey(S.remote) : devById("win-pc"), q.get("control")); }
+  // 截图用：?sess=win-pc@tailscale,old-laptop 假装已打开这些远程窗口（不写连接方式时按 Tailscale）
+  if (q.get("sess")) q.get("sess").split(",").forEach(k => { S.sessions[k.includes("@") ? k : k + "@tailscale"] = null; });
   parseRoute();
   render();
   if (q.get("modal") && A[q.get("modal")]) A[q.get("modal")]({ dataset: { id: q.get("id") || "" } });
 });
 
 // ---------- 远程窗口列表（标题栏） ----------
-POPS.sessions = () => `<div class="ph2">远程窗口</div>${Object.keys(S.sessions).map(id => {
-  const d = devById(id);
-  return `<div class="pi" style="cursor:default">${ic(kindIcon(d))}<div style="flex:1;min-width:0"><div>${d.name}</div><div class="small muted">${pathText(d)} · ${d.latency} 毫秒</div></div>
-    <button class="btn sm" data-a="focusRemote" data-dev="${id}">切换</button><button class="btn ghost sm danger-soft" data-a="closeSession" data-dev="${id}">断开</button></div>`;
+POPS.sessions = () => `<div class="ph2">远程窗口</div>${Object.keys(S.sessions).map(k => {
+  const d = devByKey(k);
+  return `<div class="pi" style="cursor:default">${ic(kindIcon(d))}<div style="flex:1;min-width:0"><div>${d.name}</div><div class="small muted">${VIA_LABEL[d.via]} · ${pathText(d)} · ${d.latency} 毫秒</div></div>
+    <button class="btn sm" data-a="focusRemote" data-key="${k}">切换</button><button class="btn ghost sm danger-soft" data-a="closeSession" data-key="${k}">断开</button></div>`;
 }).join("")}<div class="small muted" style="padding:6px 8px 4px;line-height:1.6">每台设备的远程桌面在独立窗口中打开，可以同时操作多台。</div>`;
 A.popSessions = el => openPop(el, "sessions");

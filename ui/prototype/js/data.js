@@ -1,4 +1,6 @@
 // 示例数据：全部是虚构值（设备名、地址、账号），只用于原型展示。初版范围：Tailscale 和局域网两种连接方式。
+// 每种连接方式各自列出发现的设备，互不合并：同一台设备（id 相同）可以同时出现在 Tailscale 和局域网里，
+// 从哪个页面连接就走哪种方式（ADR-0010）。via 表示这一条属于哪种连接方式。
 
 const DEVICES = [
   {
@@ -38,7 +40,21 @@ const DEVICES = [
     id: "nas", name: "nas", kind: "hdd", os: "Linux",
     via: "tailscale", online: true, noNode: true, path: "direct", latency: 6, ip: "100.64.0.6",
   },
-  // 局域网设备：同一局域网中发现、但不在 Tailscale 里的 DeskBridge 设备。paired 表示是否已配对。
+  // 局域网：同一局域网中发现的 DeskBridge 设备，配对后才能使用。paired 表示是否已配对。
+  {
+    id: "my-laptop", name: "my-laptop", kind: "laptop", os: "Windows 11 专业版", self: true,
+    via: "lan", online: true, path: "self", latency: 0, ip: "192.168.1.20", version: "0.3.0",
+  },
+  {
+    id: "win-pc", name: "win-pc", kind: "monitor", os: "Windows 11 专业版",
+    via: "lan", paired: true, online: true, path: "lan", latency: 2, ip: "192.168.1.21", version: "0.3.0",
+    session: "已登录 · 活跃", displays: 2, runMode: "用户模式（计划任务自启）",
+    spark: [2, 2, 3, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2],
+  },
+  {
+    id: "media-pc", name: "media-pc", kind: "monitor", os: "Windows 10 专业版",
+    via: "lan", paired: false, online: true, path: "lan", latency: 3, ip: "192.168.1.27", version: "0.3.0",
+  },
   {
     id: "living-room-pc", name: "living-room-pc", kind: "monitor", os: "Windows 11 家庭版",
     via: "lan", paired: true, online: true, path: "lan", latency: 2, ip: "192.168.1.31", version: "0.3.0",
@@ -164,6 +180,17 @@ const CMD_OUTPUTS = {
     ["", ""],
     ["", "Count    : 1284"],
     ["", "Sum      : 3418265904"],
+  ],
+  // 原型：失败（退出码 1）和超时的示例输出
+  err: [
+    ["", "fatal: unable to access 'https://example.com/deskbridge.git/': Could not resolve host: example.com"],
+  ],
+  slow: [
+    ["dim", "正在查找可用的升级…"],
+    ["", "名称                 ID                      版本      可用"],
+    ["", "------------------------------------------------------------"],
+    ["", "Git                  Git.Git                 2.46.0    2.47.0"],
+    ["dim", "正在下载 https://example.com/Git-2.47.0-64-bit.exe"],
   ],
   linux: [
     ["", "● deskbridge.service - DeskBridge 节点"],

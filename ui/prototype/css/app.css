@@ -120,7 +120,7 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .btn.danger-soft { color: var(--bad); }
 .btn.danger-soft:hover { background: var(--bad-soft); border-color: transparent; }
 .btn.sm { height: 26px; padding: 0 9px; font-size: 12.5px; }
-.btn.lg { height: 38px; padding: 0 18px; font-size: 14px; border-radius: var(--r); }
+.btn.lg { height: 40px; padding: 0 18px; font-size: 14px; border-radius: var(--r); }
 .btn.icon { width: 30px; padding: 0; }
 .btn.icon.sm { width: 26px; }
 .btn.block { width: 100%; }
@@ -171,6 +171,10 @@ svg.i.xl { width: 28px; height: 28px; stroke-width: 1.5; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > label { font-size: 12.5px; font-weight: 600; }
 .field .hint { font-size: 12px; color: var(--muted); }
+.field .field-err { font-size: 12px; color: var(--bad); line-height: 1.5; }
+.input.invalid { border-color: var(--bad); }
+.input.invalid:focus { box-shadow: 0 0 0 3px var(--bad-soft); }
+.input:disabled { opacity: .6; cursor: not-allowed; }
 .input, .select, .textarea { height: 32px; padding: 0 10px; border-radius: var(--r-sm); border: 1px solid var(--border-strong); background: var(--surface);
   outline: none; width: 100%; color: var(--text); transition: border-color .12s, box-shadow .12s; }
 .textarea { height: auto; padding: 8px 10px; resize: none; line-height: 1.5; }
@@ -854,4 +858,15 @@ body.rwin .stage { padding: 0; }
 .app[data-size="phone"] .conn-bar { flex-wrap: nowrap; }
 .conn-empty { border-radius: var(--r-lg); border: 1px dashed var(--border-strong); padding: 48px 24px; }
 a.link { color: var(--accent); cursor: pointer; text-decoration: none; }
+
+/* 本机配对码 */
+.paircode { font-size: 34px; font-weight: 600; letter-spacing: .18em; text-align: center; padding: 18px 0; border-radius: var(--r-lg); background: var(--surface2); border: 1px solid var(--border); }
+
+/* 远程桌面：连接中、管理员窗口提示 */
+.remote-wait { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #c8c8d0; font-size: 13px; }
+.remote-wait b { font-size: 15px; color: #fff; font-weight: 600; }
+.remote-notice { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2; max-width: 560px; display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 14px; border-radius: 10px; background: rgba(120, 72, 8, .92); border: 1px solid rgba(251, 191, 36, .45); color: #fde68a; font-size: 12.5px; line-height: 1.6; }
+.remote-notice b { color: #fff; font-weight: 600; }
+.remote-notice .errcode { margin-left: 6px; background: rgba(0, 0, 0, .25); color: #fde68a; }
 a.link:hover { text-decoration: underline; }

@@ -17,7 +17,8 @@ function viewActivity() {
   const seg = (v, l) => `<button class="${who === v ? "on" : ""}" data-a="actWho" data-v="${v}">${l}</button>`;
   let body;
   if (S.scenario === "loading") body = `<div class="list2">${Array.from({ length: 5 }, () => `<div class="li"><span class="avatar sk"></span><div class="b"><div class="sk" style="height:12px;width:50%"></div><div class="sk" style="height:10px;width:70%;margin-top:8px"></div></div></div>`).join("")}</div>`;
-  else if (S.scenario === "empty" || !items.length) body = `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有操作记录</h3><p>你和 AI 在各设备上的每一次操作都会记录在这里，方便回看和检查 AI 做了什么。</p></div>`;
+  else if (!items.length && (who !== "all" || S.act.dev !== "all")) body = `<div class="empty"><div class="art">${ic("filter", "xl")}</div><h3>没有符合条件的记录</h3><p>换一个筛选条件试试。</p><div class="btns"><button class="btn" data-a="actClear">清除筛选</button></div></div>`;
+  else if (!items.length) body = `<div class="empty"><div class="art">${ic("history", "xl")}</div><h3>还没有操作记录</h3><p>你和 AI 在各设备上的每一次操作都会记录在这里，方便回看和检查 AI 做了什么。</p></div>`;
   else {
     const days = [...new Set(items.map(a => a.day))];
     body = days.map(dy => `<div class="day">${dy}</div><div class="list2">${items.filter(a => a.day === dy).map(actItem).join("")}</div>`).join("");
@@ -36,11 +37,18 @@ function viewActivity() {
 }
 
 A.actWho = el => { S.act.who = el.dataset.v; render(); };
-A.actClear = () => { S.act.dev = "all"; render(); };
+A.actClear = () => { S.act.dev = "all"; S.act.who = "all"; render(); };
+// 从操作记录打开设备：按当前可用的连接方式选一条；都不可用时说明原因
+A.openDevice = el => {
+  const e = pickEntry(el.dataset.id);
+  S.drawer = null;
+  if (!e) { toast("info", `当前的连接方式里没有 ${el.dataset.id}`, "它可能在 Tailscale 里，添加 Tailscale 后可以打开"); render(); return; }
+  go(devUrl(e));
+};
 A.actDrawer = el => { S.drawer = { type: "act", i: +el.dataset.i }; render(); };
 A.popActFilter = el => openPop(el, "actFilter");
 A.actDev = el => { S.act.dev = el.dataset.v; S.pop = null; render(); };
-POPS.actFilter = () => `<div class="ph2">设备</div>${[{ id: "all", name: "全部设备" }].concat(DEVICES.filter(d => !d.self && !d.noNode)).map(d => `<div class="pi" data-a="actDev" data-v="${d.id}"><span class="radio ${S.act.dev === d.id ? "on" : ""}"></span>${d.name}</div>`).join("")}
+POPS.actFilter = () => `<div class="ph2">设备</div>${[{ id: "all", name: "全部设备" }].concat([...new Map(DEVICES.filter(d => !d.self && !d.noNode).map(d => [d.id, d])).values()]).map(d => `<div class="pi" data-a="actDev" data-v="${d.id}"><span class="radio ${S.act.dev === d.id ? "on" : ""}"></span>${d.name}</div>`).join("")}
   <div class="divider"></div><div class="ph2">结果</div><div class="chips" style="padding:0 6px 6px">${["全部", "失败", "被拒绝", "被抢占"].map((x, i) => `<button class="${i === 0 ? "on" : ""}">${x}</button>`).join("")}</div>`;
 
 DRAWERS.act = () => {
@@ -58,7 +66,7 @@ DRAWERS.act = () => {
       <div><div class="small muted" style="margin-bottom:8px">调用链</div><div class="chain">${chain}</div></div>
       <div><div class="small muted" style="margin-bottom:8px">结果</div>${a.tool === "screen.capture" ? `<div class="shot-box">${desktopArt({ ai: true })}</div><div class="small muted" style="margin-top:6px">${esc(a.out)}</div>` : `<div class="codebox">${esc(a.out)}</div>`}</div>
       ${expander("actArgs", "terminal", "参数", "敏感字段已脱敏", `<div class="codebox">${esc(a.args)}</div><div class="small muted">请求编号 <span class="mono">req_7f3a${S.drawer.i}c91e</span></div>`)}`,
-    foot: `<button class="btn" data-go="#/devices/${a.dev}/overview">${ic("monitor")}打开设备</button><button class="btn ghost" data-a="noop" data-msg="已复制请求编号">${ic("copy")}复制编号</button>`,
+    foot: `<button class="btn" data-a="openDevice" data-id="${a.dev}">${ic("monitor")}打开设备</button><button class="btn ghost" data-a="noop" data-msg="已复制请求编号">${ic("copy")}复制编号</button>`,
   });
 };
 
@@ -108,7 +116,11 @@ function settingsSec(sec) {
         sitem("终端字体", "命令输出和代码使用的等宽字体", `<select class="select"><option>Cascadia Mono</option><option>Consolas</option><option>JetBrains Mono</option></select>`),
       ]);
     case "thisdev": return `<h2>本机</h2><div class="sub">my-laptop 的名称和地址</div>` +
-      sgroup("设备", [sitem("设备名称", "其他设备和 AI 用这个名字找到本机", `<input class="input" value="my-laptop">`), sitem("Tailscale 地址", "", `<span class="mono">${CONNECTORS[0].ip}</span>`), sitem("局域网地址", "", `<span class="mono">${CONNECTORS[1].ip}</span>`)]);
+      sgroup("设备", [
+        sitem("设备名称", "其他设备和 AI 用这个名字找到本机", `<input class="input" value="my-laptop">`),
+        sitem("局域网地址", "", `<span class="mono">${CONNECTORS[1].ip}</span>`),
+        ...(tsOn() ? [sitem("Tailscale 地址", "", `<span class="mono">${CONNECTORS[0].ip}</span>`)] : []),
+      ]);
     case "control": return `<h2>桌面控制权</h2><div class="sub">本地用户、远程人工和 AI 同时使用桌面时的规则。优先级：本地用户 &gt; 远程人工 &gt; AI</div>` +
       sgroup("自动释放", [
         sitem("本地用户停止操作后多久让 AI 继续", "本地一有鼠标键盘输入，AI 会立即停止；这个时间只决定何时继续", `${sel("release", ["1", "3", "5", "10"])}<span class="small muted">秒</span>`),
@@ -121,27 +133,34 @@ function settingsSec(sec) {
       sgroup("紧急操作（在被控端本机使用）", [
         sitem("暂停所有远程操作", "中断远程的鼠标键盘，拒绝新的远程操作，后台命令继续", `<span class="kbd" style="margin:0">${s.hkPause}</span><button class="btn sm ghost">修改</button>`),
         sitem("终止", "暂停，并结束远程一方启动的所有进程", `<span class="kbd" style="margin:0">${s.hkStop}</span><button class="btn sm ghost">修改</button>`),
-        sitem("已紧急停止的 AI", "被你在设备页停止的 AI 会话", `<span class="muted small">无</span>`),
+        ...(Object.keys(S.stopped).length
+          ? Object.entries(S.stopped).map(([id, st]) => sitem(`已紧急停止：${st.who}`, `${id} · ${st.t} 停止，它在这台设备上的请求会被拒绝`, `<button class="btn sm" data-a="resumeAI" data-id="${id}">恢复</button>`))
+          : [sitem("已紧急停止的 AI", "被你在设备页停止的 AI 会话", `<span class="muted small">无</span>`)]),
       ]);
     case "network": {
       const ts = CONNECTORS[0];
       const paired = DEVICES.filter(d => d.via === "lan" && d.paired);
       const tsPill = !tsAdded() ? `<span class="pill off">未添加</span>` : !tsOn() ? `<span class="pill off">未登录</span>` : netDown() ? `<span class="pill bad">已断开</span>` : `<span class="pill ok">已连接</span>`;
-      const tsItems = !tsOn()
-        ? [sitem("账号", "登录后，同一账号下的设备会自动出现在设备页的“Tailscale”中", `<button class="btn sm primary" data-a="tsLogin">${ic("external")}${tsAdded() ? "登录 Tailscale" : "添加并登录"}</button>`)]
+      const loginBtn = S.tsLogging ? `<span class="spin"></span><span class="small muted">等待浏览器登录…</span>` : `<button class="btn sm primary" data-a="tsLogin">${ic("external")}${tsAdded() ? "登录 Tailscale" : "添加并登录"}</button>`;
+      const tsItems = !tsAdded()
+        ? [sitem("添加 Tailscale", "要连接不在同一局域网的设备时添加。添加后用 Tailscale 账号登录，同一账号的设备会出现在设备页的“Tailscale”中", loginBtn)]
+        : !tsOn()
+        ? [sitem("账号", S.tsErr ? `<span style="color:var(--bad)">上次登录失败：无法连接登录服务器（control_unreachable）</span>` : "登录后，同一账号下的设备会自动出现在设备页的“Tailscale”中", loginBtn)]
         : [
           sitem(`<span class="row">${netDown() ? `<span class="pulse bad"></span>正在重连（第 ${S.netTry} 次）` : `<span class="pulse"></span>本机 <span class="mono">${ts.ip}</span>`}</span>`, netDown() ? "最近错误：无法连接控制服务器（超时）" : "最近一次同步 10 秒前", `<button class="btn sm" data-a="${netDown() ? "netRetry" : "noop"}" data-msg="诊断完成：连接正常">${ic("refresh")}${netDown() ? "立即重试" : "诊断"}</button>`),
-          sitem("账号", ts.acct, `<button class="btn sm ghost danger-soft" data-a="noop" data-msg="退出登录需要确认（原型未实现）">${ic("logout")}退出登录</button>`),
+          sitem("账号", ts.acct, `<button class="btn sm ghost danger-soft" data-a="askTsLogout">${ic("logout")}退出登录</button>`),
         ];
-      tsItems.push(
+      if (tsAdded()) tsItems.push(
         sitem("控制服务器", "默认使用 Tailscale 官方服务器，也可以改成自建的 Headscale", `<select class="select" data-in="set.server" data-rerender="1">${["默认（Tailscale 官方）", "自建 Headscale"].map(o => `<option ${s.server === o ? "selected" : ""}>${o}</option>`).join("")}</select>`),
         ...(s.server === "自建 Headscale" ? [sitem("服务器地址", "", `<input class="input mono" placeholder="https://headscale.example.com" value="${esc(s.serverUrl)}" data-in="set.serverUrl" style="width:260px">`)] : []),
-        sitem("授权密钥", "给没有浏览器的服务器登录用", `<button class="btn sm" data-a="noop" data-msg="已生成授权密钥（示例）">生成密钥</button>`),
+        ...(tsOn() ? [sitem("授权密钥", "给没有浏览器的服务器登录用", `<button class="btn sm" data-a="noop" data-msg="已生成授权密钥（示例）">生成密钥</button>`)] : []),
+        sitem("移除 Tailscale", "设备页不再显示 Tailscale 标签和其中的设备；局域网不受影响", `<button class="btn sm ghost danger-soft" data-a="askTsRemove">${ic("trash")}移除</button>`),
       );
-      return `<h2>连接方式</h2><div class="sub">DeskBridge 通过连接方式和其他设备通信。局域网默认开启，Tailscale 需要添加并登录</div>` +
+      return `<h2>连接方式</h2><div class="sub">每种连接方式各自列出设备，互不影响；从哪个页面连接就走哪种方式。局域网默认开启，Tailscale 需要添加并登录</div>` +
       sgroup(`<span class="row">${ic("globe", "sm")}Tailscale${tsPill}</span>`, tsItems) +
       sgroup(`<span class="row">${ic("wifi", "sm")}局域网${s.lanOn ? `<span class="pill ok">已开启</span>` : `<span class="pill off">已关闭</span>`}</span>`, [
-        sitem("在局域网中发现设备并允许配对", `本机 <span class="mono">${CONNECTORS[1].ip}</span> · 关闭后不会被局域网中的其他设备发现`, sw("lanOn")),
+        sitem("在局域网中发现设备并允许配对", `本机 <span class="mono">${CONNECTORS[1].ip}</span> · 关闭后不会被局域网中的其他设备发现，已配对的设备也无法经局域网连接`, sw("lanOn")),
+        ...(s.lanOn ? [sitem("本机配对码", "让对方在它的 DeskBridge 里输入，配对后双方自动连接", `<button class="btn sm" data-a="showPairCode">${ic("link")}显示配对码</button>`)] : []),
         ...(paired.length ? paired.map(d => sitem(`<span class="row">${ic(kindIcon(d), "sm")}${d.name}</span>`, `已配对 · <span class="mono">${d.ip}</span>`, `<button class="btn sm ghost danger-soft" data-a="unpair" data-id="${d.id}">取消配对</button>`))
           : [sitem("已配对的设备", "还没有配对的设备。在设备页的“局域网”中点“配对”", "")]),
       ]) +
@@ -161,10 +180,13 @@ function settingsSec(sec) {
   }
 }</div><button class="btn sm" data-a="noop" data-msg="已复制 MCP 配置">${ic("copy")}复制</button></div>
         <div class="muted small">或者在命令行运行：<span class="mono">claude mcp add deskbridge -- deskbridge mcp</span></div></div></div></div>` +
-      sgroup("已连接的 AI 会话", [
-        sitem(`<span class="row">${avatar("claude", "sm")}Claude Code</span>`, "linux-server · 已连接 42 分钟 · 调用 128 次", `<button class="btn sm ghost danger-soft" data-a="noop" data-msg="已断开">断开</button>`),
-        sitem(`<span class="row">${avatar("codex", "sm")}Codex</span>`, "win-pc · 已连接 3 小时 · 调用 16 次", `<button class="btn sm ghost danger-soft" data-a="noop" data-msg="已断开">断开</button>`),
-      ]);
+      sgroup("已连接的 AI 会话", (() => {
+        // 只列出来源设备当前能连上的会话
+        const live = [["claude", "已连接 42 分钟 · 调用 128 次"], ["codex", "已连接 3 小时 · 调用 16 次"]].filter(([k]) => { const e = pickEntry(ACTORS[k].from); return e && !unreach(e) && !unpaired(e); });
+        return live.length
+          ? live.map(([k, t]) => { const e = pickEntry(ACTORS[k].from); return sitem(`<span class="row">${avatar(k, "sm")}${ACTORS[k].name}</span>`, `${e.name} · ${VIA_LABEL[e.via]} · ${t}`, `<button class="btn sm ghost danger-soft" data-a="noop" data-msg="已断开">断开</button>`); })
+          : [sitem("还没有 AI 连接", "其他设备上的 AI 客户端通过 MCP 连接后，会显示在这里", "")];
+      })());
     case "about": return `<h2>关于</h2><div class="sub">DeskBridge 0.3.0</div>` +
       sgroup("", [sitem("版本", "0.3.0（2026-10-07）", `<button class="btn sm" data-a="noop" data-msg="已是最新版本">检查更新</button>`), sitem("开源许可证", "以及使用的第三方组件", `<button class="btn sm ghost">${ic("external")}查看</button>`), sitem("日志", "遇到问题时可以附上日志", `<button class="btn sm ghost">打开日志目录</button>`)]);
   }
