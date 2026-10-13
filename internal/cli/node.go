@@ -22,7 +22,8 @@ import (
 func runNode(args []string, _, stderr io.Writer) int {
 	fs := flag.NewFlagSet("node", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	hostname := fs.String("hostname", "", "内网中的主机名，默认本机主机名")
+	name := fs.String("name", "", "设备显示名，可以用中文，默认本机主机名")
+	hostname := fs.String("hostname", "", "内网中的主机名（只能用英文、数字和连字符），默认本机主机名")
 	controlURL := fs.String("control-url", "", "控制服务器地址（如自建 Headscale），默认 Tailscale 官方")
 	authKey := fs.String("auth-key", "", "预授权密钥，留空则交互式登录；也可用环境变量 DESKBRIDGE_AUTH_KEY")
 	port := fs.Int("port", 7465, "节点协议端口")
@@ -85,6 +86,7 @@ func runNode(args []string, _, stderr io.Writer) int {
 	n := node.New(node.Config{
 		Channels: []mesh.Channel{ch},
 		Device:   dev,
+		Name:     *name,
 		Port:     *port,
 		Socket:   socketPath,
 		Logf:     logf,
