@@ -89,7 +89,7 @@
         "description": "定义连接层接口，上层只依赖接口；内置 Tailscale（tsnet）是第一种实现，OAuth 登录后加入内网，可切换到 Headscale。",
         "details": "见 ADR-0003。首次运行打印/打开登录链接；状态目录保存在用户目录并限制权限；控制服务器地址可配置（Headscale）；主机名可配置。验收：新设备登录后加入内网；重启无需重新登录；Linux 与 Windows 之间能互相访问；配置 Headscale 地址后可登录（待有 Headscale 环境时验证）。\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007：节点协议、设备列表、权限、MCP 和界面只依赖连接层接口，不直接调用 tsnet。接口包括：启动、登录（返回登录链接或需要的参数）、退出，状态为已连接、需要登录、断开及原因；对端列表（连接方式内的 ID、名称、地址、是否在线、路径类型、延迟）；拨号到对端端口、在本机监听；身份（统一结构：主人、设备、连接方式）；事件（对端上下线、路径变化、断线和重连）。接口按 Tailscale 和 WireGuard（任务 19）两种情况设计。Headscale 只是控制服务器地址不同；“使用系统已安装的 Tailscale”是同一实现的另一种模式。首次运行生成 DeskBridge 设备 ID（密钥对，私钥存系统密钥库）。原有验收项不变，另加：上层代码中没有对 tsnet 的直接引用。\n</info added on 2026-10-08T03:00:00.000Z>",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "1"
         ],
@@ -145,7 +145,8 @@
             "parentTaskId": 2,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-13T06:42:42.961Z"
       },
       {
         "id": "3",
@@ -1418,7 +1419,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T04:22:40.324Z",
+      "lastModified": "2026-10-13T06:42:42.961Z",
       "taskCount": 30,
       "completedCount": 4,
       "tags": [

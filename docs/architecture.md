@@ -91,6 +91,25 @@ Tailscale 实现（[ADR-0003](decisions/adr-0003-network-tsnet.md)）：
 - **工具命名不带平台前缀：** 例如 `fs.read`、`proc.exec`、`screen.capture`，同名工具在各平台语义一致；平台不支持时在能力报告中不出现，调用时返回明确错误 `unsupported_platform`。
 - **输出统一为 UTF-8：** Windows 上的命令输出按代码页（如 GBK）解码后再返回。原型里中文报错变乱码的问题必须在这里解决。
 
+- **端口：** 节点协议在内网地址的 7465 端口上提供。
+- **错误格式：** `{"ok":false,"error":{"code":"...","message":"..."}}`。错误码：`invalid_args`、`unknown_tool`、`not_found`、`device_not_found`、`permission_denied`、`duplicate_request`、`payload_too_large`、`cancelled`、`internal`、`unsupported_platform`、`unavailable`、`timeout`。
+- **发起者：** 调用请求带 `initiator`（人工或 AI、经命令行 / MCP / 界面、会话），由调用方声明；调用者的身份由连接层查出，不由调用方声明。两者一起写进操作记录，供以后的权限判断（任务 17）。
+- **不在连接层之上再做一次双向认证（任务 4 决定）：** Tailscale 已经用 WireGuard 密钥认证节点，`WhoIs` 结果可靠。能力报告返回 DeskBridge 设备 ID 和公钥；没有连接层身份的局域网配对（任务 28）再用设备密钥签名认证。
+
+## 节点进程和本机接口
+
+每台设备只运行一个长期运行的 `deskbridge node`，连接方式（如 tsnet）只在节点里启动。命令行、MCP 服务器和桌面客户端都不直接加入内网，而是经**本机接口**调用本机节点，由本机节点经连接层转发到对端节点。这样每条命令不需要重新启动 tsnet（需要几秒），内网里也不会因为客户端多出节点。
+
+```
+deskbridge exec / mcp / ui-core ──本机接口──▶ 本机 deskbridge node ──连接层──▶ 对端 deskbridge node
+```
+
+- **数据目录：** 环境变量 `DESKBRIDGE_HOME`；否则 Windows 为 `%AppData%\DeskBridge`，Linux 为 `~/.config/deskbridge`。tsnet 状态在其中的 `tailscale/`，目录权限只允许当前用户。
+- **本机接口：** 数据目录下的 unix socket `node.sock` 上的 HTTP（Windows 10 1803 起支持 AF_UNIX）。Linux 上文件权限 0600；Windows 上依赖用户目录的权限（是否需要额外设置 ACL，待验证）。
+- **接口：** `GET /local/status`；`POST /local/channels/{连接方式}/login`、`logout`；`GET /local/channels/{连接方式}/peers`；`/local/devices/{设备}/v1/...` 转发到对端节点的节点协议。设备按名称、系统主机名或内网 IP 查找，可写成 `连接方式:设备` 指定连接方式；`self` 表示本机，不经过内网，身份为 `local`。
+- **登录：** 交互式登录返回登录链接；也可以用预授权密钥（`--auth-key` 或环境变量 `DESKBRIDGE_AUTH_KEY`），适合没有浏览器的服务器。
+- **设备 ID：** ed25519 密钥对，ID 为公钥 SHA-256 前 20 字节的 base32 小写编码。私钥放在系统密钥库；系统密钥库不可用时（如没有 Secret Service 的 Linux 服务器）退回数据目录下权限为 0600 的文件。
+
 第一批工具：
 
 | 工具 | 说明 |

@@ -29,7 +29,9 @@
 | `github.com/zalando/go-keyring` | 系统密钥库 | MIT |
 | `github.com/go-ole/go-ole` | Windows COM / UI Automation | MIT |
 | `github.com/kbinani/screenshot` | 截图 | MIT |
-| MCP 官方 Go SDK（`github.com/modelcontextprotocol/go-sdk`） | MCP 服务器 | 待核实 |
+| MCP 官方 Go SDK（`github.com/modelcontextprotocol/go-sdk`） | MCP 服务器 | 新贡献 Apache-2.0、原有代码 MIT（已核实仓库说明，2026-10-13） |
+| `golang.org/x/text` | Windows 命令输出按代码页（如 GBK）解码 | BSD-3 |
+| `golang.org/x/sys` | Windows 系统调用（进程、作业对象、代码页） | BSD-3 |
 
 远程画面补充调研（`spikes/stream/`，任务 24）的验证代码另外用到下面几个库，许可证已在 crate 的 `Cargo.toml` 中核实（2026-10-07）。间接依赖未逐个核实。
 

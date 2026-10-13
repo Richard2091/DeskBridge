@@ -23,7 +23,11 @@ type command struct {
 
 func commands() []command {
 	return []command{
-		{"node", "作为节点运行：加入内网，对外提供工具", notImplemented("node")},
+		{"node", "作为节点运行：加入内网，对外提供工具", runNode},
+		{"status", "查看本机节点和各连接方式的状态", runStatus},
+		{"login", "登录一个连接方式（默认 tailscale）", runLogin},
+		{"logout", "退出一个连接方式的登录", runLogout},
+		{"capability", "查看对端设备提供的能力", runCapability},
 		{"mcp", "作为 MCP 服务器运行，供 AI Agent 使用", notImplemented("mcp")},
 		{"ui-core", "供桌面客户端启动的子进程，经标准输入输出传 JSON", notImplemented("ui-core")},
 		{"version", "显示版本", runVersion},
