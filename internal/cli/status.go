@@ -165,13 +165,18 @@ func runCapability(args []string, stdout, stderr io.Writer) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	data, err := c.Get(ctx, fs.Arg(0), "/v1/capability")
+	capability, err := c.Capability(ctx, fs.Arg(0))
 	if err != nil {
 		if !reportNotRunning(stderr, err) {
 			fmt.Fprintf(stderr, "查询失败：%v\n", err)
 		}
 		return exitError
 	}
-	fmt.Fprintln(stdout, string(data))
+	enc := json.NewEncoder(stdout)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(capability); err != nil {
+		fmt.Fprintf(stderr, "输出失败：%v\n", err)
+		return exitError
+	}
 	return exitOK
 }

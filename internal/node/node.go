@@ -15,10 +15,12 @@ import (
 
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
+	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
-// 默认节点协议端口。
-const defaultPort = 7465
+// 默认节点协议端口（协议规定值）。
+const defaultPort = protocol.DefaultPort
 
 // 等待连接方式就绪的重试间隔。
 const retryInterval = 2 * time.Second
@@ -27,10 +29,17 @@ const retryInterval = 2 * time.Second
 type Config struct {
 	Channels []mesh.Channel
 	Device   *deviceid.Device
-	Name     string // 设备名，默认 os.Hostname()
-	Port     int    // 节点协议端口，默认 7465
-	Socket   string // 本机接口的 unix socket 路径
+	Tools    *tools.Registry // 本节点提供的工具；nil 时没有工具
+	Name     string          // 设备名，默认 os.Hostname()
+	Port     int             // 节点协议端口，默认 7465
+	Socket   string          // 本机接口的 unix socket 路径
 	Logf     func(format string, args ...any)
+}
+
+// runningCall 是一条正在执行的工具调用，用于按 request_id 取消。
+type runningCall struct {
+	cancel context.CancelFunc
+	owner  string // 发起调用者的 Owner，取消时要核对
 }
 
 // Node 是一个被控设备上的节点。
@@ -38,6 +47,10 @@ type Node struct {
 	cfg  Config
 	logf func(format string, args ...any)
 	port int
+	reg  *tools.Registry
+
+	// inflight 记录正在执行的工具调用（request_id → *runningCall）。
+	inflight sync.Map
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -60,7 +73,11 @@ func New(cfg Config) *Node {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	return &Node{cfg: cfg, logf: logf, port: port}
+	reg := cfg.Tools
+	if reg == nil {
+		reg = tools.NewRegistry()
+	}
+	return &Node{cfg: cfg, logf: logf, port: port, reg: reg}
 }
 
 // Run 启动所有连接方式和本机接口并阻塞，直到 ctx 结束。

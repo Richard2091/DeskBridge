@@ -62,7 +62,7 @@ func (n *Node) handleChannelRead(h func(http.ResponseWriter, *http.Request, mesh
 	return func(w http.ResponseWriter, r *http.Request) {
 		ch, ok := n.findChannel(r.PathValue("kind"))
 		if !ok {
-			writeError(w, http.StatusNotFound, "unknown_channel", "没有这个连接方式")
+			writeLocalError(w, http.StatusNotFound, "unknown_channel", "没有这个连接方式")
 			return
 		}
 		h(w, r, ch)
@@ -77,7 +77,7 @@ func (n *Node) handleChannelWrite(h func(http.ResponseWriter, *http.Request, mes
 func (n *Node) loginChannel(w http.ResponseWriter, r *http.Request, ch mesh.Channel) {
 	st, err := ch.Login(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "login_failed", err.Error())
+		writeLocalError(w, http.StatusInternalServerError, "login_failed", err.Error())
 		return
 	}
 	if st.Kind == "" {
@@ -88,7 +88,7 @@ func (n *Node) loginChannel(w http.ResponseWriter, r *http.Request, ch mesh.Chan
 
 func (n *Node) logoutChannel(w http.ResponseWriter, r *http.Request, ch mesh.Channel) {
 	if err := ch.Logout(r.Context()); err != nil {
-		writeError(w, http.StatusInternalServerError, "logout_failed", err.Error())
+		writeLocalError(w, http.StatusInternalServerError, "logout_failed", err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -97,7 +97,7 @@ func (n *Node) logoutChannel(w http.ResponseWriter, r *http.Request, ch mesh.Cha
 func (n *Node) peersChannel(w http.ResponseWriter, r *http.Request, ch mesh.Channel) {
 	peers, err := ch.Peers(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "peers_failed", err.Error())
+		writeLocalError(w, http.StatusInternalServerError, "peers_failed", err.Error())
 		return
 	}
 	if peers == nil {
@@ -107,13 +107,18 @@ func (n *Node) peersChannel(w http.ResponseWriter, r *http.Request, ch mesh.Chan
 }
 
 // handleForward 把 /local/devices/{target}/{rest} 转发到对端节点的
-// http://<内网地址>:<端口>/{rest}。
+// http://<内网地址>:<端口>/{rest}。target 为 self 时不经过内网，
+// 直接由本节点的节点协议处理器处理，这样单机也能使用全部工具。
 func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
 	rest := r.PathValue("rest")
+	if target == "self" {
+		n.serveSelf(w, r, rest)
+		return
+	}
 	ch, peer, ok := n.resolveTarget(r.Context(), target)
 	if !ok {
-		writeError(w, http.StatusNotFound, "device_not_found", "找不到设备 "+target)
+		writeLocalError(w, http.StatusNotFound, "device_not_found", "找不到设备 "+target)
 		return
 	}
 	addr := net.JoinHostPort(peer.Addrs[0], strconv.Itoa(n.port))
@@ -133,10 +138,31 @@ func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			n.logf("转发到 %s（%s）失败: %v", target, addr, err)
-			writeError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
+			writeLocalError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
 		},
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+// serveSelf 用本机的节点协议处理器处理请求（路径已去掉设备前缀）。
+// 调用者身份是本机的本地身份，不经过连接层。
+func (n *Node) serveSelf(w http.ResponseWriter, r *http.Request, rest string) {
+	r2 := r.Clone(r.Context())
+	r2.URL.Path = "/" + rest
+	r2.URL.RawPath = ""
+	n.selfHandler().ServeHTTP(w, r2)
+}
+
+// selfHandler 返回本机直接调用的节点协议服务，身份固定为本机本地身份。
+func (n *Node) selfHandler() http.Handler {
+	return n.apiHandler(func(context.Context, string) (mesh.Identity, error) {
+		return mesh.Identity{
+			Kind:   mesh.KindLocal,
+			Owner:  "local",
+			Device: n.cfg.Name,
+			Mine:   true,
+		}, nil
+	})
 }
 
 // resolveTarget 在各连接方式的 对端中查找设备。target 可以是

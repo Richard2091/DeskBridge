@@ -20,6 +20,8 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/mesh/meshtest"
+	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
 // shortTempDir 返回短路径的临时目录，socket 文件放这里。
@@ -43,9 +45,79 @@ func testDevice(t *testing.T) *deviceid.Device {
 	return d
 }
 
+// testTools 返回契约测试用的工具集：test.echo 回显参数，test.sleep 睡眠。
+func testTools(t *testing.T) *tools.Registry {
+	t.Helper()
+	reg := tools.NewRegistry()
+	mustRegister(t, reg, echoTool())
+	mustRegister(t, reg, sleepTool())
+	return reg
+}
+
+// mustRegister 注册工具，失败时终止测试。
+func mustRegister(t *testing.T, reg *tools.Registry, tool *tools.Tool) {
+	t.Helper()
+	if err := reg.Register(tool); err != nil {
+		t.Fatalf("注册工具 %s 失败: %v", tool.Spec.Name, err)
+	}
+}
+
+// echoTool 是回显参数的测试工具。
+func echoTool() *tools.Tool {
+	return &tools.Tool{
+		Spec: protocol.ToolSpec{
+			Name:        "test.echo",
+			Description: "原样返回参数里的文本",
+			Source:      protocol.SourceBuiltin,
+		},
+		Run: func(ctx context.Context, call *tools.Call) (any, error) {
+			var args struct {
+				Text string `json:"text"`
+			}
+			if err := tools.DecodeArgs(call.Args, &args); err != nil {
+				return nil, err
+			}
+			return map[string]any{"text": args.Text}, nil
+		},
+	}
+}
+
+// sleepTool 是按指定毫秒数睡眠的测试工具，用于超时和取消。
+func sleepTool() *tools.Tool {
+	return &tools.Tool{
+		Spec: protocol.ToolSpec{
+			Name:        "test.sleep",
+			Description: "睡眠指定的毫秒数",
+			Source:      protocol.SourceBuiltin,
+		},
+		DefaultTimeout: 10 * time.Second,
+		MaxTimeout:     time.Minute,
+		Run: func(ctx context.Context, call *tools.Call) (any, error) {
+			var args struct {
+				MS int `json:"ms"`
+			}
+			if err := tools.DecodeArgs(call.Args, &args); err != nil {
+				return nil, err
+			}
+			select {
+			case <-time.After(time.Duration(args.MS) * time.Millisecond):
+				return map[string]any{"slept_ms": args.MS}, nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		},
+	}
+}
+
 // startNode 启动一个带假连接方式的节点（Fake 已置为 connected，
 // 节点会立即在内网监听），返回 Fake 和 socket 路径。
 func startNode(t *testing.T, name string) (*meshtest.Fake, string) {
+	t.Helper()
+	return startNodeWithTools(t, name, nil)
+}
+
+// startNodeWithTools 同 startNode，但给节点挂上工具注册表（nil 为无工具）。
+func startNodeWithTools(t *testing.T, name string, reg *tools.Registry) (*meshtest.Fake, string) {
 	t.Helper()
 	fake := meshtest.NewFake(mesh.KindTailscale, "100.64.0.1")
 	fake.SetStatus(mesh.Status{Kind: mesh.KindTailscale, State: mesh.StateConnected})
@@ -53,6 +125,7 @@ func startNode(t *testing.T, name string) (*meshtest.Fake, string) {
 	n := New(Config{
 		Channels: []mesh.Channel{fake},
 		Device:   testDevice(t),
+		Tools:    reg,
 		Name:     name,
 		Socket:   socket,
 	})
@@ -117,11 +190,11 @@ func TestCapabilityMineAllowed(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("状态码 = %d, 期望 200（%s）", resp.StatusCode, body)
 	}
-	var cap capability
+	var cap protocol.Capability
 	if err := json.NewDecoder(resp.Body).Decode(&cap); err != nil {
 		t.Fatalf("解析 capability 失败: %v", err)
 	}
-	if cap.Protocol != protocolVersion || cap.Name != "win-pc" {
+	if cap.Protocol != protocol.Version || cap.Name != "win-pc" {
 		t.Errorf("capability 内容不对: %+v", cap)
 	}
 	if cap.Platform.OS == "" || cap.Platform.Arch == "" {
@@ -244,7 +317,7 @@ func TestForwardBetweenNodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("转发失败: %v", err)
 	}
-	var cap capability
+	var cap protocol.Capability
 	if err := json.Unmarshal(data, &cap); err != nil {
 		t.Fatalf("解析 capability 失败: %v（%s）", err, data)
 	}
@@ -277,8 +350,8 @@ func TestForwardTargetNotFound(t *testing.T) {
 	_, socket := startNode(t, "node-b")
 
 	_, err := client.New(socket).Get(context.Background(), "ghost", "/v1/capability")
-	var apiErr *client.APIError
-	if !errors.As(err, &apiErr) || apiErr.Code != "device_not_found" {
+	var perr *protocol.Error
+	if !errors.As(err, &perr) || perr.Code != "device_not_found" {
 		t.Errorf("Get() = %v, 期望 device_not_found", err)
 	}
 }
@@ -292,8 +365,8 @@ func TestForwardUnavailable(t *testing.T) {
 	}(), "node-b", "fwd")
 
 	_, err := client.New(socket).Get(context.Background(), "far", "/v1/capability")
-	var apiErr *client.APIError
-	if !errors.As(err, &apiErr) || apiErr.Code != "unavailable" {
+	var perr *protocol.Error
+	if !errors.As(err, &perr) || perr.Code != "unavailable" {
 		t.Errorf("Get() = %v, 期望 unavailable", err)
 	}
 }
@@ -322,8 +395,8 @@ func TestLoginLogoutViaLocalAPI(t *testing.T) {
 	if _, err := c.Login(context.Background(), "lan"); err == nil {
 		t.Error("未知连接方式的 Login() 应报错")
 	} else {
-		var apiErr *client.APIError
-		if !errors.As(err, &apiErr) || apiErr.Code != "unknown_channel" {
+		var perr *protocol.Error
+		if !errors.As(err, &perr) || perr.Code != "unknown_channel" {
 			t.Errorf("错误 = %v, 期望 unknown_channel", err)
 		}
 	}
