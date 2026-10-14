@@ -134,6 +134,8 @@ func errorBody(err error) *protocol.Error {
 		return perr
 	case errors.Is(err, client.ErrNotRunning):
 		return &protocol.Error{Code: "node_not_running", Message: "本机节点未运行，先运行 deskbridge node"}
+	case errors.Is(err, context.DeadlineExceeded):
+		return &protocol.Error{Code: protocol.CodeTimeout, Message: "等待本机节点响应超时（设备可能不可达）"}
 	default:
 		return &protocol.Error{Code: protocol.CodeInternal, Message: err.Error()}
 	}

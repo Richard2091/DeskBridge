@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -153,4 +154,79 @@ func mustJSON(t *testing.T, v any) json.RawMessage {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+// shortSocketPath 返回一个尚未创建的短路径 socket（Windows 上 AF_UNIX
+// 路径长度有限）。
+func shortSocketPath(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "db")
+	if err != nil {
+		t.Fatalf("创建临时目录失败: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return filepath.Join(dir, "n.sock")
+}
+
+func TestDoSocketMissingIsNotRunning(t *testing.T) {
+	c := New(shortSocketPath(t))
+	_, err := c.Status(context.Background())
+	if !errors.Is(err, ErrNotRunning) {
+		t.Fatalf("err = %v, 期望 ErrNotRunning", err)
+	}
+}
+
+func TestDoUnresponsiveServerIsTimeout(t *testing.T) {
+	socket := shortSocketPath(t)
+	ln, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatalf("监听 socket 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			// 接受连接后不回应，连接留到测试结束时随监听一起回收。
+			t.Cleanup(func() { _ = conn.Close() })
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, err = New(socket).Status(ctx)
+	if errors.Is(err, ErrNotRunning) {
+		t.Fatalf("超时不应报 ErrNotRunning: %v", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("err = %v, 期望 DeadlineExceeded", err)
+	}
+}
+
+func TestDoConnectionClosedIsNotNotRunning(t *testing.T) {
+	socket := shortSocketPath(t)
+	ln, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatalf("监听 socket 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			_ = conn.Close() // 立刻断开，模拟连接中途中断
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = New(socket).Status(ctx)
+	if err == nil || errors.Is(err, ErrNotRunning) {
+		t.Fatalf("err = %v, 期望非 ErrNotRunning 的错误", err)
+	}
+	if !strings.Contains(err.Error(), "连接中断") {
+		t.Fatalf("err = %v, 期望包含“连接中断”", err)
+	}
 }

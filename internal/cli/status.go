@@ -25,14 +25,22 @@ func localClient() (*client.Client, error) {
 	return client.New(socketPath), nil
 }
 
-// reportNotRunning 对"节点未运行"错误给出提示，返回是否处理了该错误。
+// reportNotRunning 对"节点未运行"和"等待节点响应超时"错误给出提示，
+// 返回是否处理了该错误。
 func reportNotRunning(stderr io.Writer, err error) bool {
-	if !errors.Is(err, client.ErrNotRunning) {
+	switch {
+	case errors.Is(err, client.ErrNotRunning):
+		fmt.Fprintln(stderr, "本机节点未运行，先运行 deskbridge node")
+	case errors.Is(err, context.DeadlineExceeded):
+		fmt.Fprintln(stderr, timeoutText)
+	default:
 		return false
 	}
-	fmt.Fprintln(stderr, "本机节点未运行，先运行 deskbridge node")
 	return true
 }
+
+// timeoutText 是客户端等待本机节点响应超时时的提示。
+const timeoutText = "错误：等待本机节点响应超时（设备可能不可达）"
 
 func runStatus(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)

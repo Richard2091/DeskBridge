@@ -85,6 +85,8 @@ func failure(err error) *sdk.CallToolResult {
 		return errorResult(fmt.Sprintf("错误（%s）：%s", perr.Code, perr.Message))
 	case errors.Is(err, client.ErrNotRunning):
 		return errorResult(notRunningText)
+	case errors.Is(err, context.DeadlineExceeded):
+		return errorResult("错误：等待本机节点响应超时（设备可能不可达）")
 	default:
 		return errorResult("错误：" + err.Error())
 	}

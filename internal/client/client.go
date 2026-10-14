@@ -23,6 +23,13 @@ import (
 // 协议错误（*protocol.Error）不同，调用方应区别处理。
 var ErrNotRunning = errors.New("本机节点未运行")
 
+// dialError 标记连接本机 socket 阶段的失败，do 用它区分“节点未运行”
+// 和请求已发出后的超时、中断。
+type dialError struct{ err error }
+
+func (e *dialError) Error() string { return e.err.Error() }
+func (e *dialError) Unwrap() error { return e.err }
+
 // timeoutSlack 是客户端 HTTP 超时比请求 timeout_ms 多出的余量，给
 // 网络传输和节点组装响应留时间。
 const timeoutSlack = 15 * time.Second
@@ -49,7 +56,11 @@ func New(socketPath string) *Client {
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				var d net.Dialer
-				return d.DialContext(ctx, "unix", c.socket)
+				conn, err := d.DialContext(ctx, "unix", c.socket)
+				if err != nil {
+					return nil, &dialError{err}
+				}
+				return conn, nil
 			},
 		},
 	}
@@ -57,8 +68,9 @@ func New(socketPath string) *Client {
 }
 
 // do 执行一次请求。body 非 nil 时作为 JSON 请求体发送；out 非 nil 时
-// 把 200 响应的 JSON 解码到 out。连接失败以 ErrNotRunning 返回；节点
-// 返回的错误以 *protocol.Error 返回，调用方可原样展示。
+// 把 200 响应的 JSON 解码到 out。只有连不上本机 socket 才以 ErrNotRunning
+// 返回；ctx 到期或取消以包装了 ctx.Err() 的错误返回，其他连接错误
+// 以“连接中断”错误返回；节点返回的错误以 *protocol.Error 返回，调用方可原样展示。
 func (c *Client) do(ctx context.Context, method, path string, body []byte, out any) error {
 	var rd io.Reader
 	if body != nil {
@@ -73,8 +85,19 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		// 连接层失败一律视为节点未运行，保留原始错误供诊断。
-		return fmt.Errorf("%w（%s）", ErrNotRunning, err)
+		var de *dialError
+		switch {
+		case ctx.Err() != nil:
+			// 拨号阶段 ctx 到期也算超时，不是节点未运行。
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return fmt.Errorf("等待本机节点响应超时：%w", ctx.Err())
+			}
+			return fmt.Errorf("等待本机节点响应已取消：%w", ctx.Err())
+		case errors.As(err, &de):
+			return fmt.Errorf("%w（%s）", ErrNotRunning, de.err)
+		default:
+			return fmt.Errorf("与本机节点的连接中断：%w", err)
+		}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -140,7 +163,7 @@ type CallOptions struct {
 }
 
 // Call 调用对端设备上的一个工具。对端返回的协议错误以 *protocol.Error
-// 返回；连接失败以 ErrNotRunning 返回。成功时返回完整的 CallResponse。
+// 返回；连不上本机节点以 ErrNotRunning 返回。成功时返回完整的 CallResponse。
 func (c *Client) Call(ctx context.Context, target, tool string, args any, opts CallOptions) (*protocol.CallResponse, error) {
 	var raw json.RawMessage
 	if args != nil {
