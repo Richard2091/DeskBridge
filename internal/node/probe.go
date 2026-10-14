@@ -20,13 +20,9 @@ const capabilityTimeout = 10 * time.Second
 
 func (n *Node) handleProbe(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
-	if target == "self" {
+	if self, ok := n.selfPeer(r.Context(), target); ok {
 		// 本机不经过内网，不测量。
-		writeJSON(w, http.StatusOK, client.ProbeResult{
-			Self:       true,
-			Peer:       mesh.Peer{Name: n.cfg.Name, Online: true},
-			DeskBridge: true,
-		})
+		writeJSON(w, http.StatusOK, client.ProbeResult{Self: true, Peer: self, DeskBridge: true})
 		return
 	}
 	ch, peer, ok := n.resolveTarget(r.Context(), target)
@@ -63,11 +59,7 @@ func (n *Node) timeCapability(ctx context.Context, ch mesh.Channel, addr string)
 	if err != nil {
 		return 0, err
 	}
-	tr := &http.Transport{
-		DialContext: func(ctx context.Context, _, dialAddr string) (net.Conn, error) {
-			return ch.Dial(ctx, "tcp", dialAddr)
-		},
-	}
+	tr := dialTransport(ch)
 	defer tr.CloseIdleConnections()
 	start := time.Now()
 	resp, err := (&http.Client{Transport: tr}).Do(req)
@@ -75,7 +67,7 @@ func (n *Node) timeCapability(ctx context.Context, ch mesh.Channel, addr string)
 		return 0, err
 	}
 	defer resp.Body.Close()
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+	if _, err := io.Copy(io.Discard, io.LimitReader(resp.Body, maxCapabilityLen)); err != nil {
 		return 0, err
 	}
 	elapsed := float64(time.Since(start).Microseconds()) / 1000

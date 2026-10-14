@@ -114,7 +114,7 @@ func (n *Node) peersChannel(w http.ResponseWriter, r *http.Request, ch mesh.Chan
 func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
 	rest := r.PathValue("rest")
-	if target == "self" {
+	if n.isSelfTarget(r.Context(), target) {
 		n.serveSelf(w, r, rest)
 		return
 	}
@@ -172,17 +172,51 @@ func (n *Node) selfHandler() http.Handler {
 	})
 }
 
+// splitTarget 把 "kind:名称" 拆成连接方式和名称；没有连接方式前缀
+// （或前缀不是已知的连接方式）时 kind 为空，名称为整个 target。
+func (n *Node) splitTarget(target string) (kind, name string) {
+	if i := strings.Index(target, ":"); i >= 0 {
+		if _, ok := n.findChannel(target[:i]); ok {
+			return target[:i], target[i+1:]
+		}
+	}
+	return "", target
+}
+
+// isSelfTarget 判断 target 是否指本机：写作 self，或匹配本机在某个连接方式
+// 里的名称、主机名或内网 IP（可带 "连接方式:" 前缀）。本机不经过内网。
+func (n *Node) isSelfTarget(ctx context.Context, target string) bool {
+	_, ok := n.selfPeer(ctx, target)
+	return ok
+}
+
+// selfPeer 同 isSelfTarget，同时返回本机在匹配的连接方式里的信息（target 为
+// self 时返回的 Peer 只有本机名称）。
+func (n *Node) selfPeer(ctx context.Context, target string) (mesh.Peer, bool) {
+	if target == "self" {
+		return mesh.Peer{Name: n.cfg.Name, Online: true}, true
+	}
+	kindFilter, name := n.splitTarget(target)
+	for _, ch := range n.cfg.Channels {
+		if kindFilter != "" && string(ch.Kind()) != kindFilter {
+			continue
+		}
+		st, err := ch.Status(ctx)
+		if err != nil || st.Self == nil {
+			continue
+		}
+		if matchPeer(*st.Self, name) {
+			return *st.Self, true
+		}
+	}
+	return mesh.Peer{}, false
+}
+
 // resolveTarget 在各连接方式的 对端中查找设备。target 可以是
 // "kind:名称"（指定连接方式）或 "名称"；名称匹配对端的 Name、
 // HostName（不区分大小写）或内网 IP。
 func (n *Node) resolveTarget(ctx context.Context, target string) (mesh.Channel, mesh.Peer, bool) {
-	name := target
-	kindFilter := ""
-	if i := strings.Index(target, ":"); i >= 0 {
-		if _, ok := n.findChannel(target[:i]); ok {
-			kindFilter, name = target[:i], target[i+1:]
-		}
-	}
+	kindFilter, name := n.splitTarget(target)
 	for _, ch := range n.cfg.Channels {
 		if kindFilter != "" && string(ch.Kind()) != kindFilter {
 			continue
