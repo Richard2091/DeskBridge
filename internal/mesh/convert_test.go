@@ -268,3 +268,36 @@ func TestDiffSnapshotsPeerEvents(t *testing.T) {
 		t.Errorf("新对端应产生 EventPeerOnline, 得到 %+v", evs)
 	}
 }
+
+func TestClientFromHostinfo(t *testing.T) {
+	for _, c := range []struct{ app, pkg, want string }{
+		{"deskbridge", "tsnet", ClientDeskBridge}, // tsnet 会把 Package 设为 tsnet，App 优先
+		{"deskbridge", "", ClientDeskBridge},
+		{"golinks", "tsnet", ClientTSNet},
+		{"", "tsnet", ClientTSNet},
+		{"", "", ClientTailscale},
+		{"", "choco", ClientTailscale},
+		{"k8s-operator", "", ClientTailscale},
+	} {
+		if got := clientFromHostinfo(c.app, c.pkg); got != c.want {
+			t.Errorf("App=%q Package=%q → %q, 期望 %q", c.app, c.pkg, got, c.want)
+		}
+	}
+}
+
+func TestClientFromNode(t *testing.T) {
+	if got := clientFromNode(nil); got != "" {
+		t.Errorf("空节点 → %q, 期望空", got)
+	}
+	if got := clientFromNode(&tailcfg.Node{}); got != "" {
+		t.Errorf("没有设备信息 → %q, 期望空", got)
+	}
+	n := &tailcfg.Node{Hostinfo: (&tailcfg.Hostinfo{App: "deskbridge", Package: "tsnet"}).View()}
+	if got := clientFromNode(n); got != ClientDeskBridge {
+		t.Errorf("DeskBridge 节点 → %q", got)
+	}
+	n = &tailcfg.Node{Hostinfo: (&tailcfg.Hostinfo{}).View()}
+	if got := clientFromNode(n); got != ClientTailscale {
+		t.Errorf("系统客户端 → %q", got)
+	}
+}

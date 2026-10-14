@@ -59,6 +59,7 @@ Tailscale 实现（[ADR-0003](decisions/adr-0003-network-tsnet.md)）：
 
 - **内置 Tailscale（`tsnet`）：** 程序自己成为内网里的一个节点，用户不需要另装 Tailscale。首次运行时打开登录链接，用 Google、GitHub、Microsoft 等账号登录。
 - **设备列表：** 从 `tsnet` 的本地状态直接读取同一账号下的所有节点，再探测哪些节点运行着 DeskBridge。不需要 Tailscale API 密钥。
+- **客户端类型：** DeskBridge 内置节点在设备信息（Hostinfo）里把 App 设为 `deskbridge`，用来和系统 Tailscale 客户端节点区分（`mesh.Peer.Client`：`deskbridge`、`tsnet`、`tailscale`）；不用 ACL 标签，因为打标签会把设备归属从账号改成标签，破坏“同账号才信任”。Tailscale 后台网页是否显示这个字段：待验证。
 - **身份：** 节点收到请求时，由连接层查出对方是谁；Tailscale 实现用 `WhoIs` 查出账号和设备。同一账号的设备默认互信，**不再需要共享密钥**（原型里的 HMAC 密钥会被淘汰）。
 - **可替换的控制服务器：** 登录服务器地址可配置，可以改成自建的 Headscale。
 - **中继：** 打不通直连时走 Tailscale 的公共中继（DERP），只承载工具类功能。自建中继**暂时搁置**，见 [ADR-0006](decisions/adr-0006-feature-tiers-and-lan-scope.md)。
@@ -106,7 +107,7 @@ deskbridge exec / mcp / ui-core ──本机接口──▶ 本机 deskbridge no
 
 - **数据目录：** 环境变量 `DESKBRIDGE_HOME`；否则 Windows 为 `%AppData%\DeskBridge`，Linux 为 `~/.config/deskbridge`。tsnet 状态在其中的 `tailscale/`，目录权限只允许当前用户。
 - **本机接口：** 数据目录下的 unix socket `node.sock` 上的 HTTP（Windows 10 1803 起支持 AF_UNIX）。Linux 上文件权限 0600；Windows 上依赖用户目录的权限（是否需要额外设置 ACL，待验证）。
-- **接口：** `GET /local/status`；`POST /local/channels/{连接方式}/login`、`logout`；`GET /local/channels/{连接方式}/peers`；`/local/devices/{设备}/v1/...` 转发到对端节点的节点协议。设备按名称、系统主机名或内网 IP 查找，可写成 `连接方式:设备` 指定连接方式；`self` 表示本机，不经过内网，身份为 `local`。
+- **接口：** `GET /local/status`；`POST /local/channels/{连接方式}/login`、`logout`；`GET /local/channels/{连接方式}/peers`；`GET /local/devices[?refresh=1]` 返回设备列表：按连接方式分组（不跨方式合并）、只列同账号的设备、本机排第一，并对在线设备探测是否运行 DeskBridge（取能力报告，探测结果缓存 30 秒，`refresh=1` 忽略缓存，离线设备不探测，同一连接方式内设备 ID 相同的节点合并为一条）；`/local/devices/{设备}/v1/...` 转发到对端节点的节点协议。设备按名称、系统主机名或内网 IP 查找，可写成 `连接方式:设备` 指定连接方式；`self` 表示本机，不经过内网，身份为 `local`。
 - **登录：** 交互式登录返回登录链接；也可以用预授权密钥（`--auth-key` 或环境变量 `DESKBRIDGE_AUTH_KEY`），适合没有浏览器的服务器。
 - **设备的两个名字（2026-10-14 用户决定）：** “设备名称”（`--name`）只在 DeskBridge 里显示，可以用中文；“主机名”（`--hostname`）就是这台设备在 Tailscale 里的名字，只能用英文、数字和连字符（Tailscale 会丢弃其他字符，中文名会变成空）。两个名字分开设置，不自动转换；界面上统一叫“设备名称”和“主机名”，不叫“备注”或“设备编码”，以免和设备 ID 混淆。以后在 DeskBridge 里修改主机名，就是修改这台设备在 Tailscale 里的名字（节点运行中修改自己的主机名，改别的设备时经节点协议由对方修改自己；新名字要保存到配置，因为 tsnet 每次启动都会用配置覆盖。待实现）。
 - **设备 ID：** ed25519 密钥对，ID 为公钥 SHA-256 前 20 字节的 base32 小写编码。私钥放在系统密钥库；系统密钥库不可用时（如没有 Secret Service 的 Linux 服务器）退回数据目录下权限为 0600 的文件。

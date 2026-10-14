@@ -23,6 +23,7 @@ func (n *Node) localHandler() http.Handler {
 	mux.HandleFunc("POST /local/channels/{kind}/login", n.handleChannelWrite(n.loginChannel))
 	mux.HandleFunc("POST /local/channels/{kind}/logout", n.handleChannelWrite(n.logoutChannel))
 	mux.HandleFunc("GET /local/channels/{kind}/peers", n.handleChannelRead(n.peersChannel))
+	mux.HandleFunc("GET /local/devices", n.handleDevices)
 	mux.HandleFunc("/local/devices/{target}/{rest...}", n.handleForward)
 	return mux
 }
@@ -131,17 +132,22 @@ func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 			out.URL.RawPath = ""
 			out.Host = addr
 		},
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, dialAddr string) (net.Conn, error) {
-				return ch.Dial(ctx, "tcp", dialAddr)
-			},
-		},
+		Transport: dialTransport(ch),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			n.logf("转发到 %s（%s）失败: %v", target, addr, err)
 			writeLocalError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
 		},
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+// dialTransport 返回经连接方式拨号的 HTTP 传输，转发和设备探测共用。
+func dialTransport(ch mesh.Channel) *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, _, dialAddr string) (net.Conn, error) {
+			return ch.Dial(ctx, "tcp", dialAddr)
+		},
+	}
 }
 
 // serveSelf 用本机的节点协议处理器处理请求（路径已去掉设备前缀）。

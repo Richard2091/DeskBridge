@@ -161,3 +161,25 @@ func isPrivateIP(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	return ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
+
+// clientFromHostinfo 由设备信息里的 App 和 Package 判断客户端类型：
+// App 为 deskbridge 是 DeskBridge 内置节点；Package 为 tsnet 是其他 tsnet 程序；
+// 其余是系统 Tailscale 客户端或其他。
+func clientFromHostinfo(app, pkg string) string {
+	switch {
+	case app == ClientDeskBridge:
+		return ClientDeskBridge
+	case pkg == "tsnet":
+		return ClientTSNet
+	default:
+		return ClientTailscale
+	}
+}
+
+// clientFromNode 读取节点的设备信息判断客户端类型；节点或设备信息无效时返回空。
+func clientFromNode(n *tailcfg.Node) string {
+	if n == nil || !n.Hostinfo.Valid() {
+		return ""
+	}
+	return clientFromHostinfo(n.Hostinfo.App(), n.Hostinfo.Package())
+}

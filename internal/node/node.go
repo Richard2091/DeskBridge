@@ -52,6 +52,9 @@ type Node struct {
 	// inflight 记录正在执行的工具调用（request_id → *runningCall）。
 	inflight sync.Map
 
+	// probes 缓存设备列表对对端 DeskBridge 的探测结果。
+	probes probeCache
+
 	mu       sync.Mutex
 	listener net.Listener
 }

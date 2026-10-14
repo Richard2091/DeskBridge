@@ -58,6 +58,13 @@ const (
 	PathRelay   PathKind = "relay"      // 经中继，位置见 Peer.Relay
 )
 
+// 对端的客户端类型（Peer.Client 的取值）。
+const (
+	ClientDeskBridge = "deskbridge" // DeskBridge 内置节点（Hostinfo.App 为 deskbridge）
+	ClientTSNet      = "tsnet"      // 其他用 tsnet 的程序（Package 为 tsnet，但不是 DeskBridge）
+	ClientTailscale  = "tailscale"  // 系统 Tailscale 客户端或其他
+)
+
 // Peer 是连接方式中的一个对端，不论它是否运行 DeskBridge。
 type Peer struct {
 	ID       string   `json:"id"`                 // 连接方式内的稳定 ID
@@ -71,6 +78,10 @@ type Peer struct {
 	Path     PathKind `json:"path"`               // 当前路径
 	Relay    string   `json:"relay,omitempty"`    // 中继位置，如 hkg
 	Endpoint string   `json:"endpoint,omitempty"` // 直连时对端的实际地址（IP:端口），只用于诊断显示
+	// Client 是对端的客户端类型：deskbridge（DeskBridge 内置节点）、tsnet
+	//（其他 tsnet 程序）、tailscale（系统 Tailscale 客户端或其他）；读不到时为空。
+	// 只有 Tailscale 连接方式填写。
+	Client string `json:"client,omitempty"`
 	// LatencyMS 是最近一次测量的往返延迟（毫秒），0 表示未测量。
 	LatencyMS float64   `json:"latency_ms,omitempty"`
 	LastSeen  time.Time `json:"last_seen,omitzero"`

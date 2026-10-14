@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"tailscale.com/client/local"
+	"tailscale.com/hostinfo"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
@@ -43,6 +44,8 @@ type Tailscale struct {
 	lastState State // 后台轮询更新的最新状态，供 Dial 快速判断
 	selfID    tailcfg.UserID
 	subs      map[*subscription]struct{}
+
+	clients clientCache // 对端 StableID → 客户端类型
 
 	watchCtx    context.Context
 	watchCancel context.CancelFunc
@@ -100,6 +103,9 @@ func (t *Tailscale) Start(_ context.Context) error {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
+	// 在设备信息里标明这是 DeskBridge 内置节点，对端据此和系统 Tailscale 客户端区分。
+	// 必须在 tsnet 启动前设置；tsnet 自己只设置 Package 为 tsnet。
+	hostinfo.SetApp(ClientDeskBridge)
 	srv := &tsnet.Server{
 		Dir:        t.cfg.Dir,
 		Hostname:   t.hostname,
@@ -140,7 +146,11 @@ func (t *Tailscale) Status(ctx context.Context) (Status, error) {
 	if err != nil {
 		return Status{}, fmt.Errorf("查询 Tailscale 状态失败: %w", err)
 	}
-	return statusFromIPN(KindTailscale, st), nil
+	out := statusFromIPN(KindTailscale, st)
+	if out.Self != nil {
+		out.Self.Client = ClientDeskBridge // 本机就是 DeskBridge 内置节点
+	}
+	return out, nil
 }
 
 // Login 发起交互式登录。已经连接时直接返回当前状态；否则最多等待
@@ -210,7 +220,9 @@ func (t *Tailscale) Peers(ctx context.Context) ([]Peer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return peersFromIPN(st), nil
+	peers := peersFromIPN(st)
+	t.fillClients(ctx, peers)
+	return peers, nil
 }
 
 // Probe 主动测量到对端（addr 为内网地址）的路径和延迟。
@@ -241,6 +253,9 @@ func (t *Tailscale) Probe(ctx context.Context, addr string) (Peer, error) {
 		return Peer{}, fmt.Errorf("探测 %s 失败: %w", addr, err)
 	}
 	peer := peerFromIPN(st, found)
+	if c, ok := t.clients.get(peer.ID, time.Now()); ok {
+		peer.Client = c
+	}
 	peer.LatencyMS = res.LatencySeconds * 1000
 	if res.Endpoint != "" {
 		peer.Path, peer.Endpoint, peer.Relay = classifyPath(res.Endpoint, "")
