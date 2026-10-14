@@ -17,6 +17,9 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/node"
 	"github.com/Richard2091/DeskBridge/internal/paths"
+	"github.com/Richard2091/DeskBridge/internal/tools"
+	"github.com/Richard2091/DeskBridge/internal/tools/builtin"
+	"github.com/Richard2091/DeskBridge/internal/version"
 )
 
 func runNode(args []string, _, stderr io.Writer) int {
@@ -83,9 +86,25 @@ func runNode(args []string, _, stderr io.Writer) int {
 		logf("确定本机接口路径失败：%v", err)
 		return exitError
 	}
+
+	// 设备显示名和 node.New 的默认规则一致：未指定时用主机名，
+	// sys.info 的 name 字段也用它。
+	displayName := *name
+	if displayName == "" {
+		if h, herr := os.Hostname(); herr == nil && h != "" {
+			displayName = h
+		}
+	}
+	registry := tools.NewRegistry()
+	if err := builtin.Register(registry, builtin.Info{Name: displayName, Version: version.Version}); err != nil {
+		logf("注册内置工具失败：%v", err)
+		return exitError
+	}
+
 	n := node.New(node.Config{
 		Channels: []mesh.Channel{ch},
 		Device:   dev,
+		Tools:    registry,
 		Name:     *name,
 		Port:     *port,
 		Socket:   socketPath,

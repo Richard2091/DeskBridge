@@ -1,0 +1,63 @@
+//go:build linux
+
+package builtin
+
+import (
+	"context"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// hasProcessNamed 检查 /proc 里是否还有指定名称（comm）的进程。
+func hasProcessNamed(t *testing.T, name string) bool {
+	t.Helper()
+	dirs, err := os.ReadDir("/proc")
+	if err != nil {
+		t.Fatalf("读 /proc 失败: %v", err)
+	}
+	for _, d := range dirs {
+		if _, err := strconv.Atoi(d.Name()); err != nil {
+			continue
+		}
+		b, err := os.ReadFile("/proc/" + d.Name() + "/comm")
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(string(b)) == name {
+			return true
+		}
+	}
+	return false
+}
+
+// TestProcExecTimeoutKillsTree 验证超时后整棵进程树都被结束：命令
+// fork 一个后台 sleep 再等待，超时后 /proc 里不应该再有 sleep。
+func TestProcExecTimeoutKillsTree(t *testing.T) {
+	r := newTestRegistry(t)
+	tool, _ := r.Get("proc.exec")
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// 后台 sleep 由 shell fork 出来，是被结束树的真正目标。
+	v, err := tool.Run(ctx, &tools.Call{RequestID: "t", Args: []byte(`{"command":"sleep 30 & wait"}`)})
+	if err != nil {
+		t.Fatalf("超时应返回结果而不是错误: %v", err)
+	}
+	if res := v.(*execResult); !res.TimedOut {
+		t.Fatalf("timed_out = false，期望 true（%+v）", res)
+	}
+	if !hasProcessNamed(t, "sleep") {
+		t.Skip("没找到 sleep 进程，可能命令还没来得及 fork（不影响结论）")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !hasProcessNamed(t, "sleep") {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatal("超时后 5 秒，子进程 sleep 还在运行，进程树没有被结束")
+}
