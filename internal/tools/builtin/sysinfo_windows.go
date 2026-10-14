@@ -20,17 +20,17 @@ func sysPlatform() sysPlatformInfo {
 		p.Home = home
 	}
 
-	var ms windows.MemoryStatusEx
+	var ms memoryStatusEx
 	ms.Length = uint32(unsafe.Sizeof(ms))
-	if err := windows.GlobalMemoryStatusEx(&ms); err == nil {
+	if err := globalMemoryStatusEx(&ms); err == nil {
 		p.MemTotal = int64(ms.TotalPhys)
 		p.MemAvail = int64(ms.AvailPhys)
 	}
 
-	// GetTickCount64 是开机以来的毫秒数。
-	p.BootTime = time.Now().Add(-time.Duration(windows.GetTickCount64()) * time.Millisecond)
+	// getTickCount64 是开机以来的毫秒数。
+	p.BootTime = time.Now().Add(-time.Duration(getTickCount64()) * time.Millisecond)
 
-	p.Codepages = &codePages{ANSI: int(windows.GetACP()), OEM: int(windows.GetOEMCP())}
+	p.Codepages = &codePages{ANSI: int(windows.GetACP()), OEM: int(getOEMCP())}
 
 	var sid uint32
 	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &sid); err == nil {
@@ -44,9 +44,8 @@ func sysPlatform() sysPlatformInfo {
 
 // windowsOSVersion 返回系统版本，如 10.0.19045。
 func windowsOSVersion() string {
-	var v windows.OsVersionInfo
-	v.OSVersionInfoSize = uint32(unsafe.Sizeof(v))
-	if err := windows.RtlGetVersion(&v); err != nil {
+	v := windows.RtlGetVersion()
+	if v == nil {
 		return ""
 	}
 	return fmt.Sprintf("%d.%d.%d", v.MajorVersion, v.MinorVersion, v.BuildNumber)

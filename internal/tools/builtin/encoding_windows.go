@@ -19,7 +19,7 @@ func decodeOutput(b []byte) string {
 	if utf8.Valid(b) {
 		return string(b)
 	}
-	if s, ok := decodeCodePage(b, windows.GetOEMCP()); ok {
+	if s, ok := decodeCodePage(b, getOEMCP()); ok {
 		return s
 	}
 	if s, ok := decodeCodePage(b, windows.GetACP()); ok {
@@ -34,12 +34,12 @@ func decodeCodePage(b []byte, codePage uint32) (string, bool) {
 	if codePage == 0 || codePage == 65001 || len(b) == 0 {
 		return "", false // 65001 是 UTF-8，走到这里说明已经不是合法 UTF-8
 	}
-	n, err := windows.MultiByteToWideChar(codePage, windows.MB_ERR_INVALID_CHARS, &b[0], int32(len(b)), nil, 0)
+	n, err := windows.MultiByteToWideChar(codePage, mbErrInvalidChars, &b[0], int32(len(b)), nil, 0)
 	if err != nil || n <= 0 {
 		return "", false
 	}
 	buf := make([]uint16, n)
-	if _, err := windows.MultiByteToWideChar(codePage, windows.MB_ERR_INVALID_CHARS, &b[0], int32(len(b)), &buf[0], int32(n)); err != nil {
+	if _, err := windows.MultiByteToWideChar(codePage, mbErrInvalidChars, &b[0], int32(len(b)), &buf[0], int32(n)); err != nil {
 		return "", false
 	}
 	return string(utf16.Decode(buf)), true

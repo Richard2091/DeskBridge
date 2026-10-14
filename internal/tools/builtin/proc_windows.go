@@ -38,9 +38,9 @@ func listProcesses() ([]procEntry, bool) {
 			Name: windows.UTF16ToString(entry.ExeFile[:]),
 		}
 		if h, oerr := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, entry.ProcessID); oerr == nil {
-			var pmc windows.PROCESS_MEMORY_COUNTERS
+			var pmc processMemoryCounters
 			pmc.Cb = uint32(unsafe.Sizeof(pmc))
-			if gerr := windows.GetProcessMemoryInfo(h, &pmc, pmc.Cb); gerr == nil {
+			if gerr := getProcessMemoryInfo(h, &pmc); gerr == nil {
 				e.MemoryBytes = int64(pmc.WorkingSetSize)
 			}
 			windows.CloseHandle(h)
