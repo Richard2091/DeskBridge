@@ -24,6 +24,7 @@ func (n *Node) localHandler() http.Handler {
 	mux.HandleFunc("POST /local/channels/{kind}/logout", n.handleChannelWrite(n.logoutChannel))
 	mux.HandleFunc("GET /local/channels/{kind}/peers", n.handleChannelRead(n.peersChannel))
 	mux.HandleFunc("GET /local/devices", n.handleDevices)
+	mux.HandleFunc("GET /local/probe/{target}", n.handleProbe)
 	mux.HandleFunc("/local/devices/{target}/{rest...}", n.handleForward)
 	return mux
 }
