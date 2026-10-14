@@ -412,7 +412,7 @@
         "description": "deskbridge devices / exec / read / write / ls / ps / screen 等子命令，支持 --json。",
         "details": "复用客户端库（之后供 MCP 和界面使用）。设备可用名称或 IP 指定；默认设备可配置；分层诊断命令 deskbridge ping（网络/身份/协议）。验收：在 Linux 服务器上操作 Windows 的全部命令可用。",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3",
           "5",
@@ -460,7 +460,8 @@
             "parentTaskId": 6,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-14T23:13:48.150Z"
       },
       {
         "id": "7",
@@ -468,7 +469,7 @@
         "description": "deskbridge mcp 以 stdio 方式提供 MCP 工具：列出设备、调用各设备的工具。",
         "details": "使用 MCP 官方 Go SDK（引入前核实许可证）。工具设计：list_devices、以及按工具类型的通用调用（device 参数 + 工具参数），或按能力动态生成工具，两种方案比较后决定。截图以图片内容返回。验收：Claude Code 配置 deskbridge mcp 后可列设备、执行命令、读写文件。",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "6"
         ],
@@ -514,7 +515,8 @@
             "parentTaskId": 7,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-14T23:14:03.435Z"
       },
       {
         "id": "8",
@@ -1435,9 +1437,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-14T22:58:49.472Z",
+      "lastModified": "2026-10-14T23:14:03.435Z",
       "taskCount": 30,
-      "completedCount": 8,
+      "completedCount": 10,
       "tags": [
         "master"
       ]

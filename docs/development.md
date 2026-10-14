@@ -68,11 +68,12 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 
 ## 远程执行通道
 
-- **现在：** 使用原型 AgentDesk（`agentdesk exec ...`），经 Tailscale 连接 Windows。
-- **以后：** DeskBridge 里程碑一完成后，改用 DeskBridge 自己连接和开发 DeskBridge。开发过程中遇到的不便，记录为 DeskBridge 的需求。
+- **现在（2026-10-14 起）：** 用 DeskBridge 自己连接和开发 DeskBridge：Linux 上运行 `deskbridge exec -d desktop -- ...` 等命令，或让 Agent 经 `deskbridge mcp` 调用。开发过程中遇到的不便，记录为 DeskBridge 的需求。
+- **以前：** 原型 AgentDesk（`agentdesk exec ...`），经系统 Tailscale 连接 Windows。台式机节点能自动启动（任务 8）、笔记本也装上新版 DeskBridge 之前，AgentDesk 留作备用通道。
 
 ## 已知风险
 
-- AgentDesk 的执行器是手动启动的。Windows 重启、睡眠或执行器崩溃后，远程通道会断开，需要用户在 Windows 上重新启动。
+- Windows 上的 DeskBridge 节点暂时由计划任务手动启动（任务 8 之前），AgentDesk 的执行器也是手动启动的。Windows 重启、睡眠或进程崩溃后，远程通道会断开，需要用户在 Windows 上重新启动。
+- 节点刚启动的一两分钟内，到对端的连接可能卡住、探测超时（tsnet 还在建立路径），之后恢复（2026-10-14 观察到，原因待查）。
 - 两台机器之间走香港中继，每条命令有约 230ms 的往返延迟。
 - 推送到公开的远程仓库（如 GitHub）前，需要用户同意。
