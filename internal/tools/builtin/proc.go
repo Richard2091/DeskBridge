@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/protocol"
@@ -112,21 +113,31 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 
 	started := time.Now()
 	done := make(chan struct{})
+	watcherExit := make(chan struct{})
+	var killed atomic.Bool // kill 真正被触发过
 	go func() {
+		defer close(watcherExit)
 		select {
 		case <-ctx.Done():
+			killed.Store(true)
 			kill() // 结束整棵进程树（作业对象或进程组）
 		case <-done:
 		}
 	}()
+	// 后台子进程可能还持有输出管道：进程退出后最多再等 2 秒就放弃
+	// 等待管道，不让 Wait 一直阻塞。
+	cmd.WaitDelay = 2 * time.Second
 	waitErr := cmd.Wait()
 	close(done)
+	<-watcherExit
 	elapsed := time.Since(started).Milliseconds()
 
-	switch ctx.Err() {
-	case context.Canceled:
+	// 只有 kill 真正被触发才算超时或取消；命令恰好在截止时间前后
+	// 正常结束时按正常结果返回。
+	switch {
+	case killed.Load() && errors.Is(ctx.Err(), context.Canceled):
 		return nil, ctx.Err()
-	case context.DeadlineExceeded:
+	case killed.Load():
 		// 超时：返回已收到的输出并标记 timed_out，不是错误。
 		return &execResult{
 			ExitCode:        -1,
@@ -140,6 +151,10 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 	}
 
 	exitCode := 0
+	if waitErr != nil && errors.Is(waitErr, exec.ErrWaitDelay) {
+		// 命令本身正常退出，只是后台进程占着输出管道，输出已按已收到的为准。
+		waitErr = nil
+	}
 	if waitErr != nil {
 		var ee *exec.ExitError
 		if errors.As(waitErr, &ee) {
@@ -358,7 +373,14 @@ func runProcKill(ctx context.Context, call *tools.Call) (any, error) {
 	}
 	targets := []int{a.PID}
 	if a.Tree {
-		targets = append(descendantsOf(a.PID), a.PID)
+		self := os.Getpid()
+		targets = targets[:0]
+		for _, p := range descendantsOf(a.PID) {
+			if p != self { // 后代里可能有节点自己，绝不能结束
+				targets = append(targets, p)
+			}
+		}
+		targets = append(targets, a.PID)
 	}
 	killed, err := killProcesses(targets, a.Force)
 	if len(killed) == 0 && err != nil {
@@ -375,11 +397,17 @@ func childrenOf(pid int, parents map[int]int) []int {
 		children[pp] = append(children[pp], p)
 	}
 	var out []int
+	// visited 防止 PID 复用造成环（A 的父是 B、B 的父又是 A）时死循环。
+	visited := map[int]bool{pid: true}
 	queue := []int{pid}
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
 		for _, c := range children[cur] {
+			if visited[c] {
+				continue
+			}
+			visited[c] = true
 			out = append(out, c)
 			queue = append(queue, c)
 		}

@@ -103,19 +103,21 @@ func truncateAtRuneBoundary(b []byte) int {
 	if n == 0 || utf8.Valid(b) {
 		return n
 	}
-	// 找最后一个多字节序列的起点（跳过末尾的 continuation 字节）。
+	// 往回找最后一个字符的起点：最多跳过 3 个 continuation 字节。
 	i := n - 1
-	for i >= 0 && b[i]&0xC0 == 0x80 {
+	for k := 0; k < utf8.UTFMax-1 && i > 0 && b[i]&0xC0 == 0x80; k++ {
 		i--
 	}
-	if i < 0 {
-		return 0
-	}
-	if _, size := utf8.DecodeRune(b[i:]); size > n-i {
-		// 起点声明的序列长度超出剩余字节，说明截断在字符中间。
+	if !utf8.FullRune(b[i:]) {
+		// 末尾是不完整的字符（被截断），回退到它的起点。
 		return i
 	}
 	return n
+}
+
+// trimIncompleteUTF8 去掉末尾被截断的不完整 UTF-8 字符；其余内容不变。
+func trimIncompleteUTF8(b []byte) []byte {
+	return b[:truncateAtRuneBoundary(b)]
 }
 
 // timezoneName 返回 IANA 风格的时区名；取不到时用 UTC 偏移

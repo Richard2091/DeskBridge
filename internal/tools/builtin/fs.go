@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -181,46 +182,55 @@ func runFsList(ctx context.Context, call *tools.Call) (any, error) {
 		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "%s 不是目录", abs)
 	}
 	// 根目录自身的错误要报告；子目录读不了则跳过（见 listWalk）。
-	if _, err := os.ReadDir(abs); err != nil {
+	res := &fsListResult{Path: abs, Entries: []fsListEntry{}}
+	// 多收集一个条目：只有确实超过上限才算 truncated，恰好等于上限不算。
+	if err := listWalk(abs, "", a.Recursive, max+1, &res.Entries, true); err != nil {
 		return nil, mapFSError(err)
 	}
-	res := &fsListResult{Path: abs, Entries: []fsListEntry{}}
-	listWalk(abs, "", a.Recursive, max, &res.Entries)
+	if len(res.Entries) > max {
+		res.Entries = res.Entries[:max]
+		res.Truncated = true
+	}
 	slices.SortFunc(res.Entries, func(x, y fsListEntry) int { return strings.Compare(x.Name, y.Name) })
-	res.Truncated = len(res.Entries) >= max
 	return res, nil
 }
 
 // listWalk 把 dir 下的条目追加到 out，达到 limit 停止。prefix 是当前
-// 目录在结果里的相对路径前缀（递归时用 / 分隔）。
-func listWalk(dir, prefix string, recursive bool, limit int, out *[]fsListEntry) {
+// 目录在结果里的相对路径前缀（递归时用 / 分隔）。只有 isRoot 的目录
+// 读取失败才返回错误，子目录读不了则跳过。
+func listWalk(dir, prefix string, recursive bool, limit int, out *[]fsListEntry, isRoot bool) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return // 无权访问或其他原因，跳过该目录，不报错
+		if isRoot {
+			return err
+		}
+		return nil // 无权访问或其他原因，跳过该目录，不报错
 	}
 	for _, e := range entries {
 		name := e.Name()
 		if prefix != "" {
 			name = prefix + "/" + e.Name()
 		}
-		*out = append(*out, fsListEntry{
-			Name:  name,
-			Type:  entryTypeOf(e),
-			Size:  entrySizeOf(e),
-			Mtime: entryMtimeOf(e),
-		})
+		ent := fsListEntry{Name: name, Type: entryTypeOf(e), Mtime: time.Time{}.Format(time.RFC3339)}
+		// Info 只调用一次；取不到时给零值，不中断列出。
+		if info, ierr := e.Info(); ierr == nil {
+			ent.Size = info.Size()
+			ent.Mtime = info.ModTime().Format(time.RFC3339)
+		}
+		*out = append(*out, ent)
 		if len(*out) >= limit {
-			return
+			return nil
 		}
 		// 只对真实目录递归；DirEntry 的 IsDir 对符号链接是 false，
 		// 天然不会进入符号链接指向的目录。
 		if recursive && e.IsDir() {
-			listWalk(filepath.Join(dir, e.Name()), name, recursive, limit, out)
+			_ = listWalk(filepath.Join(dir, e.Name()), name, recursive, limit, out, false)
 			if len(*out) >= limit {
-				return
+				return nil
 			}
 		}
 	}
+	return nil
 }
 
 // entryTypeOf 把 DirEntry 归类为 type 字段取值。
@@ -235,21 +245,6 @@ func entryTypeOf(d os.DirEntry) string {
 	default:
 		return "other"
 	}
-}
-
-// entrySizeOf / entryMtimeOf 取条目信息，取不到时给零值，不中断列出。
-func entrySizeOf(d os.DirEntry) int64 {
-	if info, err := d.Info(); err == nil {
-		return info.Size()
-	}
-	return 0
-}
-
-func entryMtimeOf(d os.DirEntry) string {
-	if info, err := d.Info(); err == nil {
-		return info.ModTime().Format(time.RFC3339)
-	}
-	return time.Time{}.Format(time.RFC3339)
 }
 
 // ---------- fs.read ----------
@@ -464,10 +459,16 @@ func runFsWrite(ctx context.Context, call *tools.Call) (any, error) {
 		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "路径不合法：%v", err)
 	}
 
-	// 记录原文件是否存在：created 字段，覆盖时还要保留它的权限位。
+	// 写入位置：path 是符号链接时写到链接指向的真实文件，不替换链接本身。
+	target, err := resolveLinkTarget(abs)
+	if err != nil {
+		return nil, mapFSError(err)
+	}
+	// 记录目标是否存在：created 字段，覆盖时还要保留它的权限位
+	// （对目标 Stat，跟随链接，不用链接自身的权限）。
 	existed := false
 	perm := os.FileMode(0644)
-	if fi, serr := os.Lstat(abs); serr == nil {
+	if fi, serr := os.Stat(target); serr == nil {
 		existed = true
 		perm = fi.Mode().Perm()
 		if fi.IsDir() {
@@ -478,13 +479,13 @@ func runFsWrite(ctx context.Context, call *tools.Call) (any, error) {
 	}
 
 	if createDirs {
-		if derr := os.MkdirAll(filepath.Dir(abs), 0755); derr != nil {
+		if derr := os.MkdirAll(filepath.Dir(target), 0755); derr != nil {
 			return nil, mapFSError(derr)
 		}
 	}
 
 	if a.Append {
-		f, err := os.OpenFile(abs, os.O_WRONLY|os.O_CREATE|os.O_APPEND, perm)
+		f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_APPEND, perm)
 		if err != nil {
 			return nil, mapFSError(err)
 		}
@@ -497,7 +498,7 @@ func runFsWrite(ctx context.Context, call *tools.Call) (any, error) {
 	}
 
 	// 覆盖：先写同目录临时文件再改名，中途失败不留半个文件。
-	tmp, err := os.CreateTemp(filepath.Dir(abs), ".deskbridge-*")
+	tmp, err := os.CreateTemp(filepath.Dir(target), ".deskbridge-*")
 	if err != nil {
 		return nil, mapFSError(err)
 	}
@@ -512,13 +513,40 @@ func runFsWrite(ctx context.Context, call *tools.Call) (any, error) {
 		werr = os.Chmod(tmpName, perm)
 	}
 	if werr == nil {
-		werr = os.Rename(tmpName, abs)
+		werr = os.Rename(tmpName, target)
 	}
 	if werr != nil {
 		os.Remove(tmpName)
 		return nil, mapFSError(werr)
 	}
 	return &fsWriteResult{Path: abs, BytesWritten: int64(n), Created: !existed}, nil
+}
+
+// resolveLinkTarget 沿符号链接找到最终要写入的路径：path 本身不是链接
+// 就原样返回；链接悬空（目标不存在）时返回它指向的路径，这样会在
+// 目标位置创建文件。链接层数过多（可能成环）时报错。
+func resolveLinkTarget(p string) (string, error) {
+	for i := 0; i < 40; i++ {
+		fi, err := os.Lstat(p)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return p, nil
+			}
+			return "", err
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return p, nil
+		}
+		dest, err := os.Readlink(p)
+		if err != nil {
+			return "", err
+		}
+		if !filepath.IsAbs(dest) {
+			dest = filepath.Join(filepath.Dir(p), dest)
+		}
+		p = dest
+	}
+	return "", &os.PathError{Op: "resolve", Path: p, Err: errors.New("符号链接层数过多")}
 }
 
 // decodeWriteContent 按 encoding 解码要写入的内容。

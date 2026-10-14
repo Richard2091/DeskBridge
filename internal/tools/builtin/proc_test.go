@@ -370,3 +370,147 @@ func TestProcExecStderr(t *testing.T) {
 		t.Errorf("stderr_truncated 应为 true（%q）", res.Stderr)
 	}
 }
+
+// listPIDsByName 用 proc.list 按名字找进程，返回 PID 集合。
+func listPIDsByName(t *testing.T, name string) map[int]bool {
+	t.Helper()
+	r := newTestRegistry(t)
+	v, err := callByName(t, r, "proc.list", `{"name":`+jsonString(name)+`,"max_entries":10000}`)
+	if err != nil {
+		t.Fatalf("proc.list 失败: %v", err)
+	}
+	out := map[int]bool{}
+	for _, p := range v.(*procListResult).Processes {
+		out[p.PID] = true
+	}
+	return out
+}
+
+// newPIDs 返回 now 里有而 before 里没有的 PID。
+func newPIDs(before, now map[int]bool) []int {
+	var out []int
+	for pid := range now {
+		if !before[pid] {
+			out = append(out, pid)
+		}
+	}
+	return out
+}
+
+// killPIDs 清理测试启动的进程。
+func killPIDs(t *testing.T, pids []int) {
+	for _, pid := range pids {
+		raw, _ := json.Marshal(map[string]any{"pid": pid, "force": true})
+		tool, _ := newTestRegistry(t).Get("proc.kill")
+		_, _ = tool.Run(context.Background(), &tools.Call{Args: raw})
+	}
+}
+
+// runBackgroundKept 验证命令正常结束后，它启动的后台进程还在。
+func runBackgroundKept(t *testing.T, args map[string]any, procName string) {
+	t.Helper()
+	before := listPIDsByName(t, procName)
+	start := time.Now()
+	res, err := callExec(t, args, 0)
+	if err != nil {
+		t.Fatalf("proc.exec 失败: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("耗时 %v，应在 5 秒内返回（后台进程不应拖住命令）", elapsed)
+	}
+	if res.ExitCode != 0 || res.TimedOut {
+		t.Errorf("exit_code=%d timed_out=%v，期望 0/false（stderr=%q）", res.ExitCode, res.TimedOut, res.Stderr)
+	}
+	if !strings.Contains(res.Stdout, "started") {
+		t.Errorf("stdout = %q，应包含 started", res.Stdout)
+	}
+	created := newPIDs(before, listPIDsByName(t, procName))
+	defer killPIDs(t, created)
+	if len(created) == 0 {
+		t.Errorf("命令正常结束后，后台的 %s 进程被结束了", procName)
+	}
+}
+
+// runTimeoutKillsChildren 验证超时返回 timed_out，且命令启动的子进程被结束。
+func runTimeoutKillsChildren(t *testing.T, command, shell, procName string) {
+	t.Helper()
+	before := listPIDsByName(t, procName)
+	start := time.Now()
+	res, err := callExec(t, map[string]any{"command": command, "shell": shell}, time.Second)
+	if err != nil {
+		t.Fatalf("超时应返回结果而不是错误: %v", err)
+	}
+	if !res.TimedOut {
+		t.Errorf("timed_out = false，期望 true")
+	}
+	if elapsed := time.Since(start); elapsed > 10*time.Second {
+		t.Errorf("超时后 %v 才返回", elapsed)
+	}
+	created := newPIDs(before, listPIDsByName(t, procName))
+	defer killPIDs(t, created)
+	deadline := time.Now().Add(5 * time.Second)
+	for len(created) > 0 && time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+		created = newPIDs(before, listPIDsByName(t, procName))
+	}
+	if len(created) > 0 {
+		t.Errorf("超时后子进程 %v 仍在运行", created)
+	}
+}
+
+func TestChildrenOfCycle(t *testing.T) {
+	// 1 -> 2 -> 3 -> 2（PID 复用成环），不能死循环，也不能重复。
+	parents := map[int]int{2: 1, 3: 2, 1: 3}
+	done := make(chan []int, 1)
+	go func() { done <- childrenOf(1, parents) }()
+	select {
+	case got := <-done:
+		seen := map[int]bool{}
+		for _, p := range got {
+			if seen[p] || p == 1 {
+				t.Errorf("结果有重复或包含起点：%v", got)
+			}
+			seen[p] = true
+		}
+		if len(got) != 2 {
+			t.Errorf("后代 = %v，期望 2 个", got)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("childrenOf 遇到环没有返回")
+	}
+}
+
+func TestTruncateAtRuneBoundary(t *testing.T) {
+	cases := []struct {
+		in   []byte
+		want int
+	}{
+		{[]byte("中文"), 6},
+		{[]byte("中文测")[:7], 6},
+		{[]byte("中文测")[:8], 6},
+		{[]byte("a中")[:2], 1},
+		{[]byte{0xFF, 'a'}, 2}, // 中间的非法字节不回退
+		{nil, 0},
+	}
+	for _, c := range cases {
+		if got := truncateAtRuneBoundary(c.in); got != c.want {
+			t.Errorf("truncateAtRuneBoundary(%q) = %d，期望 %d", c.in, got, c.want)
+		}
+	}
+}
+
+func TestDecodeOutputTruncatedUTF8(t *testing.T) {
+	// 截断在多字节字符中间时，仍按 UTF-8 正确解码（半个字符丢弃）。
+	b := []byte("中文测试")[:10]
+	if got := decodeOutput(b); got != "中文测" {
+		t.Errorf("decodeOutput = %q，期望 中文测", got)
+	}
+}
+
+func TestProcKillTreeSkipsSelf(t *testing.T) {
+	// tree=true 时结束节点自己同样返回 invalid_args。
+	tool, _ := newTestRegistry(t).Get("proc.kill")
+	raw, _ := json.Marshal(map[string]any{"pid": os.Getpid(), "tree": true})
+	_, err := tool.Run(context.Background(), &tools.Call{Args: raw})
+	expectProtoError(t, err, protocol.CodeInvalidArgs)
+}

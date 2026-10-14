@@ -4,6 +4,7 @@ package builtin
 
 import (
 	"encoding/base64"
+	"errors"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -22,7 +23,7 @@ func shellAllowed() []string { return []string{"powershell", "pwsh", "cmd"} }
 
 // psEncodingPrefix 把 PowerShell 的控制台输出编码设为 UTF-8，加在用户
 // 命令前面，见 docs/tools.md 的编码一节。
-const psEncodingPrefix = `[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding;`
+const psEncodingPrefix = `[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding;`
 
 // buildShellCommand 按 docs/tools.md 的方式构造经 shell 执行的命令。
 func buildShellCommand(shell, command string) (*exec.Cmd, error) {
@@ -64,42 +65,111 @@ func utf16LE(s string) []byte {
 	return b
 }
 
-// startProcess 启动进程并放进带 KILL_ON_JOB_CLOSE 的作业对象：之后它
-// 创建的子进程默认也在同一作业里，超时时一次结束整棵进程树。cleanup
-// 在 Wait 之后释放作业对象，kill 在超时或取消时结束整棵树。
+// startProcess 启动进程并放进作业对象，让它创建的子进程默认也在同一
+// 作业里。流程：
+//  1. 以 CREATE_SUSPENDED 启动，主线程挂起，进程还没执行任何代码，
+//     所以它不可能在加入作业之前就创建出不受控的子进程；
+//  2. 加入作业对象；加入失败时不中止命令，回退到只能结束主进程
+//     （cmd.Process.Kill），保证超时时至少主进程能被结束；
+//  3. 枚举该进程的线程（此时只有主线程）并 ResumeThread 恢复执行。
+//     选这种方式而不是 NtResumeProcess，是因为 Toolhelp32 和
+//     ResumeThread 都是文档化的 API。
+//
+// 作业对象故意不设 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE：命令正常结束
+// 后它启动的后台程序（如 start /b、start notepad）要保留。只有超时
+// 或取消时，kill 才用 TerminateJobObject 显式结束整棵进程树；cleanup
+// 只关闭作业句柄。
 func startProcess(cmd *exec.Cmd) (kill, cleanup func(), err error) {
 	job, jerr := windows.CreateJobObject(nil, nil)
 	if jerr != nil {
 		return nil, nil, jerr
 	}
-	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
-		BasicLimitInformation: windows.JOBOBJECT_BASIC_LIMIT_INFORMATION{
-			LimitFlags: windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-		},
+	// 保留已有的 SysProcAttr（shell=cmd 时设置了 CmdLine），只追加标志。
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
-	if _, serr := windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info))); serr != nil {
-		windows.CloseHandle(job)
-		return nil, nil, serr
-	}
+	cmd.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED
 	if serr := cmd.Start(); serr != nil {
 		windows.CloseHandle(job)
 		return nil, nil, serr
 	}
-	// 主进程显式加入作业；它的子进程会自动继承。进程可能刚好退出，
-	// 加入失败也不影响后续流程。
-	if h, aerr := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, uint32(cmd.Process.Pid)); aerr == nil {
-		_ = windows.AssignProcessToJobObject(job, h)
+	pid := uint32(cmd.Process.Pid)
+
+	inJob := false
+	if h, aerr := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, pid); aerr == nil {
+		inJob = windows.AssignProcessToJobObject(job, h) == nil
 		windows.CloseHandle(h)
 	}
-	var once sync.Once
-	kill = func() {
-		once.Do(func() {
-			windows.TerminateJobObject(job, 1)
+	if !inJob {
+		// 回退：没有作业对象，只能结束主进程本身。
+		windows.CloseHandle(job)
+		job = 0
+	}
+	if rerr := resumeMainThread(pid); rerr != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		if job != 0 {
 			windows.CloseHandle(job)
-		})
+		}
+		return nil, nil, rerr
+	}
+
+	var mu sync.Mutex
+	closed := false
+	closeJob := func() {
+		if job != 0 && !closed {
+			windows.CloseHandle(job)
+		}
+		closed = true
+	}
+	kill = func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if job != 0 && !closed {
+			_ = windows.TerminateJobObject(job, 1)
+		}
+		_ = cmd.Process.Kill() // 作业不可用或主进程不在作业里时的兜底
 	}
 	cleanup = func() {
-		once.Do(func() { windows.CloseHandle(job) })
+		mu.Lock()
+		defer mu.Unlock()
+		closeJob()
 	}
 	return kill, cleanup, nil
+}
+
+// resumeMainThread 恢复以 CREATE_SUSPENDED 启动的进程的主线程。
+func resumeMainThread(pid uint32) error {
+	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(snap)
+	var te windows.ThreadEntry32
+	te.Size = uint32(unsafe.Sizeof(te))
+	if err := windows.Thread32First(snap, &te); err != nil {
+		return err
+	}
+	resumed := false
+	for {
+		if te.OwnerProcessID == pid {
+			th, oerr := windows.OpenThread(windows.THREAD_SUSPEND_RESUME, false, te.ThreadID)
+			if oerr != nil {
+				return oerr
+			}
+			_, rerr := windows.ResumeThread(th)
+			windows.CloseHandle(th)
+			if rerr != nil {
+				return rerr
+			}
+			resumed = true
+		}
+		if err := windows.Thread32Next(snap, &te); err != nil {
+			break
+		}
+	}
+	if !resumed {
+		return errors.New("找不到新进程的主线程")
+	}
+	return nil
 }

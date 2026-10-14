@@ -16,6 +16,11 @@ import (
 // 自然丢弃。
 func decodeOutput(b []byte) string {
 	b = trimUTF8BOM(b)
+	// 输出可能在多字节字符中间被截断，先去掉末尾不完整的 UTF-8 字符，
+	// 否则整段会被误判为非 UTF-8。
+	if t := trimIncompleteUTF8(b); utf8.Valid(t) {
+		return string(t)
+	}
 	if utf8.Valid(b) {
 		return string(b)
 	}

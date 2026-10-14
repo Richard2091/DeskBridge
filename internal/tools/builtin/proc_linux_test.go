@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
 // hasProcessNamed 检查 /proc 里是否还有指定名称（comm）的进程。
@@ -60,4 +62,14 @@ func TestProcExecTimeoutKillsTree(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	t.Fatal("超时后 5 秒，子进程 sleep 还在运行，进程树没有被结束")
+}
+
+// TestProcExecKeepsBackgroundProcess 验证 sh 正常结束后，后台的 sleep 还在。
+func TestProcExecKeepsBackgroundProcess(t *testing.T) {
+	runBackgroundKept(t, map[string]any{"command": "sleep 20 & echo started", "shell": "sh"}, "sleep")
+}
+
+// TestProcExecTimeoutKillsChildrenLinux 验证超时返回 timed_out 且子进程被结束。
+func TestProcExecTimeoutKillsChildrenLinux(t *testing.T) {
+	runTimeoutKillsChildren(t, "sleep 30 & sleep 30", "sh", "sleep")
 }

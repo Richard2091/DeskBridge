@@ -351,3 +351,54 @@ func TestFsReadErrors(t *testing.T) {
 	_, err = callByName(t, r, "fs.read", `{"path":`+jsonString(dir)+`,"offset":-1}`)
 	expectProtoError(t, err, protocol.CodeInvalidArgs)
 }
+
+func TestFsListExactLimitNotTruncated(t *testing.T) {
+	r := newTestRegistry(t)
+	dir := t.TempDir()
+	for _, n := range []string{"a", "b", "c"} {
+		if err := os.WriteFile(filepath.Join(dir, n), nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v, err := callByName(t, r, "fs.list", `{"path":`+jsonString(dir)+`,"max_entries":3}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := v.(*fsListResult); len(res.Entries) != 3 || res.Truncated {
+		t.Errorf("条目数恰好等于上限：n=%d truncated=%v，期望 3/false", len(res.Entries), res.Truncated)
+	}
+	v, err = callByName(t, r, "fs.list", `{"path":`+jsonString(dir)+`,"max_entries":2}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := v.(*fsListResult); len(res.Entries) != 2 || !res.Truncated {
+		t.Errorf("超过上限：n=%d truncated=%v，期望 2/true", len(res.Entries), res.Truncated)
+	}
+}
+
+func TestFsWriteThroughSymlink(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real.txt")
+	link := filepath.Join(dir, "link.txt")
+	if err := os.WriteFile(real, []byte("old"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("无法创建符号链接（Windows 需要权限）：%v", err)
+	}
+	r := newTestRegistry(t)
+	if _, err := callByName(t, r, "fs.write", `{"path":`+jsonString(link)+`,"content":"new"}`); err != nil {
+		t.Fatalf("fs.write 失败: %v", err)
+	}
+	if fi, err := os.Lstat(link); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("符号链接被替换掉了：%v %v", fi, err)
+	}
+	if b, _ := os.ReadFile(real); string(b) != "new" {
+		t.Errorf("真实文件内容 = %q，期望 new", b)
+	}
+	if runtime.GOOS != "windows" {
+		if fi, _ := os.Stat(real); fi.Mode().Perm() != 0640 {
+			t.Errorf("真实文件权限 = %v，期望 0640", fi.Mode().Perm())
+		}
+	}
+}

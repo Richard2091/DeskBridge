@@ -3,35 +3,33 @@
 package builtin
 
 import (
-	"os"
+	"bytes"
 	"os/user"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // sysPlatform 取 sys.info 里 macOS 特有的字段。取不到的字段按规范省略。
 func sysPlatform() sysPlatformInfo {
 	var p sysPlatformInfo
-	if u, err := syscall.Uname(); err == nil {
-		p.OSVersion = int8StringDarwin(u.Release[:])
+	var u unix.Utsname
+	if err := unix.Uname(&u); err == nil {
+		p.OSVersion = cString(u.Release[:])
 	}
 	if cu, err := user.Current(); err == nil {
 		p.User = cu.Username
 		p.Home = cu.HomeDir
 	}
-	if n, err := syscall.SysctlUint64("hw.memsize"); err == nil {
+	if n, err := unix.SysctlUint64("hw.memsize"); err == nil {
 		p.MemTotal = int64(n)
 	}
 	return p
 }
 
-// int8StringDarwin 把 Uname 里的 int8 数组转成到第一个 0 为止的字符串。
-func int8StringDarwin(s []int8) string {
-	b := make([]byte, 0, len(s))
-	for _, c := range s {
-		if c == 0 {
-			break
-		}
-		b = append(b, byte(c))
+// cString 把以 0 结尾的字节数组转成字符串。
+func cString(s []byte) string {
+	if i := bytes.IndexByte(s, 0); i >= 0 {
+		s = s[:i]
 	}
-	return string(b)
+	return string(s)
 }
