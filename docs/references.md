@@ -11,6 +11,7 @@
 | RustDesk | AGPL-3.0 | 远程画面的编码与传输、中继服务器设计、Windows 服务 + 会话辅助进程、自建服务器的部署体验 |
 | MeshCentral | Apache-2.0 | 多设备管理、设备分组、事件日志、用户权限模型 |
 | 微软 UFO | MIT | Windows 上 AI 操作桌面的方法：UI Automation 与截图结合 |
+| Windows-Use（Jeomon/Windows-Use） | MIT | UIA 无障碍树给 LLM 的序列化格式（扁平表 + 临时 id）、CacheRequest 批量取属性、按窗口隔离失败、Agent 循环防重复检测 |
 | Windows 桌面控制类 MCP 服务器（如 Windows-MCP） | 待核实 | AI 桌面工具的设计：工具粒度、返回格式 |
 | Anthropic Computer Use 参考实现 | 待核实 | 截图 + 坐标点击的工具接口 |
 | Tailscale 客户端 | BSD-3 | 登录流程、设备列表的交互 |
