@@ -18,6 +18,7 @@ var (
 	modpsapi    = windows.NewLazySystemDLL("psapi.dll")
 
 	procGetOEMCP             = modkernel32.NewProc("GetOEMCP")
+	procIsDBCSLeadByteEx     = modkernel32.NewProc("IsDBCSLeadByteEx")
 	procGetTickCount64       = modkernel32.NewProc("GetTickCount64")
 	procGlobalMemoryStatusEx = modkernel32.NewProc("GlobalMemoryStatusEx")
 	procGetProcessMemoryInfo = modpsapi.NewProc("GetProcessMemoryInfo")
@@ -27,6 +28,13 @@ var (
 func getOEMCP() uint32 {
 	r1, _, _ := procGetOEMCP.Call()
 	return uint32(r1)
+}
+
+// isDBCSLeadByteEx 判断 b 在给定代码页中是否是双字节字符的前导字节；
+// 单字节代码页总是返回 false。
+func isDBCSLeadByteEx(codePage uint32, b byte) bool {
+	r1, _, _ := procIsDBCSLeadByteEx.Call(uintptr(codePage), uintptr(b))
+	return r1 != 0
 }
 
 // getTickCount64 返回开机以来经过的毫秒数。

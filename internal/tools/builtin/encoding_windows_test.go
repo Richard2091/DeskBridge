@@ -108,3 +108,25 @@ func TestSysInfoCodePages(t *testing.T) {
 		t.Errorf("session.id = %d", res.Session.ID)
 	}
 }
+
+// TestDecodeCodePageTruncatedGBK 验证截断在双字节字符中间时丢弃落单的前导字节，
+// 且从头扫描不会误删尾字节恰好落在前导字节范围内的完整字符。
+func TestDecodeCodePageTruncatedGBK(t *testing.T) {
+	full := []byte{0xD6, 0xD0, 0xCE, 0xC4, 0xB2, 0xE2, 0xCA, 0xD4} // 中文测试
+	cases := []struct {
+		name string
+		in   []byte
+		want string
+	}{
+		{"完整", full, "中文测试"},
+		{"截断在末字中间", full[:7], "中文测"},
+		// “测”= B2 E2，E2 本身也是合法前导字节，不能被误删。
+		{"尾字节同时是前导字节", full[:6], "中文测"},
+	}
+	for _, c := range cases {
+		got, ok := decodeCodePage(c.in, 936)
+		if !ok || got != c.want {
+			t.Errorf("%s: 解码 = %q ok=%v，期望 %q true", c.name, got, ok, c.want)
+		}
+	}
+}

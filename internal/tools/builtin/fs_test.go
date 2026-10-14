@@ -293,6 +293,9 @@ func TestFsWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fs.write 追加失败: %v", err)
 	}
+	if res = v.(*fsWriteResult); res.BytesWritten != 5 {
+		t.Errorf("追加 bytes_written = %d，期望 5", res.BytesWritten)
+	}
 	if b, _ := os.ReadFile(file); string(b) != "hiworld" {
 		t.Errorf("追加后内容 = %q，期望 hiworld", b)
 	}
@@ -302,6 +305,9 @@ func TestFsWrite(t *testing.T) {
 		`{"path":`+jsonString(file)+`,"content":`+jsonString(base64.StdEncoding.EncodeToString([]byte("OK")))+`,"encoding":"base64"}`)
 	if err != nil {
 		t.Fatalf("fs.write 失败: %v", err)
+	}
+	if res = v.(*fsWriteResult); res.BytesWritten != 2 {
+		t.Errorf("base64 bytes_written = %d，期望 2", res.BytesWritten)
 	}
 	if b, _ := os.ReadFile(file); string(b) != "OK" {
 		t.Errorf("base64 写入后内容 = %q，期望 OK", b)
