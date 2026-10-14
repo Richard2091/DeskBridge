@@ -28,6 +28,7 @@ func commands() []command {
 		{"login", "登录一个连接方式（默认 tailscale）", runLogin},
 		{"logout", "退出一个连接方式的登录", runLogout},
 		{"capability", "查看对端设备提供的能力", runCapability},
+		{"devices", "列出各连接方式下的设备", runDevices},
 		{"ping", "测量到设备的路径和延迟，确认 DeskBridge 是否响应", runPing},
 		{"info", "查看设备的系统信息", runInfo},
 		{"exec", "在设备上执行命令", runExec},

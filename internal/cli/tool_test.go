@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Richard2091/DeskBridge/internal/client"
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/mesh/meshtest"
@@ -193,11 +194,21 @@ func startTestNode(t *testing.T) *fakeEnv {
 		hangDone:  make(chan struct{}),
 	}
 	fake := meshtest.NewFake(mesh.KindTailscale, "100.64.0.1")
-	fake.SetStatus(mesh.Status{Kind: mesh.KindTailscale, State: mesh.StateConnected})
+	fake.SetStatus(mesh.Status{
+		Kind: mesh.KindTailscale, State: mesh.StateConnected, Account: "alice@example.com",
+		Self: &mesh.Peer{ID: "self-1", Name: "win-pc", HostName: "WIN-PC", Addrs: []string{"100.64.0.1"},
+			OS: "windows", Mine: true, Online: true, Client: mesh.ClientDeskBridge},
+	})
 	fake.SetDefaultIdentity(mesh.Identity{Kind: mesh.KindTailscale, Owner: "me@example.com", Device: "win-pc", Mine: true})
 	fake.SetPeers([]mesh.Peer{{
 		ID: "p1", Name: "desk", Addrs: []string{"100.64.0.1"}, Mine: true, Online: true,
-		Path: mesh.PathRelay, Relay: "hkg", LatencyMS: 231,
+		Path: mesh.PathRelay, Relay: "hkg", LatencyMS: 231, Client: mesh.ClientDeskBridge, OS: "linux",
+	}, {
+		ID: "p2", Name: "phone", Addrs: []string{"100.64.0.9"}, Mine: true, Online: true,
+		Client: mesh.ClientTailscale, OS: "android", Path: mesh.PathRelay, Relay: "hkg", LatencyMS: 231,
+	}, {
+		ID: "p3", Name: "tsnet-app", Addrs: []string{"100.64.0.10"}, Mine: true, Online: false,
+		Client: mesh.ClientTSNet,
 	}})
 	env.fake = fake
 	dev, err := deviceid.Load(&deviceid.FileStore{Path: filepath.Join(home, "device.key")})
@@ -681,5 +692,39 @@ func TestInitiator(t *testing.T) {
 	t.Setenv(envInitiator, "ai")
 	if i := initiator(); i.Type != protocol.InitiatorAI || i.Via != "cli" {
 		t.Errorf("DESKBRIDGE_INITIATOR=ai 时发起者 = %+v", i)
+	}
+}
+
+func TestDevicesText(t *testing.T) {
+	startTestNode(t)
+	code, stdout, stderr := runCLI(t, "devices", "--refresh")
+	if code != 0 {
+		t.Fatalf("退出码 = %d（%s）", code, stderr)
+	}
+	if !strings.HasPrefix(stdout, "Tailscale（已连接，账号 alice@example.com）\n") {
+		t.Errorf("分组标题不对：%q", stdout)
+	}
+	for _, want := range []string{"win-pc（本机）", "中继 hkg", "231 毫秒", "Tailscale 客户端", "其他 tsnet 程序", "离线", "DeskBridge dev", "连接方式未连接"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("输出缺少 %q：\n%s", want, stdout)
+		}
+	}
+}
+
+func TestDevicesJSON(t *testing.T) {
+	startTestNode(t)
+	code, stdout, stderr := runCLI(t, "devices", "--json")
+	if code != 0 || stderr != "" {
+		t.Fatalf("退出码 = %d，标准错误 = %q", code, stderr)
+	}
+	var list client.DeviceList
+	if err := json.Unmarshal([]byte(stdout), &list); err != nil {
+		t.Fatalf("标准输出不是单个 JSON 值：%v", err)
+	}
+	if len(list.Groups) != 1 || len(list.Groups[0].Devices) != 3 || !list.Groups[0].Devices[0].Self {
+		t.Errorf("设备列表 = %+v", list)
+	}
+	if code, _, _ = runCLI(t, "devices", "extra"); code != exitUsage {
+		t.Errorf("多余参数：退出码 = %d，期望 2", code)
 	}
 }

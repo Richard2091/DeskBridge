@@ -15,8 +15,8 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 )
 
-// probeTimeout 是对端 /v1/capability 请求的超时。
-const probeTimeout = 10 * time.Second
+// capabilityTimeout 是对端 /v1/capability 请求的超时。
+const capabilityTimeout = 10 * time.Second
 
 func (n *Node) handleProbe(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
@@ -57,7 +57,7 @@ func (n *Node) handleProbe(w http.ResponseWriter, r *http.Request) {
 // timeCapability 经 ch 请求对端 addr（内网地址:端口）的 /v1/capability，
 // 返回耗时毫秒数。响应状态不是 200 视为失败。
 func (n *Node) timeCapability(ctx context.Context, ch mesh.Channel, addr string) (float64, error) {
-	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	ctx, cancel := context.WithTimeout(ctx, capabilityTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/v1/capability", nil)
 	if err != nil {
