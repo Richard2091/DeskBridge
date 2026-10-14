@@ -28,7 +28,7 @@ func commands() []command {
 		{"login", "登录一个连接方式（默认 tailscale）", runLogin},
 		{"logout", "退出一个连接方式的登录", runLogout},
 		{"capability", "查看对端设备提供的能力", runCapability},
-		{"mcp", "作为 MCP 服务器运行，供 AI Agent 使用", notImplemented("mcp")},
+		{"mcp", "作为 MCP 服务器运行，供 AI Agent 使用", runMCP},
 		{"ui-core", "供桌面客户端启动的子进程，经标准输入输出传 JSON", notImplemented("ui-core")},
 		{"version", "显示版本", runVersion},
 		{"help", "显示帮助", runHelp},

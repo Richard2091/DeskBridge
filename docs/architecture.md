@@ -125,6 +125,29 @@ deskbridge exec / mcp / ui-core ──本机接口──▶ 本机 deskbridge no
 | `window.list` / `window.focus` | 窗口 |
 | `ui.tree` / `ui.find` / `ui.invoke` | 界面元素（Windows UI Automation） |
 
+## MCP 服务器
+
+`deskbridge mcp` 经标准输入输出提供 MCP，供 Claude Code 等 AI Agent 使用。它和命令行一样经本机接口调用本机节点，自己不加入内网。SDK 用官方的 `github.com/modelcontextprotocol/go-sdk`。
+
+**工具形态（任务 7 决定）：** 固定的一组通用工具，设备作为参数，不按“设备 × 工具”动态生成。设备会上下线、各设备工具不同，动态生成会让工具列表频繁变化、数量膨胀，Agent 也难以缓存。常用操作另给专用工具，参数更直观，AI 不用先查 schema。
+
+| MCP 工具 | 参数 | 对应 |
+|---|---|---|
+| `list_devices` | `refresh`（可选） | 本机接口 `GET /local/devices` |
+| `device_tools` | `device` | 能力报告：该设备的工具及参数 schema |
+| `call_tool` | `device`、`tool`、`args`（对象，可选）、`timeout_ms`（可选） | 调用任意工具，返回 result |
+| `exec` | `device`、`command`、`shell`、`cwd`、`stdin`、`timeout_ms`、`max_output_bytes`（后五个可选） | `proc.exec` |
+| `read_file` | `device`、`path`、`offset`、`max_bytes`（后两个可选） | `fs.read`（`encoding` 为 `auto`） |
+| `write_file` | `device`、`path`、`content`、`append`（可选） | `fs.write` |
+| `list_dir` | `device`、`path`、`recursive`、`max_entries`（后两个可选） | `fs.list` |
+
+- **保护 AI 的上下文：** `exec` 的 `max_output_bytes` 默认 65536，`read_file` 的 `max_bytes` 默认 262144，`list_dir` 的 `max_entries` 默认 500，都写在工具描述里；截断时结果末尾注明，`read_file` 没读完会给出继续读的 `offset`。`exec` 的 `timeout_ms` 默认 300000、上限 600000（节点按工具截断），描述里告诉 AI 耗时长的命令放到后台写日志、用 `read_file` 轮询。
+- **返回格式：** `exec` 返回给人读的文本（退出码、标准输出、标准错误，超时和截断有标注）；`read_file` 返回文件内容（base64 时注明）；其余返回两空格缩进的 JSON 文本。
+- 发起者为 `{"type":"ai","via":"mcp","session":<MCP 会话 ID>}`。
+- 工具失败（协议错误）作为 `isError` 的工具结果返回，文本为“错误（code）：message”，让 Agent 能读到原因；节点没运行也这样返回，MCP 服务器本身不退出。
+- Agent 取消调用时，经 `DELETE /v1/requests/{id}` 通知对端取消。
+- 以后（任务 22）转发被控端的 MCP 工具，仍经 `call_tool` 调用，不改变本节的工具形态。
+
 ## 调用被控端的 AI 能力：Agent、Skill、MCP（规划中）
 
 被控设备上往往已经有自己的 AI 环境：Claude Code、Codex 等 Agent，它们的 Skill，以及本机配置的 MCP 服务器（例如只能在 Windows 本机运行的数据库、浏览器或桌面控制工具）。DeskBridge 应该能让控制端使用这些能力，而不是只能用 DeskBridge 自带的工具。
