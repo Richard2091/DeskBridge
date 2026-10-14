@@ -312,7 +312,7 @@
         "description": "实现 sys.info、fs.list/read/write/stat、proc.exec/list/kill，Windows 输出统一为 UTF-8。",
         "details": "proc.exec：支持选择 shell（PowerShell/cmd/sh）、工作目录、环境变量、超时；返回退出码、stdout、stderr、是否超时、是否截断。Windows 上按控制台代码页解码（如 GBK），PowerShell 设置 UTF-8 输出。fs：大文件分块或限制大小，二进制以 base64 返回。验收：Windows 与 Linux 测试通过；中文命令输出和中文报错不乱码（原型的乱码用例必须通过）。",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "4"
         ],
@@ -388,7 +388,8 @@
             "parentTaskId": 5,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-14T14:17:23.050Z"
       },
       {
         "id": "6",
@@ -1419,7 +1420,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-13T06:42:42.961Z",
+      "lastModified": "2026-10-14T14:17:23.050Z",
       "taskCount": 30,
       "completedCount": 4,
       "tags": [
