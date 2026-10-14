@@ -159,7 +159,7 @@
         "description": "从连接层获取对端，按连接方式分组（Tailscale、局域网），按设备 ID 合并，显示在线状态、路径和延迟。",
         "details": "从 tsnet 本地状态读取节点列表；探测 DeskBridge 端口和能力报告；显示在线、直连/中继（及中继位置）、延迟。数据结构预留分组：tailscale / wireguard / external。验收：命令行列出设备及状态，与 tailscale status 一致。\n<info added on 2026-10-07T12:00:00.000Z>\nADR-0006：设备列表要记录路径类型（局域网直连、跨网直连、中继及中继位置）和延迟，供远程画面的开放判断使用。节点之间一律用 Tailscale 内网地址通信，不直接用局域网 IP。\n</info added on 2026-10-07T12:00:00.000Z>\n<info added on 2026-10-08T03:00:00.000Z>\nADR-0007：设备列表来自连接层接口，不直接读 tsnet 状态。同一台设备经多种连接方式连通时，按能力报告中的 DeskBridge 设备 ID 合并成一条；设备上同时装了 Tailscale 客户端、出现两个节点时也这样合并。分组改为“我的设备”“外部设备”（Tailscale 为同账号节点，WireGuard 为配对过的设备），不叫“Tailscale 设备”。设备信息显示“连接方式 · 路径 · 延迟”，如“Tailscale · 局域网直连 · 4 毫秒”。多条路径时选最快：局域网直连 > 跨网直连 > 中继；功能分层（ADR-0006）按实际使用的路径判断。\n</info added on 2026-10-08T03:00:00.000Z>\n<info added on 2026-10-08T06:00:00.000Z>\nADR-0009：分组改为按连接方式（取代 ADR-0007 第 7 条的“我的设备 / 外部设备”）。初版两组：Tailscale（同账号节点）、局域网（局域网中发现、不在 Tailscale 里的设备，见任务 28）。每组带自己的连接状态（已连接、未登录、已断开及重连），供界面在组头显示。同一设备在多个网络里只显示一次，放在 Tailscale 分组。\n</info added on 2026-10-08T06:00:00.000Z>",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "2"
         ],
@@ -216,7 +216,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-14T22:43:37.323Z"
+        "updatedAt": "2026-10-14T22:56:34.842Z"
       },
       {
         "id": "4",
@@ -327,7 +327,7 @@
         "description": "实现 sys.info、fs.list/read/write/stat、proc.exec/list/kill，Windows 输出统一为 UTF-8。",
         "details": "proc.exec：支持选择 shell（PowerShell/cmd/sh）、工作目录、环境变量、超时；返回退出码、stdout、stderr、是否超时、是否截断。Windows 上按控制台代码页解码（如 GBK），PowerShell 设置 UTF-8 输出。fs：大文件分块或限制大小，二进制以 base64 返回。验收：Windows 与 Linux 测试通过；中文命令输出和中文报错不乱码（原型的乱码用例必须通过）。",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "4"
         ],
@@ -404,7 +404,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-14T14:17:23.050Z"
+        "updatedAt": "2026-10-14T22:58:49.472Z"
       },
       {
         "id": "6",
@@ -1435,9 +1435,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-14T22:43:37.323Z",
+      "lastModified": "2026-10-14T22:58:49.472Z",
       "taskCount": 30,
-      "completedCount": 6,
+      "completedCount": 8,
       "tags": [
         "master"
       ]
