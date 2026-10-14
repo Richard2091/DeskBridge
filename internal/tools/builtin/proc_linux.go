@@ -149,7 +149,11 @@ func ppidOfStat(b []byte) (int, bool) {
 }
 
 // killProcesses 给目标发信号：force 为 true 发 SIGKILL，否则 SIGTERM。
-// 进程已经不在（ESRCH）不算失败，只是不在 killed 列表里。
+// 进程已经不在（ESRCH）的处理分三种：
+//   - 所有目标都是 ESRCH（一个都没结束）：返回 ESRCH，调用方映射为 not_found；
+//   - 部分目标是 ESRCH、其他结束成功（进程树里有成员刚好退出）：算成功，
+//     killed 只列实际结束的；
+//   - 出现其他错误（如 EPERM）：返回最后一个其他错误，ESRCH 不覆盖它。
 func killProcesses(pids []int, force bool) ([]int, error) {
 	sig := syscall.SIGTERM
 	if force {
@@ -157,16 +161,20 @@ func killProcesses(pids []int, force bool) ([]int, error) {
 	}
 	var killed []int
 	var lastErr error
+	gone := 0
 	for _, pid := range pids {
 		err := syscall.Kill(pid, sig)
 		switch {
 		case err == nil:
 			killed = append(killed, pid)
 		case errors.Is(err, syscall.ESRCH):
-			// 进程刚好自己结束了。
+			gone++
 		default:
 			lastErr = err
 		}
+	}
+	if len(killed) == 0 && lastErr == nil && gone > 0 {
+		return nil, syscall.ESRCH
 	}
 	return killed, lastErr
 }

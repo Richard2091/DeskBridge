@@ -4,9 +4,12 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -72,4 +75,50 @@ func TestProcExecKeepsBackgroundProcess(t *testing.T) {
 // TestProcExecTimeoutKillsChildrenLinux 验证超时返回 timed_out 且子进程被结束。
 func TestProcExecTimeoutKillsChildrenLinux(t *testing.T) {
 	runTimeoutKillsChildren(t, "sleep 30 & sleep 30", "sh", "sleep")
+}
+
+// startAndReap 启动一个立刻退出的进程并 Wait 回收，返回此时已不存在的 pid。
+func startAndReap(t *testing.T) int {
+	t.Helper()
+	cmd := exec.Command("true")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("启动进程失败: %v", err)
+	}
+	pid := cmd.Process.Pid
+	if err := cmd.Wait(); err != nil {
+		t.Fatalf("等待进程退出失败: %v", err)
+	}
+	return pid
+}
+
+// TestKillProcessesPartialGone 验证目标里部分已退出（ESRCH）、部分结束成功时
+// 算成功，killed 只列实际结束的；全部不存在时返回 ESRCH。
+func TestKillProcessesPartialGone(t *testing.T) {
+	dead := startAndReap(t)
+
+	live := exec.Command("sleep", "60")
+	if err := live.Start(); err != nil {
+		t.Fatalf("启动 sleep 失败: %v", err)
+	}
+	defer func() {
+		// 兜底：测试失败时也不留下 sleep；错误可忽略（进程可能已被结束）。
+		live.Process.Kill() //nolint:errcheck
+		live.Wait()         //nolint:errcheck
+	}()
+
+	killed, err := killProcesses([]int{dead, live.Process.Pid}, true)
+	if err != nil {
+		t.Fatalf("部分成员已退出应算成功，得到错误: %v", err)
+	}
+	if len(killed) != 1 || killed[0] != live.Process.Pid {
+		t.Fatalf("killed 应只含存活进程 %d，得到 %v", live.Process.Pid, killed)
+	}
+	if err := live.Wait(); err == nil {
+		t.Fatal("sleep 应是被信号结束的")
+	}
+
+	killed, err = killProcesses([]int{dead}, true)
+	if !errors.Is(err, syscall.ESRCH) || len(killed) != 0 {
+		t.Fatalf("全部不存在应返回 ESRCH，得到 killed=%v err=%v", killed, err)
+	}
 }

@@ -3,8 +3,6 @@
 package builtin
 
 import (
-	"errors"
-
 	"github.com/Richard2091/DeskBridge/internal/protocol"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
@@ -22,9 +20,8 @@ func listProcesses() ([]procEntry, bool) { return nil, false }
 func descendantsOf(pid int) []int { return nil }
 
 func killProcesses(pids []int, force bool) ([]int, error) {
-	return nil, errors.New("unsupported_platform")
+	return nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持结束进程")
 }
 
-func mapKillError(err error) error {
-	return protocol.Errorf(protocol.CodeInternal, "%v", err)
-}
+// mapKillError 原样返回 killProcesses 的协议错误。
+func mapKillError(err error) error { return err }

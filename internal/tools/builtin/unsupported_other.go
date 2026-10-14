@@ -3,7 +3,6 @@
 package builtin
 
 import (
-	"errors"
 	"os/exec"
 	"strings"
 
@@ -26,7 +25,7 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 }
 
 func startProcess(cmd *exec.Cmd) (kill, cleanup func(), err error) {
-	return nil, nil, errors.New("unsupported_platform")
+	return nil, nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持执行命令")
 }
 
 func listProcesses() ([]procEntry, bool) { return nil, false }
@@ -34,12 +33,10 @@ func listProcesses() ([]procEntry, bool) { return nil, false }
 func descendantsOf(pid int) []int { return nil }
 
 func killProcesses(pids []int, force bool) ([]int, error) {
-	return nil, errors.New("unsupported_platform")
+	return nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持结束进程")
 }
 
-func mapKillError(err error) error {
-	return protocol.Errorf(protocol.CodeInternal, "%v", err)
-}
+func mapKillError(err error) error { return err }
 
 func decodeOutput(b []byte) string {
 	b = trimUTF8BOM(b)
