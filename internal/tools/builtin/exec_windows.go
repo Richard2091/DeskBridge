@@ -3,12 +3,10 @@
 package builtin
 
 import (
-	"encoding/base64"
 	"errors"
 	"os/exec"
 	"sync"
 	"syscall"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/Richard2091/DeskBridge/internal/protocol"
@@ -33,11 +31,13 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 		if err != nil {
 			return nil, protocol.Errorf(protocol.CodeNotFound, "找不到 %s：%v", shell, err)
 		}
-		// 用 -EncodedCommand 传命令，避免引号转义和编码问题。
-		encoded := base64.StdEncoding.EncodeToString(utf16LE(psEncodingPrefix + command))
+		// 用 -Command 而不是 -EncodedCommand：后者在输出被重定向时会让
+		// PowerShell 把错误流和进度流序列化成 CLIXML 写到 stderr。引号由
+		// Go 按 CommandLineToArgvW 规则转义，PowerShell 按同一规则还原，
+		// 中文和换行原样保留。前缀后加换行，让错误位置信息不带前缀。
 		return &exec.Cmd{
 			Path: path,
-			Args: []string{shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded},
+			Args: []string{shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psEncodingPrefix + "\n" + command},
 		}, nil
 	case "cmd":
 		path, err := exec.LookPath("cmd")
@@ -52,17 +52,6 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 	default:
 		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "不支持的 shell：%s", shell)
 	}
-}
-
-// utf16LE 把字符串编码为 UTF-16LE 字节（-EncodedCommand 的格式）。
-func utf16LE(s string) []byte {
-	units := utf16.Encode([]rune(s))
-	b := make([]byte, len(units)*2)
-	for i, v := range units {
-		b[i*2] = byte(v)
-		b[i*2+1] = byte(v >> 8)
-	}
-	return b
 }
 
 // startProcess 启动进程并放进作业对象，让它创建的子进程默认也在同一

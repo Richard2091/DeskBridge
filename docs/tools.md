@@ -111,7 +111,7 @@
 - 命令启动不了（程序不存在、目录不存在）返回 `not_found` 或 `invalid_args` 错误；启动后非零退出不是错误，结果里看 `exit_code`。
 - 超时或取消时终止整个进程树：Windows 用作业对象（Job Object），Linux 用进程组。
 - 各 shell 的调用方式：
-  - `powershell` / `pwsh`：`-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand <UTF-16LE base64>`，命令前加上把 `[Console]::InputEncoding`（让 `stdin` 按 UTF-8 读取）、`[Console]::OutputEncoding` 和 `$OutputEncoding` 设为 UTF-8 的语句。用 `-EncodedCommand` 避免引号转义和编码问题。
+  - `powershell` / `pwsh`：`-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command <前缀 + 换行 + 命令>`，前缀是把 `[Console]::InputEncoding`（让 `stdin` 按 UTF-8 读取）、`[Console]::OutputEncoding` 和 `$OutputEncoding` 设为 UTF-8 的语句。不用 `-EncodedCommand`：输出被重定向时它会让 PowerShell 把错误流和进度流序列化成 CLIXML 写到 `stderr`；`-Command` 下 `stderr` 是和控制台一致的纯文本。引号由 Go 按标准规则转义，PowerShell 同样规则还原。警告流（`Write-Warning`）在文本模式下写到 `stdout`，和控制台一致。
   - `cmd`：`cmd /d /s /c "<command>"`，自己拼命令行（Go 的 `SysProcAttr.CmdLine`），不让 Go 再转义一次。
   - `sh` / `bash`：`-c <command>`。
 
