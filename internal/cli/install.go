@@ -40,11 +40,17 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		return exitError
 	}
 	logPath, err := paths.NodeLogFile()
+	var superLog string
+	if err == nil {
+		superLog, err = paths.SupervisorLogFile()
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "确定日志路径失败：%v\n", err)
 		return exitError
 	}
-	nodeArgs := []string{"node", "-log-file", logPath, "-hide-console", "-port", fmt.Sprint(*port)}
+	// 守护进程负责重启和收集崩溃输出（它的日志在 superLog），节点自己写 logPath。
+	nodeArgs := []string{"supervise", "-log-file", superLog, "-hide-console", "--",
+		"node", "-log-file", logPath, "-port", fmt.Sprint(*port)}
 	for _, o := range [][2]string{{"-name", *name}, {"-hostname", *hostname}, {"-control-url", *controlURL}} {
 		if o[1] != "" {
 			nodeArgs = append(nodeArgs, o[0], o[1])
@@ -54,7 +60,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return installFailed(stderr, "安装", err)
 	}
-	fmt.Fprintf(stdout, "已安装计划任务 %s：用户登录后自动运行 %s\n日志：%s\n", *taskName, exe, logPath)
+	fmt.Fprintf(stdout, "已安装计划任务 %s：用户登录后自动运行 %s\n日志：%s（节点）、%s（守护进程，含崩溃输出）\n", *taskName, exe, logPath, superLog)
 	fmt.Fprintln(stdout, "更换程序文件时需先 uninstall 或结束任务，替换后再 install；路径不变时只需重新运行任务。")
 	if *noStart {
 		return exitOK

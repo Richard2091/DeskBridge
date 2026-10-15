@@ -96,3 +96,12 @@ func NodeLogFile() (string, error) {
 	}
 	return dir + string(os.PathSeparator) + "node.log", nil
 }
+
+// SupervisorLogFile 返回守护进程日志路径（日志目录下的 supervisor.log）。
+func SupervisorLogFile() (string, error) {
+	dir, err := LogDir()
+	if err != nil {
+		return "", err
+	}
+	return dir + string(os.PathSeparator) + "supervisor.log", nil
+}

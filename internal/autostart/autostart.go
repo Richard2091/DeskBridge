@@ -71,7 +71,8 @@ func esc(s string) string {
 //   - 登录触发 + InteractiveToken：只在用户登录时运行，在桌面会话中，
 //     LeastPrivilege 不提权；
 //   - 不限运行时间，使用电池也不停止，已在运行时忽略新实例；
-//   - RestartOnFailure：失败后每分钟重试（计划任务的最小间隔）。
+//   - RestartOnFailure 只是后备：实测对退出码非零的程序不生效，崩溃重启
+//     由 Config.Args 里的 supervise 子命令负责。
 func taskXML(c Config) string {
 	return `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
