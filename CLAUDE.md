@@ -23,4 +23,4 @@
 - 超过 10 分钟的命令放到后台写日志（`--shell cmd` 加 `start /b cmd /c "... > 日志 2>&1"`），再用 `read` 轮询。
 - 选项写在位置参数前面（Go flag 包的限制）。
 
-**备用通道：** 台式机的节点暂时由计划任务 `DeskBridgeNodeDev` 手动启动，自动启动在任务 8 中实现。在那之前，以及笔记本（还没装新版 DeskBridge）上，仍可用 AgentDesk：`agentdesk exec|read|write|list|ps|call`；笔记本加 `AGENTDESK_MACHINE=laptop`，项目在 `D:/Program/AIProject/`。`/root/CloudCLI/CLAUDE.md` 里的 AgentDesk 一节在笔记本切换后再删。
+**备用通道：** AgentDesk 暂时保留。台式机的节点由计划任务 `DeskBridgeNodeDev` 手动启动（自启在任务 8 实现），节点起不来或更新失败时用 `agentdesk`（台式机 `win-dev`）处理。笔记本还没装新版 DeskBridge，只能用 `AGENTDESK_MACHINE=laptop agentdesk exec|read|write|list|ps|call`，项目在 `D:/Program/AIProject/`；装好后删掉 `/root/CloudCLI/CLAUDE.md` 和全局 CLAUDE.md 里笔记本用 AgentDesk 的说明。更新已部署节点的步骤见 `docs/development.md`。
