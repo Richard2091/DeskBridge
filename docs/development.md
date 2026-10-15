@@ -69,7 +69,7 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 ## 远程执行通道
 
 - **现在（2026-10-14 起）：** 用 DeskBridge 自己连接和开发 DeskBridge：Linux 上运行 `deskbridge exec -d desktop -- ...` 等命令，或让 Agent 经 `deskbridge mcp` 调用。开发过程中遇到的不便，记录为 DeskBridge 的需求。
-- **以前：** 原型 AgentDesk（`agentdesk exec ...`），经系统 Tailscale 连接 Windows。台式机节点能自动启动（任务 8）、笔记本也装上新版 DeskBridge 之前，AgentDesk 留作备用通道。
+- **以前：** 原型 AgentDesk（`agentdesk exec ...`），经系统 Tailscale 连接 Windows。两台 Windows 都装上新版 DeskBridge 后，于 2026-10-15 退役，执行器已停止。
 
 ## 更新已部署的节点
 
@@ -79,11 +79,11 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 2. 台式机：后台运行同目录的 `restart-node.cmd`（结束旧节点、替换程序、重新运行计划任务 `DeskBridgeNodeDev`）。当前连接会断开，等一会儿再连。
 3. Linux：把 `deskbridge-linux` 拉回来，核对 SHA256 一致后装到 `/usr/local/bin/deskbridge`，`systemctl restart deskbridge-node`。经中继拉取约 6 分钟；`deskbridge read --out` 每块 4 MiB，慢的时候单块会超时，可改用按 1 MiB 分块并重试的脚本（`/root/m1-deploy/bin/fetch.sh`，不在仓库里）。
 4. 笔记本（2026-10-15 起）：台式机到笔记本经中继传文件太慢，改为在笔记本上本地编译。`D:\Program\AIProject\dbwin-run\build.cmd` 经本机代理 `git pull`，用 `D:\Program\AIProject\go` 编译出 `deskbridge-new.exe`（GOPATH、GOCACHE 都放在 D 盘）。要脱离当前连接运行：用 `schtasks /create /sc once` 建一次性任务，再 `schtasks /run`。编译好后替换 `deskbridge.exe`，运行计划任务 `DeskBridgeNode`。
-5. 新节点如果起不来，用 AgentDesk 备用通道处理。
+5. 没有备用通道：新节点如果起不来，远程连接会断开，需要用户在 Windows 上换回旧程序并重新运行计划任务。所以替换前先保留旧程序。
 
 ## 已知风险
 
-- Windows 上的 DeskBridge 节点暂时由计划任务手动启动（任务 8 之前），AgentDesk 的执行器也是手动启动的。Windows 重启、睡眠或进程崩溃后，远程通道会断开，需要用户在 Windows 上重新启动。
+- Windows 上的 DeskBridge 节点暂时由计划任务手动启动（任务 8 之前）。Windows 重启、睡眠或进程崩溃后，远程通道会断开，需要用户在 Windows 上重新启动。
 - 经 DERP 中继时，大文件分块传输（每块 4 MiB，约 74 KB/s）进行期间，同一路径上的其他请求可能延迟几十秒甚至超时；没有传输时空闲后再调用正常（2026-10-14 实测）。节点刚启动的一两分钟内也会出现连接卡住，单次请求卡 10–40 秒；2026-10-15 观察到卡顿期间路径在“跨网直连”和“中继”之间切换，切回稳定路径后恢复正常（推测与 Tailscale 直连路径不稳定、回退到中继有关，待验证）。
 - 两台机器之间走香港中继，每条命令有约 230ms 的往返延迟。
 - 推送到公开的远程仓库（如 GitHub）前，需要用户同意。

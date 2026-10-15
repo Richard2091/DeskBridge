@@ -23,4 +23,4 @@
 - 超过 10 分钟的命令放到后台写日志（`--shell cmd` 加 `start /b cmd /c "... > 日志 2>&1"`），再用 `read` 轮询。
 - 选项写在位置参数前面（Go flag 包的限制）。
 
-**备用通道：** AgentDesk 暂时保留。两台 Windows 的节点都由计划任务手动启动（台式机 `DeskBridgeNodeDev`，笔记本 `DeskBridgeNode`；自启在任务 8 实现），节点起不来或更新失败时用 `agentdesk`（台式机 `win-dev`，笔记本加 `AGENTDESK_MACHINE=laptop`）处理。更新已部署节点的步骤见 `docs/development.md`。
+**没有备用通道：** AgentDesk 已于 2026-10-15 退役。两台 Windows 的节点都由计划任务手动启动（台式机 `DeskBridgeNodeDev`，笔记本 `DeskBridgeNode`；自启在任务 8 实现），节点起不来或更新失败时请用户在 Windows 上处理。更新已部署节点的步骤见 `docs/development.md`。
