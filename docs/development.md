@@ -78,7 +78,8 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 1. Windows 上 `git pull`，运行 `D:\data\AI\Projects\dbwin-run\build-m1.cmd`（先把里面的版本号改成当前提交）：生成 `deskbridge-new.exe` 和 `GOOS=linux` 的 `deskbridge-linux`。
 2. 台式机：后台运行同目录的 `restart-node.cmd`（结束旧节点、替换程序、重新运行计划任务 `DeskBridgeNodeDev`）。当前连接会断开，等一会儿再连。
 3. Linux：把 `deskbridge-linux` 拉回来，核对 SHA256 一致后装到 `/usr/local/bin/deskbridge`，`systemctl restart deskbridge-node`。经中继拉取约 6 分钟；`deskbridge read --out` 每块 4 MiB，慢的时候单块会超时，可改用按 1 MiB 分块并重试的脚本（`/root/m1-deploy/bin/fetch.sh`，不在仓库里）。
-4. 新节点如果起不来，用 AgentDesk 备用通道处理。
+4. 笔记本（2026-10-15 起）：台式机到笔记本经中继传文件太慢，改为在笔记本上本地编译。`D:\Program\AIProject\dbwin-run\build.cmd` 经本机代理 `git pull`，用 `D:\Program\AIProject\go` 编译出 `deskbridge-new.exe`（GOPATH、GOCACHE 都放在 D 盘）。要脱离当前连接运行：用 `schtasks /create /sc once` 建一次性任务，再 `schtasks /run`。编译好后替换 `deskbridge.exe`，运行计划任务 `DeskBridgeNode`。
+5. 新节点如果起不来，用 AgentDesk 备用通道处理。
 
 ## 已知风险
 
