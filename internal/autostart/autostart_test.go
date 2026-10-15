@@ -8,13 +8,13 @@ import (
 
 func TestQuoteArg(t *testing.T) {
 	cases := map[string]string{
-		"node":         "node",
-		"":             `""`,
-		"台式 机":         `"台式 机"`,
-		`a"b`:          `"a\"b"`,
-		`C:\a b\`:      `"C:\a b\\"`,
-		`C:\dir\file`:  `C:\dir\file`,
-		`x\"y z`:       `"x\\\"y z"`,
+		"node":        "node",
+		"":            `""`,
+		"台式 机":        `"台式 机"`,
+		`a"b`:         `"a\"b"`,
+		`C:\a b\`:     `"C:\a b\\"`,
+		`C:\dir\file`: `C:\dir\file`,
+		`x\"y z`:      `"x\\\"y z"`,
 	}
 	for in, want := range cases {
 		if got := quoteArg(in); got != want {
