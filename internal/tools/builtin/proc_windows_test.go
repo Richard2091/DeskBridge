@@ -11,15 +11,17 @@ import (
 // TestProcExecKeepsBackgroundProcess 验证 cmd 正常结束后，start /b 启动的
 // 后台程序还在运行。
 func TestProcExecKeepsBackgroundProcess(t *testing.T) {
+	ping, name := uniqueProgram(t, "ping")
 	runBackgroundKept(t, map[string]any{
-		"command": "start /b ping -n 20 127.0.0.1 > nul & echo started",
+		"command": `start "" /b "` + ping + `" -n 20 127.0.0.1 > nul & echo started`,
 		"shell":   "cmd",
-	}, "ping")
+	}, name)
 }
 
 // TestProcExecTimeoutKillsTreeWindows 验证超时后整棵进程树被结束。
 func TestProcExecTimeoutKillsTreeWindows(t *testing.T) {
-	runTimeoutKillsChildren(t, "start /b ping -n 30 127.0.0.1 > nul & ping -n 30 127.0.0.1 > nul", "cmd", "ping")
+	ping, name := uniqueProgram(t, "ping")
+	runTimeoutKillsChildren(t, `start "" /b "`+ping+`" -n 30 127.0.0.1 > nul & "`+ping+`" -n 30 127.0.0.1 > nul`, "cmd", name)
 }
 
 // TestProcExecPowerShellPlainStderr 验证 PowerShell 的错误输出是纯文本，

@@ -69,12 +69,14 @@ func TestProcExecTimeoutKillsTree(t *testing.T) {
 
 // TestProcExecKeepsBackgroundProcess 验证 sh 正常结束后，后台的 sleep 还在。
 func TestProcExecKeepsBackgroundProcess(t *testing.T) {
-	runBackgroundKept(t, map[string]any{"command": "sleep 20 & echo started", "shell": "sh"}, "sleep")
+	sleep, name := uniqueProgram(t, "sleep")
+	runBackgroundKept(t, map[string]any{"command": "'" + sleep + "' 20 & echo started", "shell": "sh"}, name)
 }
 
 // TestProcExecTimeoutKillsChildrenLinux 验证超时返回 timed_out 且子进程被结束。
 func TestProcExecTimeoutKillsChildrenLinux(t *testing.T) {
-	runTimeoutKillsChildren(t, "sleep 30 & sleep 30", "sh", "sleep")
+	sleep, name := uniqueProgram(t, "sleep")
+	runTimeoutKillsChildren(t, "'"+sleep+"' 30 & '"+sleep+"' 30", "sh", name)
 }
 
 // startAndReap 启动一个立刻退出的进程并 Wait 回收，返回此时已不存在的 pid。

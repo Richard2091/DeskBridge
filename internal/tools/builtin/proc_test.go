@@ -3,6 +3,8 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -395,6 +397,29 @@ func newPIDs(before, now map[int]bool) []int {
 		}
 	}
 	return out
+}
+
+// uniqueProgram 把系统程序 src（如 ping、sleep）复制到临时目录，起一个本次
+// 测试独有的名字，返回路径和进程名。后台进程测试按进程名统计和清理进程，
+// 用系统程序原名时，同机同时运行的其他测试（或其他程序）的同名进程会被
+// 算进来，清理时还会被误杀。
+func uniqueProgram(t *testing.T, src string) (path, name string) {
+	t.Helper()
+	orig, err := exec.LookPath(src)
+	if err != nil {
+		t.Fatalf("找不到 %s: %v", src, err)
+	}
+	data, err := os.ReadFile(orig)
+	if err != nil {
+		t.Fatalf("读取 %s 失败: %v", orig, err)
+	}
+	// Linux 的进程名（comm）最多 15 个字符。
+	name = fmt.Sprintf("dbt%08x", rand.Uint32())
+	path = filepath.Join(t.TempDir(), name+filepath.Ext(orig))
+	if err := os.WriteFile(path, data, 0o755); err != nil {
+		t.Fatalf("复制 %s 失败: %v", orig, err)
+	}
+	return path, name
 }
 
 // killPIDs 清理测试启动的进程。
