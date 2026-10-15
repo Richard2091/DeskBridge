@@ -524,7 +524,7 @@
         "description": "用户登录后节点在桌面会话中自动启动，崩溃后自动重启。",
         "details": "用计划任务（登录时触发，以当前用户运行）或类似方式；提供安装和卸载命令（deskbridge install / uninstall）；日志写入用户目录。替代原型手动启动网关的方式。验收：重启 Windows 并登录后，Linux 端无需人工干预即可连接；结束进程后自动恢复。",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "5"
         ],
@@ -567,14 +567,15 @@
             "id": 4,
             "title": "Windows 重启后的端到端测试",
             "description": "",
-            "details": "",
-            "status": "pending",
+            "details": "<info added on 2026-10-15T12:26:51.180Z>\n端到端测试结果：台式机执行 install 后重启 Windows，登录桌面会话约 50 秒后节点自动连上，Linux 端无需人工干预即恢复连接；手动结束节点进程后，守护进程在 1 秒内将其重启并恢复连接，满足验收标准。备注：笔记本未部署，本次验证仅在台式机上完成。\n</info added on 2026-10-15T12:26:51.180Z>",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 8,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-15T12:26:15.529Z"
           }
         ],
-        "updatedAt": "2026-10-15T12:14:41.722Z"
+        "updatedAt": "2026-10-15T12:26:15.529Z"
       },
       {
         "id": 9,
@@ -1476,13 +1477,13 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-15T12:14:41.724Z",
+      "lastModified": "2026-10-15T12:26:15.529Z",
       "taskCount": 30,
-      "completedCount": 10,
+      "completedCount": 11,
       "tags": [
         "master"
       ],
-      "created": "2026-10-15T12:14:55.206Z",
+      "created": "2026-10-15T12:26:42.751Z",
       "description": "Tasks for master context"
     }
   }
