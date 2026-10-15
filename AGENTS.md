@@ -14,6 +14,8 @@
 - 开始任务：`task-master set-status --id=<id> --status=in-progress`。
 - 过程记录：用 `task-master update-subtask --id=<id> --prompt="..."` 记下做了什么、遇到什么问题、验证结果。若 AI 命令不可用，在任务完成时把要点写进提交信息。
 - 完成任务：验收标准全部满足并已提交后，才能设为 `done`。
+- 修改任务结构优先用非 AI 命令（`set-status`、`add-subtask`、`remove-subtask`、`add-dependency`、`remove-dependency`）。不对已有任务使用 `update-task`、`update`、`expand`：它们让模型重写整个任务，会改动或编造其他字段。
+- 没有命令能做的字段修改（如改标题、改描述），直接改 `.taskmaster/tasks/tasks.json` 中的那一个字段（用脚本精确替换，不整体重新序列化），改完运行 `task-master validate-dependencies`，并用 `git diff` 确认只改了这一处。这是对 `.taskmaster/CLAUDE.md` 中“不手动编辑 tasks.json”的例外。
 
 ## 文档
 

@@ -83,7 +83,7 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 
 ## TaskMaster 的模型
 
-TaskMaster 的 AI 命令（`update-subtask`、`expand` 等）用 GLM，三个角色都配成 `openai-compatible` 服务商，模型 `glm-5.3-flash`（`.taskmaster/config.json`）。TaskMaster 没有 opencode 服务商；不用 `codex-cli`，因为 Codex 的默认服务商不是 GLM，模型名会被发到别的接口而报 404。
+TaskMaster 的 AI 只用来做 `update-subtask` 这类过程记录，三个角色都用 GLM：和 opencode 的 `glm/glm-5.3-flash` 是同一个接口、同一个模型、同一个密钥（opencode 的配置在 `~/.config/opencode/opencode.json`）。TaskMaster 没有 opencode 服务商，所以配成 `openai-compatible` 直接连这个接口（`.taskmaster/config.json`），不经过 opencode。不要用 `codex-cli`：GLM 不在 Codex 里，模型名会被发到 Codex 的默认接口而报 404。
 
 接口地址和密钥不进仓库，都写在 Linux 上项目根目录的 `.env` 里（已在 `.gitignore` 中，权限 600），TaskMaster 启动时自己读取，不依赖 shell 环境：
 
@@ -92,7 +92,7 @@ OPENAI-COMPATIBLE_BASE_URL=<GLM 接口地址>/v1
 OPENAI_COMPATIBLE_API_KEY=<GLM 密钥>
 ```
 
-地址的变量名带连字符，只能写在 `.env` 里。TaskMaster 没有直接改子任务标题的命令；对父任务用 `update-task` 会让模型重写所有子任务，GLM 的输出过不了格式校验，不要用。
+地址的变量名带连字符，只能写在 `.env` 里。修改任务结构的规则见 `AGENTS.md` 的“进度记录”。
 
 ## 已知风险
 
