@@ -30,7 +30,7 @@ type auditRecord struct {
 // String 输出一行日志文本，字段用 key=value，便于以后机器解析。
 func (r auditRecord) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "调用 request_id=%s tool=%s code=%s duration_ms=%d",
+	fmt.Fprintf(&b, "调用 request_id=%q tool=%q code=%s duration_ms=%d",
 		r.RequestID, r.Tool, r.Code, r.DurationMS)
 	fmt.Fprintf(&b, " caller=%q/%q(%s) initiator=%s",
 		r.CallerOwner, r.CallerDevice, r.CallerKind, r.initiator())

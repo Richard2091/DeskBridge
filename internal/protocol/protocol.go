@@ -102,6 +102,24 @@ func (i Initiator) Validate() *Error {
 	return nil
 }
 
+// MaxRequestID 是调用方指定的 request_id 的长度上限（字节）。
+const MaxRequestID = 128
+
+// ValidateRequestID 检查调用方指定的 request_id：不超过 MaxRequestID 字节
+// 且不含控制字符。空串合法（节点会生成）。request_id 由调用方提供，会进入
+// 审计日志和取消路径，不能原样信任。
+func ValidateRequestID(id string) *Error {
+	if len(id) > MaxRequestID {
+		return Errorf(CodeInvalidArgs, "request_id 超过 %d 字节", MaxRequestID)
+	}
+	for _, r := range id {
+		if unicode.IsControl(r) {
+			return Errorf(CodeInvalidArgs, "request_id 含控制字符")
+		}
+	}
+	return nil
+}
+
 // CallRequest 是 POST /v1/tools/{name} 的请求体。
 type CallRequest struct {
 	RequestID string          `json:"request_id,omitempty"` // 为空时节点生成

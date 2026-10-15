@@ -73,3 +73,53 @@ func TestCallTimeoutOverflow(t *testing.T) {
 		t.Errorf("工具上限应受全局上限约束，得到 %v", d)
 	}
 }
+
+func TestInitiatorOfDefaults(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *protocol.Initiator
+		want protocol.Initiator
+	}{
+		{"未声明", nil, protocol.Initiator{Type: "human", Via: "cli"}},
+		{"空对象", &protocol.Initiator{}, protocol.Initiator{Type: "human", Via: "cli"}},
+		{"只给会话", &protocol.Initiator{Session: "s-1"}, protocol.Initiator{Type: "human", Via: "cli", Session: "s-1"}},
+		{"只给类型 ai", &protocol.Initiator{Type: "ai"}, protocol.Initiator{Type: "ai", Via: "cli"}},
+		{"全部给出", &protocol.Initiator{Type: "ai", Via: "mcp", Session: "s"}, protocol.Initiator{Type: "ai", Via: "mcp", Session: "s"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := initiatorOf(&protocol.CallRequest{Initiator: tt.in})
+			if got != tt.want {
+				t.Errorf("initiatorOf = %+v, 期望 %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAuditRequestIDAndToolQuoted(t *testing.T) {
+	r := auditRecord{RequestID: "a\nb code=ok", Tool: "t\nx"}
+	line := r.String()
+	if strings.Contains(line, "\n") {
+		t.Fatalf("审计行含换行：%q", line)
+	}
+	if !strings.Contains(line, `request_id="a\nb code=ok"`) || !strings.Contains(line, `tool="t\nx"`) {
+		t.Fatalf("request_id 或 tool 未用 %%q 输出：%s", line)
+	}
+}
+
+func TestAPIRequestIDValidation(t *testing.T) {
+	srv, _ := fixedAPI(t, newAPINode(t))
+	long := strings.Repeat("a", protocol.MaxRequestID+1)
+	bad := []string{`"a\nb"`, `"a\u0000b"`, `"` + long + `"`}
+	for _, id := range bad {
+		resp, out := postCall(t, srv.URL+"/v1/tools/test.echo", `{"args":{"text":"x"},"request_id":`+id+`}`)
+		wantProtoError(t, resp, out, protocol.CodeInvalidArgs)
+	}
+	good := []string{`"req-1"`, `"` + strings.Repeat("a", protocol.MaxRequestID) + `"`}
+	for _, id := range good {
+		resp, out := postCall(t, srv.URL+"/v1/tools/test.echo", `{"args":{"text":"x"},"request_id":`+id+`}`)
+		if resp.StatusCode != http.StatusOK || !out.OK {
+			t.Errorf("request_id %s 应通过：%d %+v", id, resp.StatusCode, out.Error)
+		}
+	}
+}

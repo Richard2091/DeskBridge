@@ -135,6 +135,10 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := protocol.ValidateRequestID(creq.RequestID); err != nil {
+		writeProtoError(w, err)
+		return
+	}
 	reqID := creq.RequestID
 	if reqID == "" {
 		reqID = protocol.NewRequestID()
@@ -203,12 +207,20 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, resp)
 }
 
-// initiatorOf 取请求声明的发起者；没有声明时按人工经本机接口处理。
+// initiatorOf 取请求声明的发起者；没有声明或字段为空时按字段补默认值：
+// Type 补 human，Via 补 cli（人工经命令行），Session 保持原样。
 func initiatorOf(creq *protocol.CallRequest) protocol.Initiator {
+	var i protocol.Initiator
 	if creq.Initiator != nil {
-		return *creq.Initiator
+		i = *creq.Initiator
 	}
-	return protocol.Initiator{Type: protocol.InitiatorHuman, Via: protocol.ViaCLI}
+	if i.Type == "" {
+		i.Type = protocol.InitiatorHuman
+	}
+	if i.Via == "" {
+		i.Via = protocol.ViaCLI
+	}
+	return i
 }
 
 // callTimeout 计算一次调用的超时：请求指定了 timeout_ms 用它（截到
