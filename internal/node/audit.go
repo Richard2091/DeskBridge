@@ -41,13 +41,13 @@ func (r auditRecord) String() string {
 func (r auditRecord) initiator() string {
 	var parts []string
 	if r.Initiator.Type != "" {
-		parts = append(parts, "type="+r.Initiator.Type)
+		parts = append(parts, fmt.Sprintf("type=%q", r.Initiator.Type))
 	}
 	if r.Initiator.Via != "" {
-		parts = append(parts, "via="+r.Initiator.Via)
+		parts = append(parts, fmt.Sprintf("via=%q", r.Initiator.Via))
 	}
 	if r.Initiator.Session != "" {
-		parts = append(parts, "session="+r.Initiator.Session)
+		parts = append(parts, fmt.Sprintf("session=%q", r.Initiator.Session))
 	}
 	if len(parts) == 0 {
 		return "-"

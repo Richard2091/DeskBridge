@@ -128,6 +128,13 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if creq.Initiator != nil {
+		if err := creq.Initiator.Validate(); err != nil {
+			writeProtoError(w, err)
+			return
+		}
+	}
+
 	reqID := creq.RequestID
 	if reqID == "" {
 		reqID = protocol.NewRequestID()
@@ -201,7 +208,7 @@ func initiatorOf(creq *protocol.CallRequest) protocol.Initiator {
 	if creq.Initiator != nil {
 		return *creq.Initiator
 	}
-	return protocol.Initiator{Type: protocol.InitiatorHuman, Via: "cli"}
+	return protocol.Initiator{Type: protocol.InitiatorHuman, Via: protocol.ViaCLI}
 }
 
 // callTimeout 计算一次调用的超时：请求指定了 timeout_ms 用它（截到
@@ -213,6 +220,10 @@ func callTimeout(tool *tools.Tool, timeoutMS int) time.Duration {
 	}
 	var d time.Duration
 	if timeoutMS > 0 {
+		// 先和上限比较再换算，避免大值乘法溢出成负数。
+		if int64(timeoutMS) >= max.Milliseconds() {
+			return max
+		}
 		d = time.Duration(timeoutMS) * time.Millisecond
 	} else {
 		d = tool.DefaultTimeout

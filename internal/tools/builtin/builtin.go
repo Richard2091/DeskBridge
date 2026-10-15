@@ -39,6 +39,16 @@ const (
 // Register 把当前平台上可用的内置工具注册到 r。某个平台没有实现的
 // 工具不注册，能力报告里自然不会出现。
 func Register(r *tools.Registry, info Info) error {
+	for _, t := range allTools(info) {
+		if err := r.Register(t); err != nil {
+			return fmt.Errorf("注册工具 %s 失败: %w", t.Spec.Name, err)
+		}
+	}
+	return nil
+}
+
+// allTools 构造当前平台上的全部内置工具定义（构造本身没有副作用）。
+func allTools(info Info) []*tools.Tool {
 	regs := []*tools.Tool{
 		newSysInfoTool(info),
 		newFsStatTool(),
@@ -46,13 +56,22 @@ func Register(r *tools.Registry, info Info) error {
 		newFsReadTool(),
 		newFsWriteTool(),
 	}
-	regs = append(regs, procTools()...)
-	for _, t := range regs {
-		if err := r.Register(t); err != nil {
-			return fmt.Errorf("注册工具 %s 失败: %w", t.Spec.Name, err)
+	return append(regs, procTools()...)
+}
+
+// DefaultTimeoutOf 返回内置工具 name 的默认调用超时（与节点执行时用的
+// 值一致）。不是当前平台的内置工具时 ok 为 false。
+func DefaultTimeoutOf(name string) (d time.Duration, ok bool) {
+	for _, t := range allTools(Info{}) {
+		if t.Spec.Name == name {
+			d = t.DefaultTimeout
+			if d <= 0 {
+				d = tools.DefaultTimeout
+			}
+			return d, true
 		}
 	}
-	return nil
+	return 0, false
 }
 
 // checkCtx 在工具开始工作前检查调用是否已经超时或被取消；已取消时

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"unicode"
 )
 
 // Version 是协议版本号，接口不兼容时递增。
@@ -65,6 +66,41 @@ const (
 	InitiatorAI    = "ai"
 	InitiatorHuman = "human"
 )
+
+// 发起者途径（Via）的取值。
+const (
+	ViaCLI = "cli"
+	ViaMCP = "mcp"
+	ViaUI  = "ui"
+)
+
+// MaxInitiatorSession 是 Initiator.Session 的长度上限（字节）。
+const MaxInitiatorSession = 128
+
+// Validate 检查调用方声明的发起者：Type 只能为空或 ai/human，Via 只能为空或
+// cli/mcp/ui，Session 不超过 MaxInitiatorSession 字节且不含控制字符。
+// 这些字段由调用方声明，节点不能原样信任，尤其不能让它们污染审计日志。
+func (i Initiator) Validate() *Error {
+	switch i.Type {
+	case "", InitiatorAI, InitiatorHuman:
+	default:
+		return Errorf(CodeInvalidArgs, "initiator.type 不合法：%q", i.Type)
+	}
+	switch i.Via {
+	case "", ViaCLI, ViaMCP, ViaUI:
+	default:
+		return Errorf(CodeInvalidArgs, "initiator.via 不合法：%q", i.Via)
+	}
+	if len(i.Session) > MaxInitiatorSession {
+		return Errorf(CodeInvalidArgs, "initiator.session 超过 %d 字节", MaxInitiatorSession)
+	}
+	for _, r := range i.Session {
+		if unicode.IsControl(r) {
+			return Errorf(CodeInvalidArgs, "initiator.session 含控制字符")
+		}
+	}
+	return nil
+}
 
 // CallRequest 是 POST /v1/tools/{name} 的请求体。
 type CallRequest struct {

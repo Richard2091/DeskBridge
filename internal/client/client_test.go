@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
 // startSocketServer 在临时目录的 unix socket 上起一个 HTTP 服务，
@@ -228,5 +229,17 @@ func TestDoConnectionClosedIsNotNotRunning(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "连接中断") {
 		t.Fatalf("err = %v, 期望包含“连接中断”", err)
+	}
+}
+
+func TestHTTPTimeoutClamped(t *testing.T) {
+	max := tools.MaxTimeout + timeoutSlack
+	for _, ms := range []int{10_000_000_000_000, 1 << 40, int(tools.MaxTimeout.Milliseconds()) + 1} {
+		if d := httpTimeout(ms); d != max {
+			t.Errorf("httpTimeout(%d) = %v, 期望 %v", ms, d, max)
+		}
+	}
+	if d := httpTimeout(2000); d != 2*time.Second+timeoutSlack {
+		t.Errorf("httpTimeout(2000) = %v", d)
 	}
 }

@@ -18,6 +18,8 @@ import (
 
 	"github.com/Richard2091/DeskBridge/internal/client"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/tools"
+	"github.com/Richard2091/DeskBridge/internal/tools/builtin"
 )
 
 // 环境变量名。
@@ -25,9 +27,6 @@ const (
 	envDevice    = "DESKBRIDGE_DEVICE"    // 默认目标设备
 	envInitiator = "DESKBRIDGE_INITIATOR" // 设为 ai 时调用发起者类型为 ai
 )
-
-// defaultCallTimeout 是未单独指定超时的工具调用的超时（单次调用）。
-const defaultCallTimeout = 90 * time.Second
 
 // 各子命令用法说明末尾默认的退出码说明。
 const exitCodeHelp = "退出码：0 成功；1 工具调用失败或本机节点未运行；2 用法错误。"
@@ -123,7 +122,7 @@ func initiator() *protocol.Initiator {
 	if strings.EqualFold(os.Getenv(envInitiator), protocol.InitiatorAI) {
 		typ = protocol.InitiatorAI
 	}
-	return &protocol.Initiator{Type: typ, Via: "cli"}
+	return &protocol.Initiator{Type: typ, Via: protocol.ViaCLI}
 }
 
 // errorBody 把错误转成 {"error":{...}} 的内容。
@@ -163,9 +162,13 @@ func (s *toolSession) call(ctx context.Context, tool string, args any, opts clie
 		opts.Initiator = initiator()
 	}
 	if opts.TimeoutMS == 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultCallTimeout)
-		defer cancel()
+		// 显式带上工具的默认超时，让客户端等待时间与节点执行时间一致
+		// （client.Call 会再加余量）；本地不认识的工具用通用默认值。
+		d, ok := builtin.DefaultTimeoutOf(tool)
+		if !ok {
+			d = tools.DefaultTimeout
+		}
+		opts.TimeoutMS = int(d / time.Millisecond)
 	}
 	return s.c.Call(ctx, s.device, tool, args, opts)
 }

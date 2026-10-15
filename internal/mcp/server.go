@@ -94,7 +94,7 @@ func failure(err error) *sdk.CallToolResult {
 
 // initiator 返回本次调用的发起者；MCP 会话 ID 取不到时留空。
 func initiator(req *sdk.CallToolRequest) *protocol.Initiator {
-	in := &protocol.Initiator{Type: protocol.InitiatorAI, Via: "mcp"}
+	in := &protocol.Initiator{Type: protocol.InitiatorAI, Via: protocol.ViaMCP}
 	if req != nil && req.Session != nil {
 		in.Session = req.Session.ID()
 	}

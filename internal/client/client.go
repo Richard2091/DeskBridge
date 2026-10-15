@@ -17,6 +17,7 @@ import (
 
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
 // ErrNotRunning 表示本机节点没有运行（socket 连不上）。与对端返回的
@@ -185,7 +186,7 @@ func (c *Client) Call(ctx context.Context, target, tool string, args any, opts C
 	if opts.TimeoutMS > 0 {
 		// HTTP 超时要比请求的超时长一些，否则收不到节点的超时响应。
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(opts.TimeoutMS)*time.Millisecond+timeoutSlack)
+		ctx, cancel = context.WithTimeout(ctx, httpTimeout(opts.TimeoutMS))
 		defer cancel()
 	}
 	var out protocol.CallResponse
@@ -196,6 +197,15 @@ func (c *Client) Call(ctx context.Context, target, tool string, args any, opts C
 		return &out, out.Error
 	}
 	return &out, nil
+}
+
+// httpTimeout 返回请求 timeout_ms 对应的 HTTP 等待时间：先把 timeout_ms
+// 截到 tools.MaxTimeout（节点也会截断），避免大值乘法溢出，再加余量。
+func httpTimeout(timeoutMS int) time.Duration {
+	if int64(timeoutMS) > tools.MaxTimeout.Milliseconds() {
+		return tools.MaxTimeout + timeoutSlack
+	}
+	return time.Duration(timeoutMS)*time.Millisecond + timeoutSlack
 }
 
 // Cancel 请求对端取消一条正在执行的调用。
