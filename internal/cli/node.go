@@ -46,7 +46,11 @@ func runNode(args []string, _, stderr io.Writer) int {
 	log.SetOutput(stderr)
 	logf := func(format string, args ...any) { log.Printf(format, args...) }
 
-	tsDir, err := paths.TailscaleDir()
+	_, err := paths.EnsureHome()
+	var tsDir string
+	if err == nil {
+		tsDir, err = paths.TailscaleDir()
+	}
 	if err == nil {
 		err = paths.Ensure(tsDir)
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
+	"github.com/Richard2091/DeskBridge/internal/paths"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
@@ -229,7 +230,9 @@ func (n *Node) listenSocket() (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("监听本机接口 %s 失败: %w", path, err)
 	}
-	if err := chmodSocket(path); err != nil {
+	// 数据目录已由 paths.EnsureHome 收紧，socket 创建时就继承受限权限；
+	// 这里再显式设置一次，socket 路径不在数据目录下时也受保护。
+	if err := paths.RestrictFile(path); err != nil {
 		ln.Close()
 		return nil, err
 	}

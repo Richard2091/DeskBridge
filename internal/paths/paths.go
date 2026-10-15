@@ -52,6 +52,25 @@ func DeviceKeyFile() (string, error) {
 	return home + string(os.PathSeparator) + "device.key", nil
 }
 
+// EnsureHome 创建数据目录并限制为只有当前用户能访问（已存在时也收紧），
+// 返回目录路径。数据目录里有登录状态、设备密钥和本机接口 socket，连上
+// socket 就获得本机身份，所以先收紧目录，再在里面创建这些文件：新文件
+// 一创建就继承受限的权限，不存在“先创建、后改权限”的空档。
+// DESKBRIDGE_HOME 应指向 DeskBridge 专用的目录。
+func EnsureHome() (string, error) {
+	home, err := Home()
+	if err != nil {
+		return "", err
+	}
+	if err := Ensure(home); err != nil {
+		return "", err
+	}
+	if err := RestrictDir(home); err != nil {
+		return "", err
+	}
+	return home, nil
+}
+
 // Ensure 创建目录（含父目录），权限 0700。已存在时不报错。
 func Ensure(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {

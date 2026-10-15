@@ -106,7 +106,7 @@ deskbridge exec / mcp / ui-core ──本机接口──▶ 本机 deskbridge no
 ```
 
 - **数据目录：** 环境变量 `DESKBRIDGE_HOME`；否则 Windows 为 `%AppData%\DeskBridge`，Linux 为 `~/.config/deskbridge`。tsnet 状态在其中的 `tailscale/`，目录权限只允许当前用户。
-- **本机接口：** 数据目录下的 unix socket `node.sock` 上的 HTTP（Windows 10 1803 起支持 AF_UNIX）。Linux 上文件权限 0600；Windows 上依赖用户目录的权限（是否需要额外设置 ACL，待验证）。
+- **本机接口：** 数据目录下的 unix socket `node.sock` 上的 HTTP（Windows 10 1803 起支持 AF_UNIX）。节点启动时先把数据目录收紧为只有当前用户能访问（Linux、macOS 上权限 0700；Windows 上设受保护的 DACL，只授予当前用户和 SYSTEM，目录里的文件继承同样的权限），再创建 socket，并对 socket 再单独设置一次（0600 或同样的 DACL）。连上本机接口就获得本机身份，所以访问控制只靠这层文件权限。Windows 上已验证 DACL 设置正确、当前用户能连接；其他用户被拒绝尚未实测（待验证）。以后如果改为系统服务运行（见下文“服务模式”），节点进程的用户不再是桌面用户，这里要相应调整。
 - **接口：** `GET /local/status`；`POST /local/channels/{连接方式}/login`、`logout`；`GET /local/channels/{连接方式}/peers`；`GET /local/devices[?refresh=1]` 返回设备列表：按连接方式分组（不跨方式合并）、只列同账号的设备、本机排第一，并对在线设备探测是否运行 DeskBridge（取能力报告，探测结果缓存 30 秒，`refresh=1` 忽略缓存，离线设备不探测，同一连接方式内设备 ID 相同的节点合并为一条）；`/local/devices/{设备}/v1/...` 转发到对端节点的节点协议。设备按名称、系统主机名或内网 IP 查找，可写成 `连接方式:设备` 指定连接方式；`self` 表示本机，不经过内网，身份为 `local`；本机在连接方式里的名称、主机名或内网 IP（可带 `连接方式:` 前缀）也按 `self` 处理。
 - **登录：** 交互式登录返回登录链接；也可以用预授权密钥（`--auth-key` 或环境变量 `DESKBRIDGE_AUTH_KEY`），适合没有浏览器的服务器。
 - **设备的两个名字（2026-10-14 用户决定）：** “设备名称”（`--name`）只在 DeskBridge 里显示，可以用中文；“主机名”（`--hostname`）就是这台设备在 Tailscale 里的名字，只能用英文、数字和连字符（Tailscale 会丢弃其他字符，中文名会变成空）。两个名字分开设置，不自动转换；界面上统一叫“设备名称”和“主机名”，不叫“备注”或“设备编码”，以免和设备 ID 混淆。以后在 DeskBridge 里修改主机名，就是修改这台设备在 Tailscale 里的名字（节点运行中修改自己的主机名，改别的设备时经节点协议由对方修改自己；新名字要保存到配置，因为 tsnet 每次启动都会用配置覆盖。待实现）。
