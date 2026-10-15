@@ -78,3 +78,21 @@ func Ensure(dir string) error {
 	}
 	return nil
 }
+
+// LogDir 返回日志目录（Home 下的 logs）。
+func LogDir() (string, error) {
+	home, err := Home()
+	if err != nil {
+		return "", err
+	}
+	return home + string(os.PathSeparator) + "logs", nil
+}
+
+// NodeLogFile 返回节点日志文件路径（日志目录下的 node.log）。
+func NodeLogFile() (string, error) {
+	dir, err := LogDir()
+	if err != nil {
+		return "", err
+	}
+	return dir + string(os.PathSeparator) + "node.log", nil
+}

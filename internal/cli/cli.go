@@ -24,6 +24,8 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"node", "作为节点运行：加入内网，对外提供工具", runNode},
+		{"install", "安装自启动：用户登录后自动运行节点（Windows 计划任务）", runInstall},
+		{"uninstall", "卸载自启动并结束正在运行的节点", runUninstall},
 		{"status", "查看本机节点和各连接方式的状态", runStatus},
 		{"login", "登录一个连接方式（默认 tailscale）", runLogin},
 		{"logout", "退出一个连接方式的登录", runLogout},

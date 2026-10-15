@@ -14,9 +14,11 @@ import (
 	"syscall"
 
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
+	"github.com/Richard2091/DeskBridge/internal/logfile"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/node"
 	"github.com/Richard2091/DeskBridge/internal/paths"
+	"github.com/Richard2091/DeskBridge/internal/platform"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 	"github.com/Richard2091/DeskBridge/internal/tools/builtin"
 	"github.com/Richard2091/DeskBridge/internal/version"
@@ -30,6 +32,8 @@ func runNode(args []string, _, stderr io.Writer) int {
 	controlURL := fs.String("control-url", "", "控制服务器地址（如自建 Headscale），默认 Tailscale 官方")
 	authKey := fs.String("auth-key", "", "预授权密钥，留空则交互式登录；也可用环境变量 DESKBRIDGE_AUTH_KEY")
 	port := fs.Int("port", 7465, "节点协议端口")
+	logPath := fs.String("log-file", "", "日志写入的文件（按大小轮转），留空则输出到标准错误；install 安装的自启动项使用默认路径")
+	hideConsole := fs.Bool("hide-console", false, "关闭控制台窗口（仅 Windows，需配合 -log-file）")
 	verbose := fs.Bool("verbose", false, "输出连接层的详细日志")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
@@ -43,7 +47,27 @@ func runNode(args []string, _, stderr io.Writer) int {
 		auth = os.Getenv("DESKBRIDGE_AUTH_KEY")
 	}
 
-	log.SetOutput(stderr)
+	if *hideConsole && *logPath == "" {
+		fmt.Fprintln(stderr, "-hide-console 需要同时指定 -log-file")
+		return exitUsage
+	}
+	logOut := stderr
+	if *logPath != "" {
+		lf, err := logfile.Open(*logPath, logfile.DefaultMaxSize, logfile.DefaultBackups)
+		if err != nil {
+			fmt.Fprintf(stderr, "打开日志文件失败：%v\n", err)
+			return exitError
+		}
+		defer lf.Close()
+		logOut = lf
+	}
+	if *hideConsole {
+		if err := platform.HideConsole(); err != nil {
+			fmt.Fprintf(logOut, "关闭控制台窗口失败：%v\n", err)
+			return exitError
+		}
+	}
+	log.SetOutput(logOut)
 	logf := func(format string, args ...any) { log.Printf(format, args...) }
 
 	_, err := paths.EnsureHome()
