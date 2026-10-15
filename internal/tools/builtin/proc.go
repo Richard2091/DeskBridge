@@ -389,6 +389,23 @@ func runProcKill(ctx context.Context, call *tools.Call) (any, error) {
 	return &procKillResult{Killed: killed}, nil
 }
 
+// plausibleParents 过滤进程快照里的父子关系。Windows 上父进程退出后子进程的
+// PPID 不会更新，PID 还会被复用，所以快照里的 PPID 可能指向一个无关的新进程。
+// 真正的子进程不可能比父进程更早创建：只有两者创建时间都已知、且子进程
+// 创建时间不早于父进程的边才保留。取不到创建时间（如权限不足）的进程
+// 一律不纳入，宁可漏杀也不误杀。created 的单位任意，只比较大小。
+func plausibleParents(parents map[int]int, created map[int]uint64) map[int]int {
+	out := make(map[int]int, len(parents))
+	for child, parent := range parents {
+		cc, ok1 := created[child]
+		pc, ok2 := created[parent]
+		if ok1 && ok2 && cc >= pc {
+			out[child] = parent
+		}
+	}
+	return out
+}
+
 // childrenOf 从 pid→ppid 映射里找出 pid 的全部后代，按距离从深到浅
 // 返回：先杀叶子进程，避免父进程结束后子进程被重新父化而漏掉。
 func childrenOf(pid int, parents map[int]int) []int {

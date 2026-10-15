@@ -72,7 +72,30 @@ func descendantsOf(pid int) []int {
 			break
 		}
 	}
-	return childrenOf(pid, parents)
+	// 快照的 PPID 可能过期（父进程退出后不更新，PID 会复用），用创建时间
+	// 过滤；取不到创建时间的进程不纳入。
+	created := make(map[int]uint64, len(parents))
+	for p := range parents {
+		if t, ok := processCreationTime(uint32(p)); ok {
+			created[p] = t
+		}
+	}
+	return childrenOf(pid, plausibleParents(parents, created))
+}
+
+// processCreationTime 返回进程创建时间（FILETIME 的 64 位值）。
+// 打不开进程或取不到时间时 ok 为 false。
+func processCreationTime(pid uint32) (uint64, bool) {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		return 0, false
+	}
+	defer windows.CloseHandle(h)
+	var creation, exit, kernel, user windows.Filetime
+	if err := windows.GetProcessTimes(h, &creation, &exit, &kernel, &user); err != nil {
+		return 0, false
+	}
+	return uint64(creation.HighDateTime)<<32 | uint64(creation.LowDateTime), true
 }
 
 // killProcesses 结束给定 PID（Windows 上总是强制结束，force 只为兼容
