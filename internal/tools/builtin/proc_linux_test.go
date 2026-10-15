@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Richard2091/DeskBridge/internal/protocol"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
@@ -122,5 +123,23 @@ func TestKillProcessesPartialGone(t *testing.T) {
 	killed, err = killProcesses([]int{dead}, true)
 	if !errors.Is(err, syscall.ESRCH) || len(killed) != 0 {
 		t.Fatalf("全部不存在应返回 ESRCH，得到 killed=%v err=%v", killed, err)
+	}
+}
+
+func TestKillProcessTreeRootMissing(t *testing.T) {
+	// 起一个进程并等它退出，得到一个确定不存在的 PID。
+	c := exec.Command("true")
+	if err := c.Run(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tree := range []bool{false, true} {
+		killed, err := killProcessTree(c.Process.Pid, tree, true)
+		if err == nil || len(killed) != 0 {
+			t.Fatalf("tree=%v: killed=%v err=%v，期望根不存在时报错", tree, killed, err)
+		}
+		var pe *protocol.Error
+		if !errors.As(mapKillError(err), &pe) || pe.Code != protocol.CodeNotFound {
+			t.Fatalf("tree=%v: 期望 not_found，得到 %v", tree, mapKillError(err))
+		}
 	}
 }

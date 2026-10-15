@@ -34,3 +34,23 @@ func TestDescendantsWithStalePPID(t *testing.T) {
 		t.Fatalf("后代 = %v, want [2 3]", got)
 	}
 }
+
+func TestChildrenOfTransitiveVerification(t *testing.T) {
+	// 1 是根；2 是 1 的子进程，3 是 2 的子进程，4 是 3 的子进程；5 是 1 的正常子进程。
+	parents := map[int]int{2: 1, 3: 2, 4: 3, 5: 1}
+	run := func(name string, created map[int]uint64, want []int) {
+		t.Run(name, func(t *testing.T) {
+			got := childrenOf(1, plausibleParents(parents, created))
+			sort.Ints(got)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("后代 = %v, want %v", got, want)
+			}
+		})
+	}
+	// 中间节点 2 比根更早创建：2 及其子树（3、4）都被排除。
+	run("中间节点早于根", map[int]uint64{1: 100, 2: 50, 3: 200, 4: 300, 5: 150}, []int{5})
+	// 中间节点 2 缺少创建时间：同样排除整棵子树。
+	run("中间节点缺失", map[int]uint64{1: 100, 3: 200, 4: 300, 5: 150}, []int{5})
+	// 孙进程 4 自己早于 3：只排除 4。
+	run("孙进程早于父进程", map[int]uint64{1: 100, 2: 110, 3: 200, 4: 150, 5: 150}, []int{2, 3, 5})
+}

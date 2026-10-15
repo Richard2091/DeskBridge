@@ -371,19 +371,8 @@ func runProcKill(ctx context.Context, call *tools.Call) (any, error) {
 	if a.PID == os.Getpid() {
 		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "不能结束节点进程自己（pid %d）", a.PID)
 	}
-	targets := []int{a.PID}
-	if a.Tree {
-		self := os.Getpid()
-		targets = targets[:0]
-		for _, p := range descendantsOf(a.PID) {
-			if p != self { // 后代里可能有节点自己，绝不能结束
-				targets = append(targets, p)
-			}
-		}
-		targets = append(targets, a.PID)
-	}
-	killed, err := killProcesses(targets, a.Force)
-	if len(killed) == 0 && err != nil {
+	killed, err := killProcessTree(a.PID, a.Tree, a.Force)
+	if err != nil { // err 非 nil 表示根进程没有被结束
 		return nil, mapKillError(err)
 	}
 	return &procKillResult{Killed: killed}, nil
