@@ -89,12 +89,16 @@ Tailscale 实现（[ADR-0003](decisions/adr-0003-network-tsnet.md)）：
 - **承载：** 内网里的 HTTP + JSON；需要持续推送的（进度、事件、实时远程桌面信令）用 WebSocket。
 - **能力报告：** `GET /v1/capability` 返回平台、版本、工具列表和每个工具的 JSON Schema。客户端据此决定能做什么。
 - **工具调用：** `POST /v1/tools/{name}`，带 `request_id`、参数、超时。支持取消（`DELETE /v1/requests/{id}`）。
+  - `request_id` 可省略（节点生成）；指定时不超过 128 字节、不含控制字符，否则返回 `invalid_args`。
+  - `timeout_ms` 缺省（0）时节点用该工具自己的默认超时（通用默认 60 秒）；指定值和工具默认值都被截到工具上限，且任何工具的上限不超过全局上限 10 分钟。客户端库不知道工具的默认值，所以总是设置等待截止时间：`timeout_ms` 缺省时取全局上限加 15 秒余量，指定时取 `timeout_ms`（同样截到全局上限）加 15 秒余量，保证能收到节点的超时响应。
 - **工具命名不带平台前缀：** 例如 `fs.read`、`proc.exec`、`screen.capture`，同名工具在各平台语义一致；平台不支持时在能力报告中不出现，调用时返回明确错误 `unsupported_platform`。
 - **输出统一为 UTF-8：** Windows 上的命令输出按代码页（如 GBK）解码后再返回。原型里中文报错变乱码的问题必须在这里解决。
 
 - **端口：** 节点协议在内网地址的 7465 端口上提供。
 - **错误格式：** `{"ok":false,"error":{"code":"...","message":"..."}}`。错误码：`invalid_args`、`unknown_tool`、`not_found`、`device_not_found`、`permission_denied`、`duplicate_request`、`payload_too_large`、`cancelled`、`internal`、`unsupported_platform`、`unavailable`、`timeout`。
 - **发起者：** 调用请求带 `initiator`（人工或 AI、经命令行 / MCP / 界面、会话），由调用方声明；调用者的身份由连接层查出，不由调用方声明。两者一起写进操作记录，供以后的权限判断（任务 17）。
+  - 校验规则：`type` 只能是 `ai` 或 `human`，`via` 只能是 `cli`、`mcp` 或 `ui`（空串视为缺省）；`session` 不超过 128 字节且不含控制字符。不合法返回 `invalid_args`。
+  - 缺省值按字段补：整个 `initiator` 缺省、或其中 `type` 为空补 `human`，`via` 为空补 `cli`；`session` 保持原样。因此只给 `session` 的请求按“人工经命令行”记录。
 - **不在连接层之上再做一次双向认证（任务 4 决定）：** Tailscale 已经用 WireGuard 密钥认证节点，`WhoIs` 结果可靠。能力报告返回 DeskBridge 设备 ID 和公钥；没有连接层身份的局域网配对（任务 28）再用设备密钥签名认证。
 
 ## 节点进程和本机接口
@@ -198,7 +202,7 @@ AI 拿到的画面在两端都能看到：发起端可以实时查看和回看�
 
 ## 操作记录（加分项，但数据结构从第一天预留）
 
-每次工具调用记录：`request_id`、操作者类型（AI / 人）、操作者身份（内网账号、MCP 会话）、目标设备、工具名、参数摘要（敏感字段脱敏）、结果状态、开始和结束时间。早期只写本地 SQLite，后期再做查询界面、哈希链防篡改和双端存储。
+每次工具调用记录：`request_id`、操作者类型（AI / 人）、操作者身份（内网账号、MCP 会话）、目标设备、工具名、参数摘要（敏感字段脱敏）、结果状态、开始和结束时间。审计日志行中调方可控的字符串字段（`request_id`、`tool`、发起者各字段）都用带引号转义的形式输出，防止换行等字符伪造日志行。早期只写本地 SQLite，后期再做查询界面、哈希链防篡改和双端存储。
 
 ## 远程桌面（后期实时画面）
 
