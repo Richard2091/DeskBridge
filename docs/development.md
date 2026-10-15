@@ -81,6 +81,15 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 4. 笔记本（2026-10-15 起）：台式机到笔记本经中继传文件太慢，改为在笔记本上本地编译。`D:\Program\AIProject\dbwin-run\build.cmd` 经本机代理 `git pull`，用 `D:\Program\AIProject\go` 编译出 `deskbridge-new.exe`（GOPATH、GOCACHE 都放在 D 盘）。要脱离当前连接运行：用 `schtasks /create /sc once` 建一次性任务，再 `schtasks /run`。编译好后替换 `deskbridge.exe`，运行计划任务 `DeskBridgeNode`。
 5. 没有备用通道：新节点如果起不来，远程连接会断开，需要用户在 Windows 上换回旧程序并重新运行计划任务。所以替换前先保留旧程序。
 
+## TaskMaster 的模型
+
+TaskMaster 的 AI 命令（`update-subtask`、`expand` 等）用 GLM，三个角色都配成 `openai-compatible` 服务商，模型 `glm-5.3-flash`（`.taskmaster/config.json`）。TaskMaster 没有 opencode 服务商；不用 `codex-cli`，因为 Codex 的默认服务商不是 GLM，模型名会被发到别的接口而报 404。
+
+接口地址和密钥不进仓库，放在 Linux 上：
+
+- 地址：项目根目录的 `.env`（已在 `.gitignore` 中），`OPENAI-COMPATIBLE_BASE_URL=<GLM 接口地址>/v1`。变量名带连字符，只能写在 `.env` 里，shell 的 `export` 设不了。
+- 密钥：`~/.bashrc` 中 `export OPENAI_COMPATIBLE_API_KEY="$GLM_API_KEY"`。非交互 shell 不执行 `~/.bashrc`，命令报“OPENAI_COMPATIBLE_API_KEY is not set”时，在命令前手动导出这个变量。
+
 ## 已知风险
 
 - Windows 上的 DeskBridge 节点暂时由计划任务手动启动（任务 8 之前）。Windows 重启、睡眠或进程崩溃后，远程通道会断开，需要用户在 Windows 上重新启动。
