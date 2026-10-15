@@ -47,7 +47,11 @@ func TestBackoffGrowsAndResets(t *testing.T) {
 	var waits []time.Duration
 	opt := fast()
 	opt.StableAfter = 20 * time.Millisecond
-	opt.Logf = func(_ string, a ...any) { waits = append(waits, a[len(a)-1].(time.Duration)) }
+	opt.Logf = func(_ string, a ...any) {
+		if len(a) > 0 { // 没有参数的是“正常退出”那条
+			waits = append(waits, a[len(a)-1].(time.Duration))
+		}
+	}
 	var runs int
 	Run(context.Background(), func(context.Context) (int, error) {
 		runs++
