@@ -85,10 +85,14 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 
 TaskMaster 的 AI 命令（`update-subtask`、`expand` 等）用 GLM，三个角色都配成 `openai-compatible` 服务商，模型 `glm-5.3-flash`（`.taskmaster/config.json`）。TaskMaster 没有 opencode 服务商；不用 `codex-cli`，因为 Codex 的默认服务商不是 GLM，模型名会被发到别的接口而报 404。
 
-接口地址和密钥不进仓库，放在 Linux 上：
+接口地址和密钥不进仓库，都写在 Linux 上项目根目录的 `.env` 里（已在 `.gitignore` 中，权限 600），TaskMaster 启动时自己读取，不依赖 shell 环境：
 
-- 地址：项目根目录的 `.env`（已在 `.gitignore` 中），`OPENAI-COMPATIBLE_BASE_URL=<GLM 接口地址>/v1`。变量名带连字符，只能写在 `.env` 里，shell 的 `export` 设不了。
-- 密钥：`~/.bashrc` 中 `export OPENAI_COMPATIBLE_API_KEY="$GLM_API_KEY"`。非交互 shell 不执行 `~/.bashrc`，命令报“OPENAI_COMPATIBLE_API_KEY is not set”时，在命令前手动导出这个变量。
+```
+OPENAI-COMPATIBLE_BASE_URL=<GLM 接口地址>/v1
+OPENAI_COMPATIBLE_API_KEY=<GLM 密钥>
+```
+
+地址的变量名带连字符，只能写在 `.env` 里。TaskMaster 没有直接改子任务标题的命令；对父任务用 `update-task` 会让模型重写所有子任务，GLM 的输出过不了格式校验，不要用。
 
 ## 已知风险
 
