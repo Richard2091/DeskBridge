@@ -146,11 +146,27 @@ func (t *Tailscale) Status(ctx context.Context) (Status, error) {
 	if err != nil {
 		return Status{}, fmt.Errorf("查询 Tailscale 状态失败: %w", err)
 	}
+	return t.statusFrom(st), nil
+}
+
+// statusFrom 把原始 tsnet 状态转成连接层状态。
+func (t *Tailscale) statusFrom(st *ipnstate.Status) Status {
 	out := statusFromIPN(KindTailscale, st)
 	if out.Self != nil {
 		out.Self.Client = ClientDeskBridge // 本机就是 DeskBridge 内置节点
 	}
-	return out, nil
+	return out
+}
+
+// Snapshot 只查询一次 tsnet 状态，同时给出状态（含本机）和对端列表。
+func (t *Tailscale) Snapshot(ctx context.Context) (Status, []Peer, error) {
+	st, err := t.rawStatus(ctx)
+	if err != nil {
+		return Status{}, nil, err
+	}
+	peers := peersFromIPN(st)
+	t.fillClients(ctx, peers)
+	return t.statusFrom(st), peers, nil
 }
 
 // Login 发起交互式登录。已经连接时直接返回当前状态；否则最多等待

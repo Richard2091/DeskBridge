@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
@@ -57,6 +56,22 @@ type probeCache struct {
 	mu      sync.Mutex
 	entries map[string]probeEntry
 	flights map[string]*probeFlight
+	// lastInfo 记住每个对端最近一次探测成功的信息，不随缓存过期而清除，
+	// 供目标解析按 DeskBridge 显示名称匹配。
+	lastInfo map[string]*client.DeskBridgeInfo
+}
+
+// probeKey 是探测缓存里一个对端的键。
+func probeKey(kind mesh.Kind, peerID string) string {
+	return string(kind) + "\x00" + peerID
+}
+
+// peek 返回对端最近一次探测成功的 DeskBridge 信息（即使缓存已过期）。
+func (c *probeCache) peek(key string) (*client.DeskBridgeInfo, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	info, ok := c.lastInfo[key]
+	return info, ok
 }
 
 // do 返回 key 的探测结果。缓存有效且 refresh 为 false 时直接返回；同一个
@@ -68,6 +83,7 @@ func (c *probeCache) do(ctx context.Context, key string, refresh bool, run func(
 	if c.entries == nil {
 		c.entries = make(map[string]probeEntry)
 		c.flights = make(map[string]*probeFlight)
+		c.lastInfo = make(map[string]*client.DeskBridgeInfo)
 	}
 	if e, ok := c.entries[key]; ok && !refresh && time.Now().Before(e.expires) {
 		c.mu.Unlock()
@@ -101,6 +117,9 @@ func (c *probeCache) run(ctx context.Context, key string, fl *probeFlight, run f
 		}
 	}
 	c.entries[key] = probeEntry{res: res, expires: now.Add(probeCacheTTL)}
+	if res.info != nil {
+		c.lastInfo[key] = res.info
+	}
 	delete(c.flights, key)
 	c.mu.Unlock()
 	fl.res = res
@@ -193,7 +212,7 @@ func (n *Node) probePeers(ctx context.Context, ch mesh.Channel, peers []mesh.Pee
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			key := string(ch.Kind()) + "\x00" + p.ID
+			key := probeKey(ch.Kind(), p.ID)
 			res := n.probes.do(ctx, key, refresh, func(pctx context.Context) probeResult {
 				return n.probePeer(pctx, ch, p)
 			})
@@ -205,31 +224,22 @@ func (n *Node) probePeers(ctx context.Context, ch mesh.Channel, peers []mesh.Pee
 	return devs
 }
 
-// probePeer 经连接方式向对端请求能力报告。拨号方式与转发共用。
+// probePeer 经连接方式向对端请求能力报告，使用节点共享的传输。拨号失败
+// 的原因通过 context 里的记录器取回，用来分类错误。
 func (n *Node) probePeer(ctx context.Context, ch mesh.Channel, p mesh.Peer) probeResult {
 	addr := net.JoinHostPort(p.Addrs[0], strconv.Itoa(n.port))
-	tr := dialTransport(ch)
-	defer tr.CloseIdleConnections()
-	var dialErr atomic.Pointer[error]
-	inner := tr.DialContext
-	tr.DialContext = func(ctx context.Context, network, a string) (net.Conn, error) {
-		c, err := inner(ctx, network, a)
-		if err != nil {
-			dialErr.Store(&err)
-		}
-		return c, err
-	}
+	ctx, rec := withDialRecorder(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/v1/capability", nil)
 	if err != nil {
 		return probeResult{errMsg: "探测失败"}
 	}
-	resp, err := (&http.Client{Transport: tr}).Do(req)
+	resp, err := (&http.Client{Transport: n.transports.get(ch)}).Do(req)
 	if err != nil {
 		n.logf("探测 %s（%s）失败: %v", p.Name, addr, err)
-		switch de := dialErr.Load(); {
+		switch de := rec.get(); {
 		case ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded):
 			return probeResult{errMsg: "连接超时"}
-		case de != nil && errors.Is(*de, mesh.ErrNotConnected):
+		case de != nil && errors.Is(de, mesh.ErrNotConnected):
 			return probeResult{errMsg: "连接方式未连接"}
 		case de != nil:
 			return probeResult{errMsg: "未运行 DeskBridge"}
@@ -237,7 +247,7 @@ func (n *Node) probePeer(ctx context.Context, ch mesh.Channel, p mesh.Peer) prob
 			return probeResult{errMsg: "探测失败"}
 		}
 	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 	switch {
 	case resp.StatusCode == http.StatusForbidden:
 		return probeResult{errMsg: "对端拒绝访问"}
@@ -357,4 +367,10 @@ func sortDevices(devs []client.Device) []client.Device {
 		return a.Name < b.Name
 	})
 	return devs
+}
+
+// drainClose 读完（有上限）并关闭响应体，让连接能回到共享传输的空闲池复用。
+func drainClose(body io.ReadCloser) {
+	io.Copy(io.Discard, io.LimitReader(body, 64<<10))
+	body.Close()
 }

@@ -113,6 +113,15 @@ func (f *Fake) Status(context.Context) (mesh.Status, error) {
 	return f.status, nil
 }
 
+// Snapshot 返回预设的状态和对端列表。
+func (f *Fake) Snapshot(context.Context) (mesh.Status, []mesh.Peer, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	peers := make([]mesh.Peer, len(f.peers))
+	copy(peers, f.peers)
+	return f.status, peers, nil
+}
+
 // Login 返回预设的状态（不改变它）。
 func (f *Fake) Login(context.Context) (mesh.Status, error) {
 	f.mu.Lock()

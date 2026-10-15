@@ -55,6 +55,9 @@ type Node struct {
 	// probes 缓存设备列表对对端 DeskBridge 的探测结果。
 	probes probeCache
 
+	// transports 是转发和探测共用的、按连接方式缓存的 HTTP 传输。
+	transports transports
+
 	mu       sync.Mutex
 	listener net.Listener
 }
@@ -98,7 +101,12 @@ func (n *Node) Run(ctx context.Context) error {
 		n.removeSocket()
 	}()
 
-	localSrv := &http.Server{Handler: n.localHandler()}
+	defer n.transports.closeIdle()
+	localSrv := &http.Server{
+		Handler:           n.localHandler(),
+		IdleTimeout:       serverIdleTimeout,
+		ReadHeaderTimeout: serverHeaderTimeout,
+	}
 	go func() {
 		<-ctx.Done()
 		localSrv.Close()
@@ -169,7 +177,11 @@ func (n *Node) serveChannel(ctx context.Context, ch mesh.Channel) {
 		}
 		last = st
 		n.logf("连接方式 %s 已连接（%s），在内网监听端口 %d", ch.Kind(), st.Account, n.port)
-		srv := &http.Server{Handler: n.channelHandler(ch)}
+		srv := &http.Server{
+			Handler:           n.channelHandler(ch),
+			IdleTimeout:       serverIdleTimeout,
+			ReadHeaderTimeout: serverHeaderTimeout,
+		}
 		go func() {
 			<-ctx.Done()
 			ln.Close()

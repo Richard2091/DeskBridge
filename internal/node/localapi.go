@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strconv"
-	"strings"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
@@ -114,16 +113,16 @@ func (n *Node) peersChannel(w http.ResponseWriter, r *http.Request, ch mesh.Chan
 func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
 	rest := r.PathValue("rest")
-	if n.isSelfTarget(r.Context(), target) {
-		n.serveSelf(w, r, rest)
-		return
-	}
-	ch, peer, ok := n.resolveTarget(r.Context(), target)
+	t, ok := n.resolveTarget(r.Context(), target)
 	if !ok {
 		writeLocalError(w, http.StatusNotFound, "device_not_found", "找不到设备 "+target)
 		return
 	}
-	addr := net.JoinHostPort(peer.Addrs[0], strconv.Itoa(n.port))
+	if t.self {
+		n.serveSelf(w, r, rest)
+		return
+	}
+	addr := net.JoinHostPort(t.peer.Addrs[0], strconv.Itoa(n.port))
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			out := pr.Out
@@ -133,22 +132,13 @@ func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 			out.URL.RawPath = ""
 			out.Host = addr
 		},
-		Transport: dialTransport(ch),
+		Transport: n.transports.get(t.ch),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			n.logf("转发到 %s（%s）失败: %v", target, addr, err)
 			writeLocalError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
 		},
 	}
 	proxy.ServeHTTP(w, r)
-}
-
-// dialTransport 返回经连接方式拨号的 HTTP 传输，转发和设备探测共用。
-func dialTransport(ch mesh.Channel) *http.Transport {
-	return &http.Transport{
-		DialContext: func(ctx context.Context, _, dialAddr string) (net.Conn, error) {
-			return ch.Dial(ctx, "tcp", dialAddr)
-		},
-	}
 }
 
 // serveSelf 用本机的节点协议处理器处理请求（路径已去掉设备前缀）。
@@ -170,83 +160,4 @@ func (n *Node) selfHandler() http.Handler {
 			Mine:   true,
 		}, nil
 	})
-}
-
-// splitTarget 把 "kind:名称" 拆成连接方式和名称；没有连接方式前缀
-// （或前缀不是已知的连接方式）时 kind 为空，名称为整个 target。
-func (n *Node) splitTarget(target string) (kind, name string) {
-	if i := strings.Index(target, ":"); i >= 0 {
-		if _, ok := n.findChannel(target[:i]); ok {
-			return target[:i], target[i+1:]
-		}
-	}
-	return "", target
-}
-
-// isSelfTarget 判断 target 是否指本机：写作 self，或匹配本机在某个连接方式
-// 里的名称、主机名或内网 IP（可带 "连接方式:" 前缀）。本机不经过内网。
-func (n *Node) isSelfTarget(ctx context.Context, target string) bool {
-	_, ok := n.selfPeer(ctx, target)
-	return ok
-}
-
-// selfPeer 同 isSelfTarget，同时返回本机在匹配的连接方式里的信息（target 为
-// self 时返回的 Peer 只有本机名称）。
-func (n *Node) selfPeer(ctx context.Context, target string) (mesh.Peer, bool) {
-	if target == "self" {
-		return mesh.Peer{Name: n.cfg.Name, Online: true}, true
-	}
-	kindFilter, name := n.splitTarget(target)
-	for _, ch := range n.cfg.Channels {
-		if kindFilter != "" && string(ch.Kind()) != kindFilter {
-			continue
-		}
-		st, err := ch.Status(ctx)
-		if err != nil || st.Self == nil {
-			continue
-		}
-		if matchPeer(*st.Self, name) {
-			return *st.Self, true
-		}
-	}
-	return mesh.Peer{}, false
-}
-
-// resolveTarget 在各连接方式的 对端中查找设备。target 可以是
-// "kind:名称"（指定连接方式）或 "名称"；名称匹配对端的 Name、
-// HostName（不区分大小写）或内网 IP。
-func (n *Node) resolveTarget(ctx context.Context, target string) (mesh.Channel, mesh.Peer, bool) {
-	kindFilter, name := n.splitTarget(target)
-	for _, ch := range n.cfg.Channels {
-		if kindFilter != "" && string(ch.Kind()) != kindFilter {
-			continue
-		}
-		peers, err := ch.Peers(ctx)
-		if err != nil {
-			n.logf("获取连接方式 %s 的对端失败: %v", ch.Kind(), err)
-			continue
-		}
-		for _, p := range peers {
-			if len(p.Addrs) == 0 {
-				continue
-			}
-			if matchPeer(p, name) {
-				return ch, p, true
-			}
-		}
-	}
-	return nil, mesh.Peer{}, false
-}
-
-// matchPeer 判断对端是否匹配要找的设备。
-func matchPeer(p mesh.Peer, want string) bool {
-	if strings.EqualFold(p.Name, want) || strings.EqualFold(p.HostName, want) {
-		return true
-	}
-	for _, a := range p.Addrs {
-		if a == want {
-			return true
-		}
-	}
-	return false
 }

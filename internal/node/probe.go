@@ -5,79 +5,52 @@ package node
 
 import (
 	"context"
-	"io"
-	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
-	"github.com/Richard2091/DeskBridge/internal/mesh"
 )
 
-// capabilityTimeout 是对端 /v1/capability 请求的超时。
-const capabilityTimeout = 10 * time.Second
+// 两个测量步骤各自的超时。路径测量超时后仍继续做能力探测。
+var (
+	pathProbeTimeout  = 10 * time.Second // 连接层 Probe（测量路径和延迟）
+	capabilityTimeout = 10 * time.Second // 对端 /v1/capability 请求
+)
 
 func (n *Node) handleProbe(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("target")
-	if self, ok := n.selfPeer(r.Context(), target); ok {
-		// 本机不经过内网，不测量。
-		writeJSON(w, http.StatusOK, client.ProbeResult{Self: true, Peer: self, DeskBridge: true})
-		return
-	}
-	ch, peer, ok := n.resolveTarget(r.Context(), target)
+	t, ok := n.resolveTarget(r.Context(), target)
 	if !ok {
 		writeLocalError(w, http.StatusNotFound, "device_not_found", "找不到设备 "+target)
 		return
 	}
-	res := client.ProbeResult{Peer: peer}
-	addr := peer.Addrs[0]
-	if p, err := ch.Probe(r.Context(), addr); err != nil {
+	if t.self {
+		// 本机不经过内网，不测量。
+		writeJSON(w, http.StatusOK, client.ProbeResult{Self: true, Peer: t.peer, DeskBridge: true})
+		return
+	}
+	res := client.ProbeResult{Peer: t.peer}
+	pctx, cancel := context.WithTimeout(r.Context(), pathProbeTimeout)
+	p, err := t.ch.Probe(pctx, t.peer.Addrs[0])
+	cancel()
+	if err != nil {
 		res.Error = "测量路径失败：" + err.Error()
 	} else {
 		res.Peer = p
 	}
-	ms, err := n.timeCapability(r.Context(), ch, net.JoinHostPort(addr, strconv.Itoa(n.port)))
-	if err != nil {
+	cctx, cancel := context.WithTimeout(r.Context(), capabilityTimeout)
+	defer cancel()
+	start := time.Now()
+	pr := n.probePeer(cctx, t.ch, t.peer)
+	elapsed := float64(time.Since(start).Microseconds()) / 1000
+	if pr.info == nil {
 		if res.Error != "" {
 			res.Error += "；"
 		}
-		res.Error += "DeskBridge 无响应：" + err.Error()
+		res.Error += "DeskBridge 无响应：" + pr.errMsg
 	} else {
 		res.DeskBridge = true
-		res.CapabilityMS = ms
+		res.CapabilityMS = elapsed
 	}
 	writeJSON(w, http.StatusOK, res)
 }
-
-// timeCapability 经 ch 请求对端 addr（内网地址:端口）的 /v1/capability，
-// 返回耗时毫秒数。响应状态不是 200 视为失败。
-func (n *Node) timeCapability(ctx context.Context, ch mesh.Channel, addr string) (float64, error) {
-	ctx, cancel := context.WithTimeout(ctx, capabilityTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/v1/capability", nil)
-	if err != nil {
-		return 0, err
-	}
-	tr := dialTransport(ch)
-	defer tr.CloseIdleConnections()
-	start := time.Now()
-	resp, err := (&http.Client{Transport: tr}).Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	if _, err := io.Copy(io.Discard, io.LimitReader(resp.Body, maxCapabilityLen)); err != nil {
-		return 0, err
-	}
-	elapsed := float64(time.Since(start).Microseconds()) / 1000
-	if resp.StatusCode != http.StatusOK {
-		return 0, &statusError{code: resp.StatusCode}
-	}
-	return elapsed, nil
-}
-
-// statusError 表示对端返回了非 200 的状态码。
-type statusError struct{ code int }
-
-func (e *statusError) Error() string { return "对端返回状态码 " + strconv.Itoa(e.code) }

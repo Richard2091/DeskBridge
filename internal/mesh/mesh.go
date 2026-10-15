@@ -157,6 +157,29 @@ type Channel interface {
 	Close() error
 }
 
+// Snapshotter 是 Channel 的可选扩展：一次查询同时给出状态（含本机）和对端
+// 列表，避免分别调用 Status 和 Peers 时重复查询底层。
+type Snapshotter interface {
+	Snapshot(ctx context.Context) (Status, []Peer, error)
+}
+
+// Snapshot 返回 ch 的状态和对端列表。ch 实现了 Snapshotter 时只查询一次，
+// 否则依次调用 Status 和 Peers。
+func Snapshot(ctx context.Context, ch Channel) (Status, []Peer, error) {
+	if s, ok := ch.(Snapshotter); ok {
+		return s.Snapshot(ctx)
+	}
+	st, err := ch.Status(ctx)
+	if err != nil {
+		return Status{}, nil, err
+	}
+	peers, err := ch.Peers(ctx)
+	if err != nil {
+		return st, nil, err
+	}
+	return st, peers, nil
+}
+
 // 连接层的通用错误。
 var (
 	ErrNotConnected = errors.New("mesh: 连接方式未连接")
