@@ -59,21 +59,6 @@ func allTools(info Info) []*tools.Tool {
 	return append(regs, procTools()...)
 }
 
-// DefaultTimeoutOf 返回内置工具 name 的默认调用超时（与节点执行时用的
-// 值一致）。不是当前平台的内置工具时 ok 为 false。
-func DefaultTimeoutOf(name string) (d time.Duration, ok bool) {
-	for _, t := range allTools(Info{}) {
-		if t.Spec.Name == name {
-			d = t.DefaultTimeout
-			if d <= 0 {
-				d = tools.DefaultTimeout
-			}
-			return d, true
-		}
-	}
-	return 0, false
-}
-
 // checkCtx 在工具开始工作前检查调用是否已经超时或被取消；已取消时
 // 返回 ctx.Err()，由节点协议层映射为 cancelled。
 func checkCtx(ctx context.Context) error {

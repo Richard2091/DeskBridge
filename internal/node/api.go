@@ -215,7 +215,8 @@ func initiatorOf(creq *protocol.CallRequest) protocol.Initiator {
 // 工具的 MaxTimeout），否则用工具默认值。
 func callTimeout(tool *tools.Tool, timeoutMS int) time.Duration {
 	max := tool.MaxTimeout
-	if max <= 0 {
+	// 工具自己的上限也不得超过全局上限，客户端按全局上限加余量等待。
+	if max <= 0 || max > tools.MaxTimeout {
 		max = tools.MaxTimeout
 	}
 	var d time.Duration

@@ -14,12 +14,9 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
-	"github.com/Richard2091/DeskBridge/internal/tools"
-	"github.com/Richard2091/DeskBridge/internal/tools/builtin"
 )
 
 // 环境变量名。
@@ -155,20 +152,12 @@ func (t *toolCmd) fail(err error) int {
 	return exitError
 }
 
-// call 调用目标设备上的工具，timeoutMS 为 0 时用节点的默认超时。
-// 单次调用带有客户端侧的超时，避免对端无响应时一直卡住。
+// call 调用目标设备上的工具。TimeoutMS 为 0 时原样传给节点，由节点用
+// 工具自己的默认超时；客户端按全局上限加余量等待，避免对端无响应时
+// 一直卡住。
 func (s *toolSession) call(ctx context.Context, tool string, args any, opts client.CallOptions) (*protocol.CallResponse, error) {
 	if opts.Initiator == nil {
 		opts.Initiator = initiator()
-	}
-	if opts.TimeoutMS == 0 {
-		// 显式带上工具的默认超时，让客户端等待时间与节点执行时间一致
-		// （client.Call 会再加余量）；本地不认识的工具用通用默认值。
-		d, ok := builtin.DefaultTimeoutOf(tool)
-		if !ok {
-			d = tools.DefaultTimeout
-		}
-		opts.TimeoutMS = int(d / time.Millisecond)
 	}
 	return s.c.Call(ctx, s.device, tool, args, opts)
 }

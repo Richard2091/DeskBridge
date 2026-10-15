@@ -539,15 +539,3 @@ func TestProcKillTreeSkipsSelf(t *testing.T) {
 	_, err := tool.Run(context.Background(), &tools.Call{Args: raw})
 	expectProtoError(t, err, protocol.CodeInvalidArgs)
 }
-
-func TestDefaultTimeoutOf(t *testing.T) {
-	if d, ok := DefaultTimeoutOf("proc.exec"); !ok || d != 5*time.Minute {
-		t.Fatalf("proc.exec = %v, %v", d, ok)
-	}
-	if d, ok := DefaultTimeoutOf("fs.stat"); !ok || d != tools.DefaultTimeout {
-		t.Fatalf("fs.stat = %v, %v", d, ok)
-	}
-	if _, ok := DefaultTimeoutOf("no.such"); ok {
-		t.Fatal("未知工具不应找到")
-	}
-}

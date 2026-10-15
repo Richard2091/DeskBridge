@@ -183,12 +183,12 @@ func (c *Client) Call(ctx context.Context, target, tool string, args any, opts C
 	if err != nil {
 		return nil, fmt.Errorf("编码调用请求失败: %w", err)
 	}
-	if opts.TimeoutMS > 0 {
-		// HTTP 超时要比请求的超时长一些，否则收不到节点的超时响应。
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, httpTimeout(opts.TimeoutMS))
-		defer cancel()
-	}
+	// 始终设置等待截止时间：HTTP 超时要比请求的超时长一些，否则收不到
+	// 节点的超时响应；timeout_ms 为 0 时节点用工具自己的默认值，客户端
+	// 按全局上限等待。
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, httpTimeout(opts.TimeoutMS))
+	defer cancel()
 	var out protocol.CallResponse
 	if err := c.do(ctx, http.MethodPost, devicePath(target, "/v1/tools/"+url.PathEscape(tool)), body, &out); err != nil {
 		return nil, err
@@ -201,8 +201,11 @@ func (c *Client) Call(ctx context.Context, target, tool string, args any, opts C
 
 // httpTimeout 返回请求 timeout_ms 对应的 HTTP 等待时间：先把 timeout_ms
 // 截到 tools.MaxTimeout（节点也会截断），避免大值乘法溢出，再加余量。
+// timeoutMS 不大于 0（未指定，节点用工具默认值）时按全局上限等待，
+// 因为客户端不知道工具的默认值；节点把任何工具的超时都限制在
+// tools.MaxTimeout 内，所以这个等待时间总够用。
 func httpTimeout(timeoutMS int) time.Duration {
-	if int64(timeoutMS) > tools.MaxTimeout.Milliseconds() {
+	if timeoutMS <= 0 || int64(timeoutMS) > tools.MaxTimeout.Milliseconds() {
 		return tools.MaxTimeout + timeoutSlack
 	}
 	return time.Duration(timeoutMS)*time.Millisecond + timeoutSlack

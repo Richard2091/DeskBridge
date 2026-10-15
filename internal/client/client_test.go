@@ -239,6 +239,12 @@ func TestHTTPTimeoutClamped(t *testing.T) {
 			t.Errorf("httpTimeout(%d) = %v, 期望 %v", ms, d, max)
 		}
 	}
+	// timeout_ms 未指定（0）时也要有截止时间：全局上限加余量。
+	for _, ms := range []int{0, -1} {
+		if d := httpTimeout(ms); d != max {
+			t.Errorf("httpTimeout(%d) = %v, 期望 %v", ms, d, max)
+		}
+	}
 	if d := httpTimeout(2000); d != 2*time.Second+timeoutSlack {
 		t.Errorf("httpTimeout(2000) = %v", d)
 	}

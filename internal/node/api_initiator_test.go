@@ -64,4 +64,12 @@ func TestCallTimeoutOverflow(t *testing.T) {
 	if d := callTimeout(tool, -5); d != tools.DefaultTimeout {
 		t.Errorf("负数应视为未指定，得到 %v", d)
 	}
+	// 工具自己的上限超过全局上限时也要截到全局上限，客户端才等得够久。
+	big := &tools.Tool{MaxTimeout: 2 * tools.MaxTimeout, DefaultTimeout: 3 * tools.MaxTimeout}
+	if d := callTimeout(big, 0); d != tools.MaxTimeout {
+		t.Errorf("默认值应受全局上限约束，得到 %v", d)
+	}
+	if d := callTimeout(big, int(2*tools.MaxTimeout.Milliseconds())); d != tools.MaxTimeout {
+		t.Errorf("工具上限应受全局上限约束，得到 %v", d)
+	}
 }
