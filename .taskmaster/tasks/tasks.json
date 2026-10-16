@@ -723,7 +723,7 @@
         "description": "每次工具调用写入本地 SQLite，区分 AI 与人，命令行可查询。",
         "details": "使用 modernc.org/sqlite。字段：request_id、操作者类型、操作者身份、目标设备、工具、参数摘要（敏感字段脱敏）、状态、开始和结束时间。被控端记录；控制端也记录自己发出的请求。deskbridge log 查询。哈希链防篡改留到任务 17。验收：AI 和人的操作都能查到，脱敏生效。",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "4"
         ],
@@ -734,63 +734,69 @@
             "title": "SQLite 存储层与迁移",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:31:31.561Z"
           },
           {
             "id": 2,
             "title": "记录写入（被控端和控制端）",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:31:49.868Z"
           },
           {
             "id": 3,
             "title": "参数脱敏规则",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:32:06.970Z"
           },
           {
             "id": 4,
             "title": "deskbridge log 查询命令",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:32:25.341Z"
           },
           {
             "id": 5,
             "title": "跨设备查询接口",
             "description": "节点提供查询本机记录的接口（筛选、分页），同账号设备可调用；deskbridge log 支持指定设备。见 architecture.md 操作记录一节。",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:32:45.859Z"
           },
           {
             "id": 6,
             "title": "实时事件与输出缓冲",
             "description": "正在执行的调用推送开始、输出片段、结束事件（WebSocket 订阅，同账号）；proc.exec 输出保留有上限的缓冲，新订阅者先拿最近一段。任意同账号设备可按 request_id 取消。",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 11,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:33:05.807Z"
           }
         ],
-        "updatedAt": "2026-10-16T06:12:56.099Z"
+        "updatedAt": "2026-10-16T06:33:05.807Z"
       },
       {
         "id": "12",
@@ -1478,9 +1484,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T06:12:56.099Z",
+      "lastModified": "2026-10-16T06:33:05.808Z",
       "taskCount": 30,
-      "completedCount": 11,
+      "completedCount": 12,
       "tags": [
         "master"
       ]
