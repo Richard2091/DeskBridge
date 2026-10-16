@@ -260,6 +260,15 @@ class _DetailPanelState extends State<_DetailPanel> {
               Expanded(child: SelectableText(r.$2, style: const TextStyle(fontSize: 13))),
             ]),
           ),
+        if (it.running && it.targetRef.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: tk.bad),
+            onPressed: _cancelling ? null : _cancel,
+            icon: const Icon(Icons.stop, size: 18),
+            label: Text(_cancelling ? '正在取消…' : '取消这条调用'),
+          ),
+        ],
         const SizedBox(height: 10),
         SectionTitle('参数（已脱敏）', trailing: it.args.isEmpty ? null : TextButton(onPressed: () => copyText(context, it.args), child: const Text('复制'))),
         CodeBox(child: SelectableText(it.args.isEmpty ? '（无参数）' : it.args, style: monoStyle(context, size: 12, color: tk.codeText))),
@@ -272,15 +281,6 @@ class _DetailPanelState extends State<_DetailPanel> {
             if (_notFollowed != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(_notFollowed!, style: TextStyle(color: tk.bad, fontSize: 12.5))),
             OutputView(controller: _out, height: 240),
           ],
-        ],
-        if (it.running && it.targetRef.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: tk.bad),
-            onPressed: _cancelling ? null : _cancel,
-            icon: const Icon(Icons.stop, size: 18),
-            label: Text(_cancelling ? '正在取消…' : '取消这条调用'),
-          ),
         ],
         if (!it.running && it.tool == 'proc.exec')
           Padding(
