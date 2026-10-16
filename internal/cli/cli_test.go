@@ -20,7 +20,7 @@ func TestRun(t *testing.T) {
 		{"版本", []string{"version"}, exitOK, "deskbridge dev", ""},
 		{"版本选项", []string{"--version"}, exitOK, "deskbridge dev", ""},
 		{"未知子命令", []string{"nope"}, exitUsage, "", "未知的子命令：nope"},
-		{"未实现的子命令", []string{"ui-core"}, exitError, "", "子命令 ui-core 尚未实现"},
+		{"ui-core 不接受位置参数", []string{"ui-core", "x"}, exitUsage, "", "未知参数：x"},
 		{"capability 缺参数", []string{"capability"}, exitUsage, "", "用法："},
 	}
 	for _, tt := range tests {

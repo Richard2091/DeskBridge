@@ -130,6 +130,9 @@ type ActivityItem struct {
 	protocol.Record
 	// TargetName 是被控设备的显示名（被控端记录取自设备列表，控制端记录取自记录本身）。
 	TargetName string `json:"target_name"`
+	// TargetRef 是被控设备在本机接口里的地址（如 self、tailscale:desk），用于取消或订阅；
+	// 只有控制端记录时不知道，为空。
+	TargetRef string `json:"target_ref,omitempty"`
 	// SourceDevice 是发起调用的设备：被控端记录里的调用者设备；
 	// 只有控制端记录时是记录所在的设备。
 	SourceDevice string `json:"source_device,omitempty"`
@@ -216,6 +219,7 @@ func (c *Client) Activity(ctx context.Context, q ActivityQuery) (*ActivityResult
 				it := ActivityItem{Record: r}
 				if r.Role == protocol.RoleTarget {
 					it.TargetName = j.name
+					it.TargetRef = j.target
 					it.SourceDevice = r.CallerDevice
 				} else {
 					it.TargetName = r.Device
