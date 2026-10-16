@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -538,4 +539,48 @@ func TestProcKillTreeSkipsSelf(t *testing.T) {
 	raw, _ := json.Marshal(map[string]any{"pid": os.Getpid(), "tree": true})
 	_, err := tool.Run(context.Background(), &tools.Call{Args: raw})
 	expectProtoError(t, err, protocol.CodeInvalidArgs)
+}
+
+func TestProcExecStreamsOutput(t *testing.T) {
+	r := newTestRegistry(t)
+	tool, _ := r.Get("proc.exec")
+	var mu sync.Mutex
+	got := map[string]string{}
+	call := &tools.Call{
+		RequestID: "stream",
+		Args:      json.RawMessage(`{"argv":["` + strings.ReplaceAll(os.Args[0], `\`, `\\`) + `","-test.run=TestStreamHelper"],"env":{"DB_STREAM_HELPER":"1"}}`),
+		Emit: func(stream, data string) {
+			mu.Lock()
+			defer mu.Unlock()
+			got[stream] += data
+		},
+	}
+	v, err := tool.Run(context.Background(), call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := v.(*execResult)
+	mu.Lock()
+	defer mu.Unlock()
+	if !strings.Contains(got["stdout"], "第一行\n") || !strings.Contains(got["stdout"], "最后一行没有换行") {
+		t.Errorf("推送的 stdout 不完整：%q", got["stdout"])
+	}
+	if !strings.Contains(got["stderr"], "错误行\n") {
+		t.Errorf("推送的 stderr 不完整：%q", got["stderr"])
+	}
+	// 推送的内容与最终结果一致。
+	if !strings.Contains(res.Stdout, "第一行") || !strings.Contains(res.Stderr, "错误行") {
+		t.Errorf("最终结果：%+v", res)
+	}
+}
+
+// TestStreamHelper 是被上面的测试当作子进程运行的辅助程序。
+func TestStreamHelper(t *testing.T) {
+	if os.Getenv("DB_STREAM_HELPER") != "1" {
+		t.Skip("只作为子进程运行")
+	}
+	fmt.Fprint(os.Stdout, "第一行\n")
+	fmt.Fprint(os.Stderr, "错误行\n")
+	fmt.Fprint(os.Stdout, "最后一行没有换行")
+	os.Exit(0)
 }
