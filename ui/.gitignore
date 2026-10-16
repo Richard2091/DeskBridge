@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# scripts/build-ui.cmd 生成的 Go 程序
+/deskbridge.exe
