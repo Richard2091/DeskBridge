@@ -577,7 +577,7 @@ func TestProcExecStreamsOutput(t *testing.T) {
 // TestStreamHelper 是被上面的测试当作子进程运行的辅助程序。
 func TestStreamHelper(t *testing.T) {
 	if os.Getenv("DB_STREAM_HELPER") != "1" {
-		t.Skip("只作为子进程运行")
+		return // 只作为子进程运行
 	}
 	fmt.Fprint(os.Stdout, "第一行\n")
 	fmt.Fprint(os.Stderr, "错误行\n")
