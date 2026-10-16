@@ -14,7 +14,6 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/Richard2091/DeskBridge/internal/protocol"
-
 )
 
 const (

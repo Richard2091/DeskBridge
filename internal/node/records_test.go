@@ -275,6 +275,15 @@ func TestSubscribeLiveEvents(t *testing.T) {
 	}
 }
 
+// rawPost 发一次调用并忽略结果，可以在不属于测试的 goroutine 里使用。
+func rawPost(url, body string) {
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err == nil {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}
+}
+
 func TestSubscribeRequiresSameOwner(t *testing.T) {
 	gate := make(chan struct{})
 	defer close(gate)
@@ -282,7 +291,7 @@ func TestSubscribeRequiresSameOwner(t *testing.T) {
 	mustRegister(t, reg, streamTool(gate))
 	n := New(Config{Device: testDevice(t), Tools: reg, Name: "win-pc"})
 	srv, box := fixedAPI(t, n)
-	go postCall(t, srv.URL+"/v1/tools/test.stream", `{"request_id":"own-1"}`)
+	go rawPost(srv.URL+"/v1/tools/test.stream", `{"request_id":"own-1"}`)
 	waitFor(t, func() bool { _, ok := n.inflight.Load("own-1"); return ok }, "调用没有进入执行状态")
 
 	other := mineIdentity("x")
@@ -354,7 +363,7 @@ func TestEventsWebSocketHandshake(t *testing.T) {
 	mustRegister(t, reg, streamTool(gate))
 	n := New(Config{Device: testDevice(t), Tools: reg, Name: "win-pc"})
 	srv, _ := fixedAPI(t, n)
-	go postCall(t, srv.URL+"/v1/tools/test.stream", `{"request_id":"ws-1"}`)
+	go rawPost(srv.URL+"/v1/tools/test.stream", `{"request_id":"ws-1"}`)
 	waitFor(t, func() bool { _, ok := n.inflight.Load("ws-1"); return ok }, "调用没有进入执行状态")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

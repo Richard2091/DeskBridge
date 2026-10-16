@@ -16,9 +16,9 @@ type Record struct {
 	CallerKind   string `json:"caller_kind,omitempty"`
 	Device       string `json:"device,omitempty"` // 被控设备
 	Tool         string `json:"tool"`
-	Args         string `json:"args,omitempty"`   // 已脱敏的参数摘要
-	Status       string `json:"status"`           // running / ok / 错误码 / interrupted
-	StartedAt    int64  `json:"started_at"`       // Unix 毫秒
+	Args         string `json:"args,omitempty"` // 已脱敏的参数摘要
+	Status       string `json:"status"`         // running / ok / 错误码 / interrupted
+	StartedAt    int64  `json:"started_at"`     // Unix 毫秒
 	EndedAt      int64  `json:"ended_at,omitempty"`
 	DurationMS   int64  `json:"duration_ms,omitempty"`
 }
