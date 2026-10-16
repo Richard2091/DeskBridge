@@ -91,7 +91,10 @@ class _Sidebar extends StatelessWidget {
               ),
               child: const Icon(Icons.swap_horiz, color: Colors.white, size: 18),
             ),
-            if (wide) ...[const SizedBox(width: 10), const Text('DeskBridge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))],
+            if (wide) ...[
+              const SizedBox(width: 10),
+              const Expanded(child: Text('DeskBridge', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+            ],
           ]),
         ),
         _item(context, AppPage.devices, Icons.devices_outlined, '设备'),
