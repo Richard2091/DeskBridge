@@ -70,7 +70,7 @@ class SectionTitle extends StatelessWidget {
       child: Row(children: [
         Text(text, style: TextStyle(fontSize: 13, color: context.tk.muted, fontWeight: FontWeight.w600)),
         const Spacer(),
-        if (trailing != null) trailing!,
+        ?trailing,
       ]),
     );
   }
@@ -144,7 +144,7 @@ class Banner2 extends StatelessWidget {
         Icon(icon, size: 18, color: fg),
         const SizedBox(width: 10),
         Expanded(child: Text(text, style: TextStyle(color: fg, height: 1.4))),
-        if (action != null) action!,
+        ?action,
       ]),
     );
   }
@@ -187,7 +187,7 @@ class TabStrip extends StatelessWidget {
             ),
           ),
         const Spacer(),
-        if (trailing != null) trailing!,
+        ?trailing,
       ]),
     );
   }
