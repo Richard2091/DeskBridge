@@ -19,6 +19,7 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/node"
 	"github.com/Richard2091/DeskBridge/internal/paths"
 	"github.com/Richard2091/DeskBridge/internal/platform"
+	"github.com/Richard2091/DeskBridge/internal/store"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 	"github.com/Richard2091/DeskBridge/internal/tools/builtin"
 	"github.com/Richard2091/DeskBridge/internal/version"
@@ -129,10 +130,21 @@ func runNode(args []string, _, stderr io.Writer) int {
 		return exitError
 	}
 
+	var records *store.DB
+	if recPath, rerr := paths.RecordsFile(); rerr != nil {
+		logf("确定操作记录路径失败，本次运行不记录操作：%v", rerr)
+	} else if records, rerr = store.Open(recPath); rerr != nil {
+		logf("打开操作记录失败，本次运行不记录操作：%v", rerr)
+		records = nil
+	} else {
+		defer records.Close()
+	}
+
 	n := node.New(node.Config{
 		Channels: []mesh.Channel{ch},
 		Device:   dev,
 		Tools:    registry,
+		Records:  records,
 		Name:     *name,
 		Port:     *port,
 		Socket:   socketPath,

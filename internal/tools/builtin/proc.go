@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -99,8 +101,10 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 	}
 	stdout := newLimitedBuffer(maxOutput)
 	stderr := newLimitedBuffer(maxOutput)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	outStream := newLineStreamer(call, "stdout")
+	errStream := newLineStreamer(call, "stderr")
+	cmd.Stdout = io.MultiWriter(stdout, outStream)
+	cmd.Stderr = io.MultiWriter(stderr, errStream)
 	if a.Stdin != "" {
 		cmd.Stdin = strings.NewReader(a.Stdin)
 	}
@@ -128,6 +132,8 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 	// 等待管道，不让 Wait 一直阻塞。
 	cmd.WaitDelay = 2 * time.Second
 	waitErr := cmd.Wait()
+	outStream.Flush()
+	errStream.Flush()
 	close(done)
 	<-watcherExit
 	elapsed := time.Since(started).Milliseconds()
@@ -213,6 +219,50 @@ func mapStartError(err error) error {
 		}
 	}
 	return protocol.Errorf(protocol.CodeInvalidArgs, "无法启动命令：%v", err)
+}
+
+// lineStreamer 把子进程的输出按行解码后推送给订阅者。解码要在完整的行上
+// 做（GBK 等多字节编码的字符不能从中间切开）；没有换行的内容攒到
+// streamChunkMax 字节或命令结束时再推送。
+type lineStreamer struct {
+	call   *tools.Call
+	stream string
+	mu     sync.Mutex
+	buf    []byte
+}
+
+const streamChunkMax = 4096
+
+func newLineStreamer(call *tools.Call, stream string) *lineStreamer {
+	return &lineStreamer{call: call, stream: stream}
+}
+
+func (l *lineStreamer) Write(p []byte) (int, error) {
+	if l.call.Emit == nil {
+		return len(p), nil
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.buf = append(l.buf, p...)
+	if i := bytes.LastIndexAny(l.buf, "\n\r"); i >= 0 {
+		l.call.Stream(l.stream, decodeOutput(l.buf[:i+1]))
+		l.buf = append(l.buf[:0], l.buf[i+1:]...)
+	}
+	if len(l.buf) >= streamChunkMax {
+		l.call.Stream(l.stream, decodeOutput(l.buf))
+		l.buf = l.buf[:0]
+	}
+	return len(p), nil
+}
+
+// Flush 推送剩余的不完整行。
+func (l *lineStreamer) Flush() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.buf) > 0 {
+		l.call.Stream(l.stream, decodeOutput(l.buf))
+		l.buf = l.buf[:0]
+	}
 }
 
 // limitedBuffer 是有字节上限的输出缓冲：超出后丢弃多余内容并标记。

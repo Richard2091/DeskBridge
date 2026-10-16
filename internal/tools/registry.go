@@ -36,6 +36,16 @@ type Call struct {
 	RequestID string
 	Args      json.RawMessage // 可能为 nil 或 "null"，表示没有参数
 	Caller    Caller
+	// Emit 在工具执行过程中推送输出片段（stream 为 stdout 或 stderr，
+	// data 已是 UTF-8 文本），订阅了这次调用的设备能实时看到。可以为 nil。
+	Emit func(stream, data string)
+}
+
+// Stream 推送一段输出；没有订阅机制（Emit 为 nil）时什么也不做。
+func (c *Call) Stream(stream, data string) {
+	if c.Emit != nil && data != "" {
+		c.Emit(stream, data)
+	}
 }
 
 // Tool 是注册表中的一个工具。Spec、超时和 Run 注册后不应再修改。

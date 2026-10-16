@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strconv"
+	"strings"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
@@ -118,27 +119,34 @@ func (n *Node) handleForward(w http.ResponseWriter, r *http.Request) {
 		writeLocalError(w, http.StatusNotFound, "device_not_found", "找不到设备 "+target)
 		return
 	}
-	if t.self {
-		n.serveSelf(w, r, rest)
+	serve := func(w http.ResponseWriter, r *http.Request) { n.serveSelf(w, r, rest) }
+	device := n.cfg.Name
+	if !t.self {
+		device = t.peer.Name
+		addr := net.JoinHostPort(t.peer.Addrs[0], strconv.Itoa(n.port))
+		proxy := &httputil.ReverseProxy{
+			Rewrite: func(pr *httputil.ProxyRequest) {
+				out := pr.Out
+				out.URL.Scheme = "http"
+				out.URL.Host = addr
+				out.URL.Path = "/" + rest
+				out.URL.RawPath = ""
+				out.Host = addr
+			},
+			Transport: n.transports.get(t.ch),
+			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+				n.logf("转发到 %s（%s）失败: %v", target, addr, err)
+				writeLocalError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
+			},
+		}
+		serve = proxy.ServeHTTP
+	}
+	// 工具调用在本机记一条控制端记录。
+	if tool, ok := strings.CutPrefix(rest, "v1/tools/"); ok && r.Method == http.MethodPost && tool != "" && !strings.Contains(tool, "/") {
+		n.forwardTool(w, r, device, tool, serve)
 		return
 	}
-	addr := net.JoinHostPort(t.peer.Addrs[0], strconv.Itoa(n.port))
-	proxy := &httputil.ReverseProxy{
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			out := pr.Out
-			out.URL.Scheme = "http"
-			out.URL.Host = addr
-			out.URL.Path = "/" + rest
-			out.URL.RawPath = ""
-			out.Host = addr
-		},
-		Transport: n.transports.get(t.ch),
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			n.logf("转发到 %s（%s）失败: %v", target, addr, err)
-			writeLocalError(w, http.StatusBadGateway, "unavailable", "无法连接对端设备 "+target)
-		},
-	}
-	proxy.ServeHTTP(w, r)
+	serve(w, r)
 }
 
 // serveSelf 用本机的节点协议处理器处理请求（路径已去掉设备前缀）。

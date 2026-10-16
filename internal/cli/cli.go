@@ -42,6 +42,7 @@ func commands() []command {
 		{"stat", "查看设备上文件或目录的信息", runStat},
 		{"ps", "列出设备上的进程", runPs},
 		{"kill", "结束设备上的进程", runKill},
+		{"log", "查询操作记录（本机、指定设备或所有设备合并）", runLog},
 		{"call", "通用工具调用，输出完整的响应 JSON", runCall},
 		{"mcp", "作为 MCP 服务器运行，供 AI Agent 使用", runMCP},
 		{"ui-core", "供桌面客户端启动的子进程，经标准输入输出传 JSON", notImplemented("ui-core")},

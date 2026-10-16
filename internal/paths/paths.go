@@ -43,6 +43,15 @@ func SocketPath() (string, error) {
 	return home + string(os.PathSeparator) + "node.sock", nil
 }
 
+// RecordsFile 返回操作记录数据库路径（Home 下的 records.db）。
+func RecordsFile() (string, error) {
+	home, err := Home()
+	if err != nil {
+		return "", err
+	}
+	return home + string(os.PathSeparator) + "records.db", nil
+}
+
 // DeviceKeyFile 返回设备私钥的备用文件路径（Home 下的 device.key）。
 func DeviceKeyFile() (string, error) {
 	home, err := Home()

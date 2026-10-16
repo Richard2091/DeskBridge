@@ -21,6 +21,7 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/mesh/meshtest"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/store"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
@@ -119,6 +120,12 @@ func startNode(t *testing.T, name string) (*meshtest.Fake, string) {
 // startNodeWithTools 同 startNode，但给节点挂上工具注册表（nil 为无工具）。
 func startNodeWithTools(t *testing.T, name string, reg *tools.Registry) (*meshtest.Fake, string) {
 	t.Helper()
+	return startNodeWithRecords(t, name, reg, nil)
+}
+
+// startNodeWithRecords 同 startNodeWithTools，并让节点把操作记录写进 db（nil 为不记录）。
+func startNodeWithRecords(t *testing.T, name string, reg *tools.Registry, db *store.DB) (*meshtest.Fake, string) {
+	t.Helper()
 	fake := meshtest.NewFake(mesh.KindTailscale, "100.64.0.1")
 	fake.SetStatus(mesh.Status{Kind: mesh.KindTailscale, State: mesh.StateConnected})
 	socket := filepath.Join(shortTempDir(t), name+".sock")
@@ -126,6 +133,7 @@ func startNodeWithTools(t *testing.T, name string, reg *tools.Registry) (*meshte
 		Channels: []mesh.Channel{fake},
 		Device:   testDevice(t),
 		Tools:    reg,
+		Records:  db,
 		Name:     name,
 		Socket:   socket,
 	})

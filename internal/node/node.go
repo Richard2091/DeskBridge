@@ -17,6 +17,7 @@ import (
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/paths"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/store"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	Channels []mesh.Channel
 	Device   *deviceid.Device
 	Tools    *tools.Registry // 本节点提供的工具；nil 时没有工具
+	Records  *store.DB       // 操作记录；nil 时不记录
 	Name     string          // 设备名，默认 os.Hostname()
 	Port     int             // 节点协议端口，默认 7465
 	Socket   string          // 本机接口的 unix socket 路径
@@ -41,6 +43,17 @@ type Config struct {
 type runningCall struct {
 	cancel context.CancelFunc
 	owner  string // 发起调用者的 Owner，取消时要核对
+	events *callEvents
+}
+
+// lookupCall 按 request_id 找正在执行的调用。
+func (n *Node) lookupCall(id string) (*runningCall, bool) {
+	v, ok := n.inflight.Load(id)
+	if !ok {
+		return nil, false
+	}
+	rc, ok := v.(*runningCall)
+	return rc, ok
 }
 
 // Node 是一个被控设备上的节点。
@@ -115,6 +128,13 @@ func (n *Node) Run(ctx context.Context) error {
 
 	for _, ch := range n.cfg.Channels {
 		go n.serveChannel(ctx, ch)
+	}
+	if n.cfg.Records != nil {
+		if cnt, err := n.cfg.Records.MarkInterrupted(); err != nil {
+			n.logf("标记中断的操作记录失败: %v", err)
+		} else if cnt > 0 {
+			n.logf("上次运行中断时仍在执行的 %d 条调用已标为 interrupted", cnt)
+		}
 	}
 	n.logf("节点已启动：设备 %s，本机接口 %s", n.cfg.Device.ID(), n.cfg.Socket)
 

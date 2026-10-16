@@ -16,6 +16,7 @@ import (
 
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"github.com/Richard2091/DeskBridge/internal/store"
 	"github.com/Richard2091/DeskBridge/internal/tools"
 	"github.com/Richard2091/DeskBridge/internal/version"
 )
@@ -45,6 +46,8 @@ func (a *api) routes() http.Handler {
 	mux.HandleFunc("GET /v1/capability", a.handleCapability)
 	mux.HandleFunc("POST /v1/tools/{name}", a.handleCall)
 	mux.HandleFunc("DELETE /v1/requests/{id}", a.handleCancel)
+	mux.HandleFunc("GET /v1/requests/{id}/events", a.handleEvents)
+	mux.HandleFunc("GET /v1/records", a.handleRecords)
 	return mux
 }
 
@@ -147,7 +150,8 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 	callCtx, cancel := context.WithTimeout(r.Context(), timeout)
 
 	// 先登记再执行，同一个 request_id 并发调用时后者得到 duplicate_request。
-	rc := &runningCall{cancel: cancel, owner: id.Owner}
+	started := time.Now()
+	rc := &runningCall{cancel: cancel, owner: id.Owner, events: newCallEvents(reqID, name, started)}
 	if _, loaded := a.n.inflight.LoadOrStore(reqID, rc); loaded {
 		cancel()
 		writeProtoError(w, protocol.Errorf(protocol.CodeDuplicateRequest, "请求 %s 正在执行", reqID))
@@ -156,11 +160,14 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 	defer a.n.inflight.Delete(reqID)
 	defer cancel()
 
-	started := time.Now()
+	initiator := initiatorOf(&creq)
+	recID := a.n.recordBegin(store.RoleTarget, a.n.cfg.Name, name, reqID, initiator,
+		callerInfo{owner: id.Owner, device: id.Device, kind: string(id.Kind)}, creq.Args, started)
 	call := &tools.Call{
 		RequestID: reqID,
 		Args:      creq.Args,
-		Caller:    tools.Caller{Identity: id, Initiator: initiatorOf(&creq)},
+		Caller:    tools.Caller{Identity: id, Initiator: initiator},
+		Emit:      rc.events.emit,
 	}
 	result, runErr := tool.Run(callCtx, call)
 
@@ -188,6 +195,8 @@ func (a *api) handleCall(w http.ResponseWriter, r *http.Request) {
 		resp.Error = perr
 	}
 
+	a.n.recordEnd(recID, auditCode(resp.Error), started, resp.DurationMS)
+	rc.events.finish(auditCode(resp.Error), resp.DurationMS)
 	a.n.logf("%s", auditRecord{
 		Time:         started,
 		RequestID:    reqID,
