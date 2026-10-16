@@ -818,54 +818,58 @@
             "title": "Flutter 项目搭建与构建",
             "description": "",
             "details": "",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 12,
             "parentId": "undefined",
-            "updatedAt": "2026-10-16T06:42:22.538Z"
+            "updatedAt": "2026-10-16T06:57:53.537Z"
           },
           {
             "id": 2,
             "title": "登录与组网状态界面",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 12,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:58:15.501Z"
           },
           {
             "id": 3,
             "title": "设备列表（分组、状态、连接方式）",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 12,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:58:34.795Z"
           },
           {
             "id": 4,
             "title": "设备详情：执行命令、文件浏览",
             "description": "",
             "details": "<info added on 2026-10-15T11:49:28.402Z>\n2026-10-15 路线图调整：截图功能已移至子任务 12.7（里程碑三）实现，本子任务的范围缩减为只做执行命令和文件浏览两项功能。设备详情界面按此新范围设计开发，验收标准中不再包含截图相关内容。\n</info added on 2026-10-15T11:49:28.402Z>",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "parentTaskId": 12,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:58:50.588Z"
           },
           {
             "id": 5,
             "title": "操作记录界面",
             "description": "",
             "details": "<info added on 2026-10-15T11:49:57.891Z>\n2026-10-15 路线图调整：操作记录页需合并展示各设备的操作记录（不再仅限单台设备）；对进行中的调用，页面实时显示输出流，并支持用户取消该调用。本任务新增依赖任务 11.5（跨设备查询）和 11.6（实时事件）。具体交互流程参见 docs/ui-design.md 流程 15。\n</info added on 2026-10-15T11:49:57.891Z>",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               "11.5",
               "11.6"
             ],
             "parentTaskId": 12,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:59:05.886Z"
           },
           {
             "id": 6,
@@ -891,7 +895,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-16T06:42:22.538Z"
+        "updatedAt": "2026-10-16T06:59:05.886Z"
       },
       {
         "id": "13",
@@ -1486,7 +1490,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T06:42:22.538Z",
+      "lastModified": "2026-10-16T06:59:05.888Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [
