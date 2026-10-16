@@ -65,6 +65,14 @@ Future<void> settle(WidgetTester tester, bool Function() until) async {
   }
 }
 
+/// 收尾：关闭连接，并让 HttpClient 的空闲计时器（FakeAsync 里的 30 秒）走完，
+/// 否则测试会因“仍有未完成的计时器”失败。
+Future<void> finish(WidgetTester tester, AppModel model) async {
+  model.api.close();
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(const Duration(minutes: 1));
+}
+
 Device me() => Device.fromJson({
       'kind': 'tailscale', 'name': 'win-test', 'self': true, 'online': true, 'os': 'windows', 'addrs': ['100.64.0.1'],
       'deskbridge': {'device_id': 'd', 'display_name': '测试机', 'version': 'm2', 'platform': {'os': 'windows'}, 'tools': 9},
@@ -117,6 +125,7 @@ void main() {
     await settle(tester, () => find.textContaining('退出码 3').evaluate().isNotEmpty);
     expect(find.textContaining('出错了', findRichText: true), findsOneWidget);
     expect(find.textContaining('退出码 3'), findsOneWidget);
+    await finish(tester, model);
   });
 
   testWidgets('文件：列出目录、进入文件夹、预览文本', (tester) async {
@@ -158,5 +167,6 @@ void main() {
     await tester.pump();
     await settle(tester, () => calls.where((c) => c['tool'] == 'fs.list').length >= 2);
     expect(calls.where((c) => c['tool'] == 'fs.list').last['args'], containsPair('path', 'C:\\Users\\me\\Docs'));
+    await finish(tester, model);
   });
 }
