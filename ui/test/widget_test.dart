@@ -2,6 +2,7 @@ import 'package:deskbridge_client/app.dart';
 import 'package:deskbridge_client/core/api.dart';
 import 'package:deskbridge_client/core/app_model.dart';
 import 'package:deskbridge_client/core/models.dart';
+import 'package:deskbridge_client/pages/device_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -91,7 +92,7 @@ void main() {
     // 筛选“人”后只剩人发起的。
     await tester.tap(find.descendant(of: find.byType(SegmentedButton<String>), matching: find.text('人')));
     await tester.pump();
-    expect(find.text('fs.read'), findsNothing);
+    expect(find.byType(ActivityRow), findsOneWidget);
     expect(find.text('proc.exec'), findsOneWidget);
   });
 
