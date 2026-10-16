@@ -49,11 +49,13 @@ func Summarize(args json.RawMessage) string {
 	if err := dec.Decode(&v); err != nil {
 		return fmt.Sprintf("<无法解析的参数，%d 字节>", len(args))
 	}
-	out, err := json.Marshal(walk("", v, 0))
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false) // 摘要给人看，<、> 不转义
+	if err := enc.Encode(walk("", v, 0)); err != nil {
 		return fmt.Sprintf("<无法编码的参数，%d 字节>", len(args))
 	}
-	return cut(string(out), maxSummaryBytes)
+	return cut(strings.TrimSpace(buf.String()), maxSummaryBytes)
 }
 
 // Text 对一段自由文本做同样的内容脱敏（不截断），供日志类用途。
@@ -78,7 +80,7 @@ func walk(key string, v any, depth int) any {
 	}
 	switch x := v.(type) {
 	case string:
-		return cut(scrub(x), maxStringRunes*4)
+		return cutRunes(scrub(x), maxStringRunes)
 	case []any:
 		n := min(len(x), maxItems)
 		out := make([]any, 0, n+1)
@@ -131,4 +133,12 @@ func cut(s string, max int) string {
 		end--
 	}
 	return s[:end] + "…"
+}
+
+// cutRunes 把 s 截到不超过 max 个字符，超出时加省略号。
+func cutRunes(s string, max int) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	return string([]rune(s)[:max]) + "…"
 }

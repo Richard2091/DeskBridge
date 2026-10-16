@@ -56,8 +56,17 @@ func TestSummarizeLimits(t *testing.T) {
 	if len(got) > maxSummaryBytes+len("…") {
 		t.Fatalf("摘要过长：%d 字节", len(got))
 	}
-	if !strings.HasSuffix(got, "…") {
-		t.Fatalf("超长摘要应以省略号结尾：%q", got[len(got)-10:])
+	if !strings.Contains(got, "…") || strings.Count(got, "中") != maxStringRunes {
+		t.Fatalf("超长字符串应截到 %d 个字符并加省略号：%q", maxStringRunes, got)
+	}
+	// 多个字段加起来超过整体上限时，整体截断。
+	var fields []string
+	for i := 0; i < 15; i++ {
+		fields = append(fields, `"k`+string(rune('a'+i))+`":"`+strings.Repeat("x", 190)+`"`)
+	}
+	got = Summarize(json.RawMessage(`{` + strings.Join(fields, ",") + `}`))
+	if len(got) > maxSummaryBytes+len("…") || !strings.HasSuffix(got, "…") {
+		t.Fatalf("整体应截到 %d 字节并以省略号结尾：%d 字节", maxSummaryBytes, len(got))
 	}
 	if !strings.Contains(Summarize(json.RawMessage(`not json`)), "无法解析") {
 		t.Fatal("非法 JSON 应给出提示")
