@@ -62,6 +62,9 @@ Device me() => Device.fromJson({
     });
 
 void main() {
+  // flutter_test 默认让所有 HttpClient 返回 400；这里要连本地的模拟桥接。
+  setUpAll(() => HttpOverrides.global = null);
+
   testWidgets('终端：执行命令显示输出和退出码；失败命令标红', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
