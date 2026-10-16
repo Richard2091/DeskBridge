@@ -804,7 +804,7 @@
         "description": "按连接方式分组显示设备、执行命令、文件、查看截图、查看操作记录；没有多步登录向导。",
         "details": "使用任务 24 决策后的客户端框架实现。复用客户端库。同一份前端是否以及如何提供为网页控制台，按框架决策执行；必须保持异步加载、高延迟下的界面响应、取消操作和断线重连状态。验收：Windows 上安装客户端，登录后看到设备、连接方式、延迟，能执行命令、截图、查看记录。\n<info added on 2026-10-07T13:00:00.000Z>\nADR-0002：Flutter。网页控制台暂不做。可参考 spikes/ui-flutter/ 的原型结构（Dart 子进程启动 Go 核心）。\n</info added on 2026-10-07T13:00:00.000Z>\n<info added on 2026-10-08T06:00:00.000Z>\nADR-0009 初版范围：标题栏只有品牌、“远程窗口 N”和窗口按钮；侧栏：设备、操作记录、设置。DeskBridge 没有自己的账号，Tailscale 登录入口在设备页 Tailscale 分组和“设置 → 连接方式”。不做：访问权限页、发起端确认、外部设备、调用被控端 AI、全局搜索。界面以 docs/ui-design.md 和 ui/prototype/ 为准。\n</info added on 2026-10-08T06:00:00.000Z>",
         "testStrategy": "",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "6",
           "11",
@@ -818,10 +818,11 @@
             "title": "Flutter 项目搭建与构建",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 12,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-16T06:42:22.538Z"
           },
           {
             "id": 2,
@@ -889,7 +890,8 @@
             "parentTaskId": 12,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-16T06:42:22.538Z"
       },
       {
         "id": "13",
@@ -1484,7 +1486,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T06:33:05.808Z",
+      "lastModified": "2026-10-16T06:42:22.538Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [

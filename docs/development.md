@@ -64,7 +64,15 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 
 - Go 版本由 `go.mod` 决定，本地 Go 较旧时会自动下载对应工具链（`GOTOOLCHAIN=auto`）。
 - `.ps1` 脚本必须保存为带 BOM 的 UTF-8，否则 Windows PowerShell 5.1 会按 GBK 读取中文。
-- CI 见 `.github/workflows/ci.yml`，运行在 GitHub 的运行器上：Linux 任务跑 `check.sh` 和 `build.sh`，Windows 任务跑 `check.ps1`。Flutter 的构建和冒烟测试在任务 12 加入。
+- CI 见 `.github/workflows/ci.yml`，运行在 GitHub 的运行器上：Linux 任务跑 `check.sh` 和 `build.sh`，Windows 任务跑 `check.ps1`，另有 `ui` 任务跑 Flutter 客户端的 `analyze`、`test` 和 `build windows`（2026-10-16 加入，尚未在 GitHub 上跑过，待验证）。
+
+## 桌面客户端（Flutter，`ui/`）
+
+- **Flutter 位置：** 台式机 `D:\data\AI\Projects\DeskBridgeTools\flutter`（3.47，Dart 3.13）。在中国大陆的网络下需要设置 `PUB_HOSTED_URL=https://pub.flutter-io.cn` 和 `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`。
+- **常用命令（在 `ui\` 下）：** `flutter pub get`、`flutter analyze`、`flutter test`（单元测试和组件测试，不需要后台）。
+- **构建：** `scripts\build-ui.cmd`：先编译 Go 程序，再 `flutter build windows --release`，把 `deskbridge.exe` 复制到 `ui\build\windows\x64\runner\Release\`，和 `deskbridge_client.exe` 放在一起。
+- **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机节点必须已在运行（开机自启或 `deskbridge node`）。
+- **界面配置：** `%APPDATA%\DeskBridge\ui.json`（目前只有主题）。
 
 ## 远程执行通道
 

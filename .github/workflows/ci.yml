@@ -42,4 +42,19 @@ jobs:
           desktop-helper/target/release/deskbridge-desktop-helper.exe --version
         shell: pwsh
 
-  # Flutter 客户端（ui/）的 Windows 构建和冒烟测试在客户端开始开发时加入（任务 12）。
+  ui:
+    name: Windows：Flutter 客户端
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build windows --release
