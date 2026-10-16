@@ -89,6 +89,7 @@ Tailscale 实现（[ADR-0003](decisions/adr-0003-network-tsnet.md)）：
 - **承载：** 内网里的 HTTP + JSON；需要持续推送的（进度、事件、实时远程桌面信令）用 WebSocket。
 - **能力报告：** `GET /v1/capability` 返回平台、版本、工具列表和每个工具的 JSON Schema。客户端据此决定能做什么。
 - **工具调用：** `POST /v1/tools/{name}`，带 `request_id`、参数、超时。支持取消（`DELETE /v1/requests/{id}`）。
+- **操作记录和实时事件：** `GET /v1/records`、`GET /v1/requests/{id}/events`（WebSocket），见“操作记录”一节。
   - `request_id` 可省略（节点生成）；指定时不超过 128 字节、不含控制字符，否则返回 `invalid_args`。
   - `timeout_ms` 缺省（0）时节点用该工具自己的默认超时（通用默认 60 秒）；指定值和工具默认值都被截到工具上限，且任何工具的上限不超过全局上限 10 分钟。客户端库不知道工具的默认值，所以总是设置等待截止时间：`timeout_ms` 缺省时取全局上限加 15 秒余量，指定时取 `timeout_ms`（同样截到全局上限）加 15 秒余量，保证能收到节点的超时响应。
 - **工具命名不带平台前缀：** 例如 `fs.read`、`proc.exec`、`screen.capture`，同名工具在各平台语义一致；平台不支持时在能力报告中不出现，调用时返回明确错误 `unsupported_platform`。
@@ -204,13 +205,15 @@ AI 拿到的画面在两端都能看到：发起端可以实时查看和回看�
 
 每次工具调用记录：`request_id`、操作者类型（AI / 人）、操作者身份（内网账号、MCP 会话）、目标设备、工具名、参数摘要（敏感字段脱敏）、结果状态、开始和结束时间。审计日志行中调方可控的字符串字段（`request_id`、`tool`、发起者各字段）都用带引号转义的形式输出，防止换行等字符伪造日志行。哈希链防篡改和双端存储留到以后（任务 17）。
 
-用户要能看到 AI 在各台设备上做了什么，并能插手（2026-10-15 用户决定提前到里程碑二，任务 11、12）。设计如下，接口名称待定：
+用户要能看到 AI 在各台设备上做了什么，并能插手（2026-10-15 用户决定提前到里程碑二，任务 11、12）。实现如下（2026-10-16，任务 11 完成）：
 
-- **存储：** 被控端把收到的每次调用写进本机 SQLite；控制端也记录自己发出的请求。两条记录用同一个 `request_id` 关联。
-- **跨设备查询：** 节点提供查询本机记录的接口（按时间、操作者类型、工具、结果筛选，分页），同账号设备可以调用。客户端向各在线设备查询后按时间合并，按 `request_id` 去重。离线设备的记录在它上线后才能看到。
-- **实时事件：** 节点对正在执行的调用推送事件：开始、输出片段（`proc.exec` 的标准输出和标准错误）、结束。同账号设备可以订阅（WebSocket）。节点为每个正在运行的调用保留最近一段输出，新订阅者先拿到这段再接实时片段；输出缓冲有上限，超出后丢弃最早的部分并标明。
-- **取消：** 同账号的任何设备都可以按 `request_id` 取消调用（`DELETE /v1/requests/{id}`），不限于发起者（现有实现按账号 Owner 核对，已满足）。初版信任同账号设备（ADR-0009），以后按权限细分（ADR-0008）。
-- **命令行：** `deskbridge log` 查询本机或指定设备的记录。
+- **存储：** 数据目录下的 `records.db`（SQLite，WAL）。被控端把收到的每次调用写进去（`role=target`），控制端把自己发出的请求也写一条（`role=source`，在本机接口转发时记录，请求里没有 `request_id` 就先补上），两条用同一个 `request_id` 关联。调用开始时写入 `running`，结束时更新为 `ok` 或错误码；节点启动时把上次遗留的 `running` 标为 `interrupted`。保留 90 天。表结构用 `PRAGMA user_version` 迁移。
+- **参数摘要脱敏（`internal/redact`）：** 键名含 password、token、secret、api_key、authorization、cookie 等的值整个隐藏；`content`、`stdin` 只记字节数；`env` 只留变量名；字符串里的 `password=…`、`--token …`、`Bearer …` 替换为 `***`；单个字符串最多 200 字符，整个摘要最多 1 KiB。宁可多遮：命令行里 `password=` 后面的内容可能连带遮掉同一个词后面的部分。
+- **跨设备查询：** `GET /v1/records?since=&until=&operator_type=&tool=&status=&role=&request_id=&before=&limit=`（同账号设备可调用，按开始时间从新到旧，`next_before` 翻页；`tool` 以 `*` 结尾为前缀匹配，`status` 可用 `failed` 表示所有失败）。客户端库的 `Activity` 向本机和所有在线的 DeskBridge 设备查询（对其他设备只取 `role=target`，每台 8 秒超时，失败的设备单独列出），按 `request_id` 去重（被控端记录优先）后按时间合并。离线设备的记录在它上线后才能看到；版本较旧、没有这个接口的设备显示“对端不支持这个接口”。
+- **实时事件：** `GET /v1/requests/{id}/events` 升级为 WebSocket，每条消息是一个 `protocol.Event`：`start`（工具名、`dropped_bytes`）、`output`（`stream`=stdout/stderr，已解码为 UTF-8，`proc.exec` 按行推送，没有换行的内容攒到 4 KiB 或命令结束）、`end`（结果码、耗时）。每个调用保留最近 256 KiB 输出，新订阅者先收到缓冲再接实时片段；超出上限丢弃最早的部分并在 `start.dropped_bytes` 标明；订阅者太慢（待发队列 256 条满）被断开。调用结束后订阅返回 `not_found`，界面改用调用结果。只有执行中的调用能订阅，实时事件目前只有 `proc.exec` 推送输出，其他工具只有 `start` 和 `end`。
+- **取消和订阅的权限：** 同账号的任何设备都可以按 `request_id` 取消或订阅（`DELETE /v1/requests/{id}`）；本机的本地身份（本机用户经命令行或桌面客户端）也可以，它的 Owner 只是占位值，所以单独放行（实测发现：不放行时本机用户无法取消其他设备发起的调用）。初版信任同账号设备（ADR-0009），以后按权限细分（ADR-0008）。
+- **命令行：** `deskbridge log [-d 设备 | --all] [--ai|--human] [--tool] [--status] [--since] [-n] [-v] [--json]`、`deskbridge watch -d 设备 <request_id>`（实时看输出）、`deskbridge cancel -d 设备 <request_id>`。
+- **桌面客户端的后台（`deskbridge ui-core`）：** 客户端启动它作为子进程，它在 `127.0.0.1` 随机端口上提供带随机令牌的 HTTP 服务（启动时向标准输出打印 `{"addr","token"}` 一行，标准输入关闭时退出），把 `/local/...` 原样转给本机节点的 unix socket（含 WebSocket），并提供 `GET /api/activity`（跨设备合并的记录）。这样 Dart 不需要支持 unix socket，节点的权限模型不变。这替代了 ui-design 第 7 节早先设想的“标准输入输出传 JSON”。
 
 ## 远程桌面（后期实时画面）
 

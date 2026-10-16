@@ -26,7 +26,8 @@
 | `derper`（Tailscale 仓库内） | 自建中继 | BSD-3 |
 | Flutter（Dart） | 桌面客户端、安卓控制端 | BSD-3 |
 | `github.com/pion/webrtc` | 远程画面（后期，是否使用随任务 15 决定） | MIT |
-| `modernc.org/sqlite` | 本地存储 | BSD-3 |
+| `modernc.org/sqlite` | 本地存储（操作记录，任务 11） | BSD-3 |
+| `github.com/coder/websocket` | 实时事件的 WebSocket（任务 11.6；Tailscale 已间接依赖） | ISC |
 | `github.com/zalando/go-keyring` | 系统密钥库 | MIT |
 | `github.com/go-ole/go-ole` | Windows COM / UI Automation | MIT |
 | `github.com/kbinani/screenshot` | 截图 | MIT |
