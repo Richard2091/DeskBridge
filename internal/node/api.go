@@ -285,8 +285,8 @@ func (a *api) handleCancel(w http.ResponseWriter, r *http.Request) {
 		writeProtoError(w, protocol.Errorf(protocol.CodeInternal, "请求记录类型不对"))
 		return
 	}
-	if rc.owner != id.Owner {
-		writeProtoError(w, sameOwnerRequired("只能取消自己发起的调用"))
+	if !rc.accessibleBy(id) {
+		writeProtoError(w, sameOwnerRequired("只能取消同一账号发起的调用"))
 		return
 	}
 	rc.cancel()

@@ -17,6 +17,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/Richard2091/DeskBridge/internal/client"
+	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
 	"github.com/Richard2091/DeskBridge/internal/store"
 	"github.com/Richard2091/DeskBridge/internal/tools"
@@ -377,4 +378,26 @@ func TestEventsWebSocketHandshake(t *testing.T) {
 	if err := wsjson.Read(ctx, conn, &ev); err != nil || ev.Type != protocol.EventStart {
 		t.Fatalf("第一条消息 = %+v, %v", ev, err)
 	}
+}
+
+// 本机用户（命令行、桌面客户端经本机接口，身份是本地身份）要能取消和订阅
+// 其他设备发起的调用，否则用户无法插手 AI 在本机上的命令。
+func TestLocalIdentityCanCancelAndSubscribeRemoteCall(t *testing.T) {
+	n := newAPINode(t)
+	srv, box := fixedAPI(t, n) // 默认身份：同账号的远程设备
+	go rawPost(srv.URL+"/v1/tools/test.sleep", `{"request_id":"remote-1","args":{"ms":30000}}`)
+	waitFor(t, func() bool { _, ok := n.inflight.Load("remote-1"); return ok }, "调用没有进入执行状态")
+
+	box.set(mesh.Identity{Kind: mesh.KindLocal, Owner: "local", Device: "win-pc", Mine: true})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/v1/requests/remote-1/events", nil)
+	if err != nil {
+		t.Fatalf("本地身份应能订阅：%v", err)
+	}
+	conn.CloseNow()
+	if resp := httpDelete(t, srv.URL+"/v1/requests/remote-1"); resp.StatusCode != http.StatusOK {
+		t.Fatalf("本地身份应能取消，状态码 = %d", resp.StatusCode)
+	}
+	waitFor(t, func() bool { _, ok := n.inflight.Load("remote-1"); return !ok }, "取消后调用没有结束")
 }

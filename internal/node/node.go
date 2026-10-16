@@ -46,6 +46,13 @@ type runningCall struct {
 	events *callEvents
 }
 
+// accessibleBy 判断 id 能否取消或订阅这条调用：发起者的同账号设备可以；
+// 本机的本地身份（本机用户经命令行或桌面客户端）也可以，它的 Owner 只是占位
+// 值，对不上调用者的账号，但本机用户本来就能管理本机上的一切。
+func (rc *runningCall) accessibleBy(id mesh.Identity) bool {
+	return id.Kind == mesh.KindLocal || rc.owner == id.Owner
+}
+
 // lookupCall 按 request_id 找正在执行的调用。
 func (n *Node) lookupCall(id string) (*runningCall, bool) {
 	v, ok := n.inflight.Load(id)

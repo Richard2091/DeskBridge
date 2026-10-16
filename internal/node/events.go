@@ -137,7 +137,7 @@ func (a *api) handleEvents(w http.ResponseWriter, r *http.Request) {
 		writeProtoError(w, protocol.Errorf(protocol.CodeNotFound, "没有正在执行的请求 %s", reqID))
 		return
 	}
-	if rc.owner != id.Owner {
+	if !rc.accessibleBy(id) {
 		writeProtoError(w, sameOwnerRequired("只能订阅同一账号的调用"))
 		return
 	}
