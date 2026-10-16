@@ -108,6 +108,10 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 		if err := json.NewDecoder(resp.Body).Decode(&e); err == nil && e.Error != nil && e.Error.Code != "" {
 			return e.Error
 		}
+		if resp.StatusCode == http.StatusNotFound {
+			// 没有错误体的 404：路由不存在，对端是不支持这个接口的旧版本。
+			return protocol.Errorf(protocol.CodeNotFound, "对端不支持这个接口（可能是旧版本）")
+		}
 		return protocol.Errorf(protocol.CodeInternal, "节点返回状态码 %s", strconv.Itoa(resp.StatusCode))
 	}
 	if out == nil {

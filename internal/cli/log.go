@@ -29,6 +29,7 @@ func runLog(args []string, stdout, stderr io.Writer) int {
 	tool := t.fs.String("tool", "", "按工具名筛选，以 * 结尾为前缀，如 fs.*")
 	status := t.fs.String("status", "", "按结果筛选：running、ok、failed 或具体错误码")
 	role := t.fs.String("role", "", "只看一端的记录：target（被控端）或 source（控制端）；不能和 --all 同用")
+	verbose := t.fs.Bool("v", false, "多显示一列完整的 request_id（供 watch、cancel 使用）")
 	since := t.fs.Duration("since", 0, "只看最近一段时间内的，如 1h、30m")
 	if code, ok := t.parse(args); !ok {
 		return code
@@ -108,12 +109,20 @@ func runLog(args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(tw, "时间\t设备\t操作者\t工具\t结果\t耗时\t参数")
+	idCol := ""
+	if *verbose {
+		idCol = "\trequest_id"
+	}
+	fmt.Fprintln(tw, "时间\t设备\t操作者\t工具\t结果\t耗时\t参数"+idCol)
 	for _, it := range items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s",
 			time.UnixMilli(it.StartedAt).Format("01-02 15:04:05"),
 			dash(it.TargetName), operatorText(it.Record), it.Tool, statusText(it.Record),
 			durationText(it.Record), oneLine(it.Args, 60))
+		if *verbose {
+			fmt.Fprintf(tw, "\t%s", it.RequestID)
+		}
+		fmt.Fprintln(tw)
 	}
 	tw.Flush()
 	return exitOK
@@ -160,4 +169,80 @@ func oneLine(s string, max int) string {
 		return string(r[:max]) + "…"
 	}
 	return s
+}
+
+const watchHelp = `实时查看设备上一条正在执行的调用（包括 AI 发起的）：先显示最近一段输出，
+再跟随新输出，调用结束时退出。request_id 可从 log -v 查到。标准输出写到
+标准输出，标准错误写到标准错误。`
+
+func runWatch(args []string, stdout, stderr io.Writer) int {
+	t := newToolCmd("watch", "watch [-d 设备] <request_id>", watchHelp, false, stdout, stderr)
+	if code, ok := t.parse(args); !ok {
+		return code
+	}
+	if t.fs.NArg() != 1 {
+		return t.usageError("需要且只需要一个 request_id")
+	}
+	s, code, ok := t.open()
+	if !ok {
+		return code
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sig, stopSig := notifyInterrupt()
+	defer stopSig()
+	go func() {
+		select {
+		case <-sig:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	events, err := s.c.Subscribe(ctx, s.device, t.fs.Arg(0))
+	if err != nil {
+		return t.fail(err)
+	}
+	for ev := range events {
+		switch ev.Type {
+		case protocol.EventStart:
+			fmt.Fprintf(stderr, "--- %s 开始", ev.Tool)
+			if ev.DroppedBytes > 0 {
+				fmt.Fprintf(stderr, "（更早的 %d 字节输出已丢弃）", ev.DroppedBytes)
+			}
+			fmt.Fprintln(stderr)
+		case protocol.EventOutput:
+			if ev.Stream == "stderr" {
+				io.WriteString(stderr, ev.Data)
+			} else {
+				io.WriteString(stdout, ev.Data)
+			}
+		case protocol.EventEnd:
+			fmt.Fprintf(stderr, "--- 结束：%s，耗时 %s\n", ev.Code, (time.Duration(ev.DurationMS) * time.Millisecond).String())
+		}
+	}
+	if ctx.Err() != nil {
+		return exitInterrupted
+	}
+	return exitOK
+}
+
+func runCancel(args []string, stdout, stderr io.Writer) int {
+	t := newToolCmd("cancel", "cancel [-d 设备] <request_id>", "取消设备上一条正在执行的调用（任何同账号设备都可以取消）。request_id 可从 log -v 查到。", false, stdout, stderr)
+	if code, ok := t.parse(args); !ok {
+		return code
+	}
+	if t.fs.NArg() != 1 {
+		return t.usageError("需要且只需要一个 request_id")
+	}
+	s, code, ok := t.open()
+	if !ok {
+		return code
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cancelTimeout*2)
+	defer cancel()
+	if err := s.c.Cancel(ctx, s.device, t.fs.Arg(0)); err != nil {
+		return t.fail(err)
+	}
+	fmt.Fprintln(stdout, "已请求取消")
+	return exitOK
 }
