@@ -56,6 +56,15 @@ Future<HttpServer> fakeBridge(List<Map<String, dynamic>> calls) async {
   return server;
 }
 
+/// 等条件成立。真实 socket 的完成回调要在 runAsync 里跑，而继续执行的代码在
+/// FakeAsync 区域里，需要 pump 才会往下走，所以两者交替进行。
+Future<void> settle(WidgetTester tester, bool Function() until) async {
+  for (var i = 0; i < 80 && !until(); i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 25)));
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 Device me() => Device.fromJson({
       'kind': 'tailscale', 'name': 'win-test', 'self': true, 'online': true, 'os': 'windows', 'addrs': ['100.64.0.1'],
       'deskbridge': {'device_id': 'd', 'display_name': '测试机', 'version': 'm2', 'platform': {'os': 'windows'}, 'tools': 9},
@@ -85,8 +94,7 @@ void main() {
     await tester.pump();
 
     // 概览读 sys.info。
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-    await tester.pump();
+    await settle(tester, () => find.text('win-test').evaluate().isNotEmpty);
     expect(find.text('win-test'), findsWidgets);
 
     await tester.tap(find.text('终端'));
@@ -95,8 +103,7 @@ void main() {
     await tester.tap(find.text('执行'));
     await tester.pump();
     expect(find.text('取消'), findsOneWidget); // 运行中显示取消
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
-    await tester.pump(const Duration(milliseconds: 200));
+    await settle(tester, () => find.textContaining('退出码 0').evaluate().isNotEmpty);
     expect(find.textContaining('你好，世界', findRichText: true), findsOneWidget);
     expect(find.textContaining('退出码 0'), findsOneWidget);
     final call = calls.lastWhere((c) => c['tool'] == 'proc.exec');
@@ -107,8 +114,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'fail');
     await tester.tap(find.text('执行'));
     await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
-    await tester.pump(const Duration(milliseconds: 200));
+    await settle(tester, () => find.textContaining('退出码 3').evaluate().isNotEmpty);
     expect(find.textContaining('出错了', findRichText: true), findsOneWidget);
     expect(find.textContaining('退出码 3'), findsOneWidget);
   });
@@ -133,8 +139,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('文件'));
     await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
-    await tester.pump();
+    await settle(tester, () => find.text('Docs').evaluate().isNotEmpty);
     // 先读 sys.info 的用户目录，再列出它。
     expect(calls.where((c) => c['tool'] == 'fs.list').first['args'], containsPair('path', 'C:\\Users\\me'));
     expect(find.text('Docs'), findsOneWidget);
@@ -144,16 +149,14 @@ void main() {
 
     await tester.tap(find.text('notes.txt'));
     await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-    await tester.pump();
+    await settle(tester, () => find.textContaining('第一行', findRichText: true).evaluate().isNotEmpty);
     expect(find.textContaining('第一行', findRichText: true), findsOneWidget);
     final read = calls.lastWhere((c) => c['tool'] == 'fs.read');
     expect((read['args'] as Map)['path'], 'C:\\Users\\me\\notes.txt');
 
     await tester.tap(find.text('Docs'));
     await tester.pump();
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-    await tester.pump();
+    await settle(tester, () => calls.where((c) => c['tool'] == 'fs.list').length >= 2);
     expect(calls.where((c) => c['tool'] == 'fs.list').last['args'], containsPair('path', 'C:\\Users\\me\\Docs'));
   });
 }
