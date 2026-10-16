@@ -142,9 +142,13 @@ class Api {
           .map((m) => CallEvent.fromJson(m as Map<String, dynamic>))
           .asBroadcastStream();
     } on WebSocketException catch (e) {
-      // 握手被拒绝（调用不存在、不是同一账号等）。
-      if (e.message.contains('404')) throw ApiException('not_found', '调用已结束或不存在');
-      if (e.message.contains('403')) throw ApiException('permission_denied', '没有权限订阅这条调用');
+      // Dart 的握手失败不带状态码。用同一地址发一次普通请求，拿节点的 JSON 错误
+      // （调用不存在 → not_found，不是同账号 → permission_denied）。
+      try {
+        await _send('GET', Uri(scheme: 'http', host: host, port: port, path: uri.path));
+      } on ApiException catch (inner) {
+        if (inner.code == 'not_found' || inner.code == 'permission_denied' || inner.code == 'unauthorized') rethrow;
+      }
       throw ApiException('ws_failed', '订阅实时输出失败：${e.message}');
     } on TimeoutException {
       throw ApiException('timeout', '订阅实时输出超时');

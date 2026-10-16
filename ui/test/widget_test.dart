@@ -89,7 +89,7 @@ void main() {
     expect(find.text('详情'), findsOneWidget);
     expect(find.text('取消这条调用'), findsOneWidget);
     // 筛选“人”后只剩人发起的。
-    await tester.tap(find.text('人').first);
+    await tester.tap(find.descendant(of: find.byType(SegmentedButton<String>), matching: find.text('人')));
     await tester.pump();
     expect(find.text('fs.read'), findsNothing);
     expect(find.text('proc.exec'), findsOneWidget);
