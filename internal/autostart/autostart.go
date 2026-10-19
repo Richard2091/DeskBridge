@@ -21,13 +21,6 @@ type Config struct {
 	User     string   // 触发和运行的用户，形如 DOMAIN\name
 }
 
-func (c Config) name() string {
-	if c.TaskName == "" {
-		return DefaultTaskName
-	}
-	return c.TaskName
-}
-
 // quoteArg 按 Windows 命令行规则给参数加引号（CommandLineToArgvW 的逆过程）。
 func quoteArg(s string) string {
 	if s != "" && !strings.ContainsAny(s, " \t\"") {

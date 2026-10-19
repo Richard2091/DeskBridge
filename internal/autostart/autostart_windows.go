@@ -77,3 +77,11 @@ func Exists(taskName string) bool {
 	_, err := schtasks("/Query", "/TN", c.name())
 	return err == nil
 }
+
+// name 返回计划任务名，空则用 DefaultTaskName。
+func (c Config) name() string {
+	if c.TaskName == "" {
+		return DefaultTaskName
+	}
+	return c.TaskName
+}
