@@ -70,7 +70,7 @@ func runUICore(args []string, stdout, stderr io.Writer) int {
 		} else {
 			mode = "embedded"
 			var logPath string
-			nodeDone, logPath, err = startEmbeddedNode(ctx, socket)
+			nodeDone, logPath, err = startEmbeddedNode(ctx)
 			if err != nil {
 				// 内置节点已退出，而本机接口能连上：同时启动的另一个客户端（或刚自启的
 				// 节点）抢先占用了它，改为复用。
@@ -147,9 +147,9 @@ func nodeReachable(socket string, timeout time.Duration) bool {
 	return true
 }
 
-// startEmbeddedNode 在 goroutine 里运行节点并等本机接口就绪。
+// startEmbeddedNode 在 goroutine 里运行节点，等它的本机接口开始监听。
 // 返回的 done 在节点退出后关闭（失败时也返回，便于调用方等待收尾）。
-func startEmbeddedNode(ctx context.Context, socket string) (<-chan struct{}, string, error) {
+func startEmbeddedNode(ctx context.Context) (<-chan struct{}, string, error) {
 	dir, err := paths.LogDir()
 	if err != nil {
 		return nil, "", fmt.Errorf("确定日志目录失败：%w", err)
@@ -163,34 +163,33 @@ func startEmbeddedNode(ctx context.Context, socket string) (<-chan struct{}, str
 	logf := func(format string, args ...any) { lg.Printf(format, args...) }
 
 	done := make(chan struct{})
+	ready := make(chan struct{})
 	result := make(chan error, 1)
 	go func() {
 		defer close(done)
 		defer lf.Close()
-		err := runNodeCore(ctx, nodeOptions{AuthKey: os.Getenv("DESKBRIDGE_AUTH_KEY"), Port: 7465}, logf)
+		err := runNodeCore(ctx, nodeOptions{
+			AuthKey:     os.Getenv("DESKBRIDGE_AUTH_KEY"),
+			Port:        7465,
+			OnListening: func() { close(ready) },
+		}, logf)
 		result <- err // 已在日志里记录；就绪之后没人读，缓冲区够用
 	}()
 
 	deadline := time.NewTimer(embeddedReadyWait)
 	defer deadline.Stop()
-	tick := time.NewTicker(100 * time.Millisecond)
-	defer tick.Stop()
-	for {
-		select {
-		case err := <-result:
-			<-done // 等收尾完成，调用方据此判断节点已退出
-			if err == nil {
-				err = errors.New("节点已退出")
-			}
-			return done, logPath, err
-		case <-deadline.C:
-			return done, logPath, fmt.Errorf("等待 %d 秒仍未就绪", int(embeddedReadyWait.Seconds()))
-		case <-ctx.Done():
-			return done, logPath, errors.New("已取消")
-		case <-tick.C:
-			if nodeReachable(socket, 100*time.Millisecond) {
-				return done, logPath, nil
-			}
+	select {
+	case <-ready:
+		return done, logPath, nil
+	case err := <-result:
+		<-done // 等收尾完成，调用方据此判断节点已退出
+		if err == nil {
+			err = errors.New("节点已退出")
 		}
+		return done, logPath, err
+	case <-deadline.C:
+		return done, logPath, fmt.Errorf("等待 %d 秒仍未就绪", int(embeddedReadyWait.Seconds()))
+	case <-ctx.Done():
+		return done, logPath, errors.New("已取消")
 	}
 }

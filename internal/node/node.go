@@ -37,6 +37,9 @@ type Config struct {
 	Port     int             // 节点协议端口，默认 7465
 	Socket   string          // 本机接口的 unix socket 路径
 	Logf     func(format string, args ...any)
+	// OnListening 在本机接口开始监听后调用一次（可为 nil）。ui-core 据此判断
+	// 自己启动的节点已就绪，而不是连上了别的节点。
+	OnListening func()
 }
 
 // runningCall 是一条正在执行的工具调用，用于按 request_id 取消。
@@ -117,6 +120,9 @@ func (n *Node) Run(ctx context.Context) error {
 	n.mu.Lock()
 	n.listener = ln
 	n.mu.Unlock()
+	if n.cfg.OnListening != nil {
+		n.cfg.OnListening()
+	}
 	defer func() {
 		ln.Close()
 		n.removeSocket()

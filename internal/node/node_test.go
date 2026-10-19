@@ -270,6 +270,41 @@ func TestNodeAlreadyRunning(t *testing.T) {
 	}
 }
 
+func TestOnListening(t *testing.T) {
+	_, socket := startNode(t, "win-pc")
+	called := false
+	n := New(Config{
+		Channels:    []mesh.Channel{meshtest.NewFake(mesh.KindTailscale, "")},
+		Device:      testDevice(t),
+		Name:        "other",
+		Socket:      socket,
+		OnListening: func() { called = true },
+	})
+	if err := n.Run(context.Background()); err == nil {
+		t.Fatal("socket 已被占用时 Run 应失败")
+	}
+	if called {
+		t.Error("没有监听成功时不应调用 OnListening")
+	}
+
+	ready := make(chan struct{})
+	n = New(Config{
+		Channels:    []mesh.Channel{meshtest.NewFake(mesh.KindTailscale, "")},
+		Device:      testDevice(t),
+		Name:        "fresh",
+		Socket:      filepath.Join(shortTempDir(t), "fresh.sock"),
+		OnListening: func() { close(ready) },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = n.Run(ctx) }()
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("监听成功后没有调用 OnListening")
+	}
+}
+
 // startRelayNode 启动第二个节点，它的 Fake 里有指向 targetFake 的路由，
 // 返回它的 socket 路径。
 func startRelayNode(t *testing.T, targetFake *meshtest.Fake, peers []mesh.Peer, socketName string) string {

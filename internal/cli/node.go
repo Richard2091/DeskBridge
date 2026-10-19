@@ -88,6 +88,7 @@ type nodeOptions struct {
 	Name, Hostname, ControlURL, AuthKey string
 	Port                                int
 	Verbose                             bool
+	OnListening                         func() // 本机接口开始监听后调用，可为 nil
 }
 
 // runNodeCore 准备本地目录并运行节点，直到 ctx 取消或出错。
@@ -168,6 +169,7 @@ func runNodeCore(ctx context.Context, opts nodeOptions, logf func(string, ...any
 		Port:     opts.Port,
 		Socket:   socketPath,
 		Logf:     logf,
+		OnListening: opts.OnListening,
 	})
 	logf("节点启动中（Ctrl+C 退出）")
 	err = n.Run(ctx)
