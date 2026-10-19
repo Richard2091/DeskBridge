@@ -161,14 +161,14 @@ func runNodeCore(ctx context.Context, opts nodeOptions, logf func(string, ...any
 	}
 
 	n := node.New(node.Config{
-		Channels: []mesh.Channel{ch},
-		Device:   dev,
-		Tools:    registry,
-		Records:  records,
-		Name:     opts.Name,
-		Port:     opts.Port,
-		Socket:   socketPath,
-		Logf:     logf,
+		Channels:    []mesh.Channel{ch},
+		Device:      dev,
+		Tools:       registry,
+		Records:     records,
+		Name:        opts.Name,
+		Port:        opts.Port,
+		Socket:      socketPath,
+		Logf:        logf,
 		OnListening: opts.OnListening,
 	})
 	logf("节点启动中（Ctrl+C 退出）")
