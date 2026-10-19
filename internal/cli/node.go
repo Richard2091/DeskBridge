@@ -87,9 +87,9 @@ const defaultNodePort = protocol.DefaultPort
 // nodeSettingFlags 是 node 和 install 共用的节点设置参数。
 // 只有命令行里显式给出的才算数（用 FlagSet.Visit 判断），其余取 node.json 或默认值。
 type nodeSettingFlags struct {
-	fs                          *flag.FlagSet
+	fs                         *flag.FlagSet
 	name, hostname, controlURL *string
-	port                        *int
+	port                       *int
 }
 
 func addNodeSettingFlags(fs *flag.FlagSet, note string) *nodeSettingFlags {
