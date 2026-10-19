@@ -163,3 +163,34 @@ func TestWebSocketThroughProxy(t *testing.T) {
 		t.Errorf("无令牌的 WebSocket 应得 401：%v %v", resp, err)
 	}
 }
+
+func TestCoreEndpoint(t *testing.T) {
+	srv := httptest.NewServer(HandlerWithCore(fakeNode(t), "tok", func() any {
+		return map[string]string{"mode": "embedded", "node_error": "", "log": "/x/ui-node.log"}
+	}))
+	t.Cleanup(srv.Close)
+
+	if resp, _ := get(t, srv.URL+"/api/core", ""); resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("没有令牌应返回 401，实际 %d", resp.StatusCode)
+	}
+	if resp, _ := get(t, srv.URL+"/api/core", "bad"); resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("错误令牌应返回 401，实际 %d", resp.StatusCode)
+	}
+	resp, body := get(t, srv.URL+"/api/core", "tok")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("状态码 %d: %s", resp.StatusCode, body)
+	}
+	var got map[string]string
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["mode"] != "embedded" || got["log"] != "/x/ui-node.log" {
+		t.Errorf("返回内容不对: %s", body)
+	}
+
+	// 普通 Handler 没有这个接口。
+	plain, _ := newBridge(t)
+	if resp, _ := get(t, plain.URL+"/api/core", "tok"); resp.StatusCode == http.StatusOK {
+		t.Error("Handler 不应提供 /api/core")
+	}
+}

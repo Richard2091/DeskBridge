@@ -114,3 +114,21 @@ func SupervisorLogFile() (string, error) {
 	}
 	return dir + string(os.PathSeparator) + "supervisor.log", nil
 }
+
+// NodeConfigFile 返回节点设置文件路径（Home 下的 node.json）。
+func NodeConfigFile() (string, error) {
+	home, err := Home()
+	if err != nil {
+		return "", err
+	}
+	return home + string(os.PathSeparator) + "node.json", nil
+}
+
+// NodeLockFile 返回节点单实例锁文件路径（Home 下的 node.lock）。
+func NodeLockFile() (string, error) {
+	home, err := Home()
+	if err != nil {
+		return "", err
+	}
+	return home + string(os.PathSeparator) + "node.lock", nil
+}

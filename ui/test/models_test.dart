@@ -56,4 +56,19 @@ void main() {
     expect(Device.fromJson({}).displayName, '');
     expect(LocalStatus.fromJson({}).channels, isEmpty);
   });
+
+  test('后台节点状态解析和文案', () {
+    final s = CoreState.fromJson({'mode': 'none', 'node_error': '端口被占用', 'log': r'C:\x\ui-node.log'});
+    expect(s.mode, 'none');
+    expect(s.nodeError, '端口被占用');
+    expect(s.modeText, '暂时没有（正在重新启动）');
+    expect(s.notRunningHint, r'本机节点没有响应，正在尝试重新启动。日志：C:\x\ui-node.log');
+    expect(const CoreState(mode: 'embedded').modeText, '随客户端运行');
+    expect(const CoreState(mode: 'external').modeText, '后台运行');
+    expect(const CoreState(mode: 'off').modeText, '不启动');
+    // 字段缺失、没有日志路径时省略“日志”部分。
+    final e = CoreState.fromJson({});
+    expect(e.mode, '');
+    expect(e.notRunningHint, '本机节点没有响应，正在尝试重新启动。');
+  });
 }

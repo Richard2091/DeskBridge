@@ -444,3 +444,52 @@ func TestLoginLogoutViaLocalAPI(t *testing.T) {
 		}
 	}
 }
+
+func TestLockFileSingleInstance(t *testing.T) {
+	lock := filepath.Join(shortTempDir(t), "node.lock")
+	mk := func(sock string) *Node {
+		return New(Config{
+			Channels: []mesh.Channel{meshtest.NewFake(mesh.KindTailscale, "")},
+			Device:   testDevice(t),
+			Name:     "n",
+			Socket:   filepath.Join(shortTempDir(t), sock),
+			LockFile: lock,
+		})
+	}
+	first := mk("a.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- first.Run(ctx) }()
+	waitFor(t, func() bool {
+		_, err := os.Stat(first.cfg.Socket)
+		return err == nil
+	}, "第一个节点没有监听 socket")
+
+	// 不同 socket、同一把锁：第二个节点必须拒绝启动，且不碰第一个节点的 socket。
+	err := mk("b.sock").Run(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "节点已在运行") {
+		t.Fatalf("Run() = %v, 期望提示节点已在运行", err)
+	}
+	if _, serr := os.Stat(first.cfg.Socket); serr != nil {
+		t.Errorf("第一个节点的 socket 不应受影响: %v", serr)
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("第一个节点没有退出")
+	}
+	// 锁在 Run 返回时释放：新节点可以接着启动。
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	third := mk("c.sock")
+	done2 := make(chan error, 1)
+	go func() { done2 <- third.Run(ctx2) }()
+	waitFor(t, func() bool {
+		_, err := os.Stat(third.cfg.Socket)
+		return err == nil
+	}, "锁释放后新节点没有启动")
+	cancel2()
+	<-done2
+}

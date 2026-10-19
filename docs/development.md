@@ -71,7 +71,7 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 - **Flutter 位置：** 台式机 `D:\data\AI\Projects\DeskBridgeTools\flutter`（3.47，Dart 3.13）。在中国大陆的网络下需要设置 `PUB_HOSTED_URL=https://pub.flutter-io.cn` 和 `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`。
 - **常用命令（在 `ui\` 下）：** `flutter pub get`、`flutter analyze`、`flutter test`（单元测试和组件测试，不需要后台）。
 - **构建：** `scripts\build-ui.cmd`：先编译 Go 程序，再 `flutter build windows --release`，把 `deskbridge.exe` 复制到 `ui\build\windows\x64\runner\Release\`，和 `deskbridge_client.exe` 放在一起。
-- **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机已有节点（开机自启或 `deskbridge node`）就复用它，客户端退出时不关；没有就在 ui-core 进程内运行节点，客户端退出时一起退出，节点日志在数据目录 `logs\ui-node.log`。
+- **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机已有节点（开机自启或 `deskbridge node`）就复用它，客户端退出时不关；没有就在 ui-core 进程内运行节点，客户端退出时一起退出，节点日志在数据目录 `logs\ui-node.log`。运行期间 ui-core 每 2 秒检查本机节点，节点消失就重新拉起内置节点；同一数据目录只允许一个节点（`node.lock`）。内置节点的名称、主机名、控制服务器、端口读数据目录下的 `node.json`（`deskbridge install -name ... -hostname ... -control-url ... -port ...` 会写入它，不再写进计划任务参数；旧任务重新运行 `install` 即可迁移）。
 - **界面配置：** `%APPDATA%\DeskBridge\ui.json`（目前只有主题）。
 
 ## 远程执行通道
@@ -109,6 +109,7 @@ OPENAI_COMPATIBLE_API_KEY=<GLM 密钥>
 - **为什么自己守护：** 计划任务自带的“失败后重启”对退出码非零的程序不生效（2026-10-15 在 Windows 上实测，退出码 1 后 4 分钟没有再运行），间隔最短也要 1 分钟，所以任务里保留它只作后备。
 - **日志：** `%APPDATA%\DeskBridge\logs\node.log`（节点）和 `supervisor.log`（守护进程，同时收集节点的标准输出和错误，崩溃堆栈在这里）。各自按 5 MiB 轮转，保留 3 个旧文件。
 - **控制台窗口：** 守护进程启动后用 `FreeConsole` 关闭窗口，进程启动到关闭之间会闪一下。
+- **节点设置在 `node.json`：** `install` 把显式给出的 `-name`、`-hostname`、`-control-url`、`-port` 合并写入数据目录的 `node.json`，任务参数里只有守护进程和日志相关的参数；旧任务带着这些参数照样能用（显式参数优先），重新运行 `install` 即可迁移。
 - **预授权密钥不写进任务：** 先运行一次 `node`（或 `login`）登录，登录状态保存在数据目录，之后自启动不再需要密钥。
 - **替换已安装的程序：** 任务指向 `install` 时那个 exe 的路径。路径不变，结束任务、替换文件、重新运行任务即可；路径变了，重新 `install`（覆盖同名任务）。
 - **从手动启动的计划任务迁移：** 旧任务（台式机 `DeskBridgeNodeDev`、笔记本 `DeskBridgeNode`）先删除或结束，否则会有两个节点抢端口。台式机用 `install -task-name DeskBridgeNodeDev` 可直接覆盖旧任务。

@@ -66,6 +66,8 @@ class Api {
     }
   }
 
+  Future<CoreState> core() async => CoreState.fromJson(await _send('GET', _uri('/api/core')));
+
   Future<LocalStatus> status() async =>
       LocalStatus.fromJson(await _send('GET', _uri('/local/status')));
 

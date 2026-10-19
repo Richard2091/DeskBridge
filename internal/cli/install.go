@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/Richard2091/DeskBridge/internal/autostart"
+	"github.com/Richard2091/DeskBridge/internal/nodeconfig"
 	"github.com/Richard2091/DeskBridge/internal/paths"
 	"github.com/Richard2091/DeskBridge/internal/platform"
 )
@@ -19,10 +20,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	taskName := fs.String("task-name", autostart.DefaultTaskName, "计划任务名")
-	name := fs.String("name", "", "设备显示名，传给 node")
-	hostname := fs.String("hostname", "", "内网主机名，传给 node")
-	controlURL := fs.String("control-url", "", "控制服务器地址，传给 node")
-	port := fs.Int("port", 7465, "节点协议端口，传给 node")
+	settings := addNodeSettingFlags(fs, "；保存到数据目录的 node.json，没给出的保持原值")
 	noStart := fs.Bool("no-start", false, "只安装，不立即启动（默认立即启动，不用等下次登录）")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
@@ -39,6 +37,10 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "确定程序路径失败：%v\n", err)
 		return exitError
 	}
+	if err := saveNodeSettings(settings.explicit()); err != nil {
+		fmt.Fprintf(stderr, "保存节点设置失败：%v\n", err)
+		return exitError
+	}
 	logPath, err := paths.NodeLogFile()
 	var superLog string
 	if err == nil {
@@ -50,12 +52,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	}
 	// 守护进程负责重启和收集崩溃输出（它的日志在 superLog），节点自己写 logPath。
 	nodeArgs := []string{"supervise", "-log-file", superLog, "-hide-console", "--",
-		"node", "-log-file", logPath, "-port", fmt.Sprint(*port)}
-	for _, o := range [][2]string{{"-name", *name}, {"-hostname", *hostname}, {"-control-url", *controlURL}} {
-		if o[1] != "" {
-			nodeArgs = append(nodeArgs, o[0], o[1])
-		}
-	}
+		"node", "-log-file", logPath}
 	err = autostart.Install(autostart.Config{TaskName: *taskName, Exe: exe, Args: nodeArgs})
 	if err != nil {
 		return installFailed(stderr, "安装", err)
@@ -70,6 +67,25 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stdout, "已启动。")
 	return exitOK
+}
+
+// saveNodeSettings 把显式给出的设置合并写入 node.json；一个都没给时不动文件。
+func saveNodeSettings(explicit nodeconfig.Config) error {
+	if explicit == (nodeconfig.Config{}) {
+		return nil
+	}
+	if _, err := paths.EnsureHome(); err != nil {
+		return err
+	}
+	p, err := paths.NodeConfigFile()
+	if err != nil {
+		return err
+	}
+	cur, err := nodeconfig.Load(p)
+	if err != nil {
+		return err
+	}
+	return nodeconfig.Save(p, mergeNodeConfig(cur, explicit))
 }
 
 func runUninstall(args []string, stdout, stderr io.Writer) int {

@@ -42,6 +42,34 @@ class ChannelStatus {
   bool get needsLogin => state == 'needs_login';
 }
 
+/// 后台对本机节点的看护状态（GET /api/core）。
+class CoreState {
+  const CoreState({this.mode = '', this.nodeError = '', this.log = ''});
+  factory CoreState.fromJson(Map<String, dynamic> j) =>
+      CoreState(mode: _s(j['mode']), nodeError: _s(j['node_error']), log: _s(j['log']));
+
+  /// external（后台运行）、embedded（随客户端运行）、off（不启动）、none（暂时没有，正在重新启动）；空串为未知。
+  final String mode;
+  final String nodeError; // 最近一次失败的原因，可为空
+  final String log; // 节点日志路径，可为空
+
+  /// 设置页“节点”一行的文字；未知时为空串。
+  String get modeText => switch (mode) {
+        'embedded' => '随客户端运行',
+        'external' => '后台运行',
+        'off' => '不启动',
+        'none' => '暂时没有（正在重新启动）',
+        _ => mode,
+      };
+
+  /// 本机节点没有响应时给用户看的提示。
+  String get notRunningHint {
+    final tail = log.isEmpty ? '' : '日志：$log';
+    if (mode == 'off') return '本机节点没有响应（客户端设置为不启动节点）。$tail'.trim();
+    return '本机节点没有响应，正在尝试重新启动。$tail'.trim();
+  }
+}
+
 /// 本机节点状态（GET /local/status）。
 class LocalStatus {
   LocalStatus({required this.deviceId, required this.name, required this.version, required this.channels});

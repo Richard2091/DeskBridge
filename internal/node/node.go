@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/deviceid"
+	"github.com/Richard2091/DeskBridge/internal/lockfile"
 	"github.com/Richard2091/DeskBridge/internal/mesh"
 	"github.com/Richard2091/DeskBridge/internal/paths"
 	"github.com/Richard2091/DeskBridge/internal/protocol"
@@ -36,6 +37,9 @@ type Config struct {
 	Name     string          // 设备名，默认 os.Hostname()
 	Port     int             // 节点协议端口，默认 7465
 	Socket   string          // 本机接口的 unix socket 路径
+	// LockFile 是单实例锁文件路径；空则不加锁。持有锁期间，删除失效的 socket
+	// 文件和退出时删除 socket 才不会误伤另一个节点。
+	LockFile string
 	Logf     func(format string, args ...any)
 	// OnListening 在本机接口开始监听后调用一次（可为 nil）。ui-core 据此判断
 	// 自己启动的节点已就绪，而不是连上了别的节点。
@@ -113,6 +117,16 @@ func New(cfg Config) *Node {
 // Run 启动所有连接方式和本机接口并阻塞，直到 ctx 结束。
 // socket 已被占用（已有节点在运行）时返回错误。
 func (n *Node) Run(ctx context.Context) error {
+	if n.cfg.LockFile != "" {
+		release, err := lockfile.Acquire(n.cfg.LockFile)
+		if errors.Is(err, lockfile.ErrLocked) {
+			return errors.New("节点已在运行（锁文件 " + n.cfg.LockFile + " 已被占用）")
+		}
+		if err != nil {
+			return err
+		}
+		defer release() // 先注册，最后执行：在删除 socket 之后释放
+	}
 	ln, err := n.listenSocket()
 	if err != nil {
 		return err

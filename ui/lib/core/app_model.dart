@@ -13,7 +13,7 @@ import 'models.dart';
 enum AppPage { devices, activity, settings }
 
 class AppModel extends ChangeNotifier {
-  AppModel(this.api, {this.configFile, this.nodeMode = '', bool poll = true}) {
+  AppModel(this.api, {this.configFile, this.nodeMode = '', bool poll = true}) : coreState = CoreState(mode: nodeMode) {
     _loadConfig();
     if (poll) startPolling();
   }
@@ -23,6 +23,9 @@ class AppModel extends ChangeNotifier {
 
   /// 本机节点的来源（见 CoreProcess.nodeMode），空串表示未知。
   final String nodeMode;
+
+  /// 后台对本机节点的看护状态；初始为启动时的来源，之后随 refreshStatus 刷新。
+  CoreState coreState;
 
   // ---- 数据 ----
   LocalStatus? status;
@@ -133,6 +136,17 @@ class AppModel extends ChangeNotifier {
       _stBusy = false;
       _notify();
     }
+    await refreshCore();
+  }
+
+  /// 刷新后台对本机节点的看护状态（取不到时保留上一次的值）。
+  Future<void> refreshCore() async {
+    try {
+      coreState = await api.core();
+    } on ApiException {
+      // 后台暂时不可达时保留旧状态。
+    }
+    _notify();
   }
 
   Future<void> refreshDevices({bool force = false}) async {
@@ -144,7 +158,8 @@ class AppModel extends ChangeNotifier {
       devices = await api.devices(refresh: force);
       devicesError = null;
     } on ApiException catch (e) {
-      devicesError = e.code == 'node_not_running' ? '本机节点没有响应。请重启 DeskBridge 客户端；如果仍然不行，查看数据目录 logs 下的 ui-node.log。' : e.message;
+      if (e.code == 'node_not_running') await refreshCore();
+      devicesError = e.code == 'node_not_running' ? coreState.notRunningHint : e.message;
     } finally {
       _devBusy = false;
       devicesLoading = false;

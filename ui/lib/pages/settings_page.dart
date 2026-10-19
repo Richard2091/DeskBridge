@@ -85,13 +85,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  static String _nodeModeText(String mode) => switch (mode) {
-        'embedded' => '随客户端运行',
-        'external' => '后台运行',
-        'off' => '不启动',
-        _ => mode,
-      };
-
   Widget _local(BuildContext context, AppModel m) {
     final st = m.status;
     if (st == null) return Notice(icon: Icons.cloud_off_outlined, title: '读不到本机节点', detail: m.devicesError ?? '正在连接…');
@@ -100,12 +93,20 @@ class _SettingsPageState extends State<SettingsPage> {
         _kv(context, '设备名称', st.name),
         _kv(context, '设备 ID', st.deviceId, mono: true),
         _kv(context, '节点版本', st.version),
-        if (m.nodeMode.isNotEmpty) _kv(context, '节点', _nodeModeText(m.nodeMode)),
+        if (m.coreState.mode.isNotEmpty) _kv(context, '节点', m.coreState.modeText),
+        if (m.coreState.nodeError.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 110, bottom: 4),
+              child: SelectableText(m.coreState.nodeError, style: TextStyle(color: context.tk.bad, fontSize: 12)),
+            ),
+          ),
         Align(
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text('设备名称、开机自启等用 deskbridge node / install 的参数设置（deskbridge install -h 查看）。', style: TextStyle(color: context.tk.muted, fontSize: 12.5)),
+            child: Text('设备名称、开机自启等用 deskbridge install 的参数设置，保存在数据目录的 node.json（deskbridge install -h 查看）。', style: TextStyle(color: context.tk.muted, fontSize: 12.5)),
           ),
         ),
       ]),

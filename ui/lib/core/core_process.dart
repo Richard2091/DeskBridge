@@ -33,7 +33,7 @@ class CoreProcess {
     throw ApiException('core_not_found', '找不到 $name：请放在客户端同一目录，或设置环境变量 DESKBRIDGE_EXE');
   }
 
-  /// 启动后台并等它打印地址（20 秒超时；内置节点最多等 15 秒）。
+  /// 启动后台并等它打印地址（30 秒超时；内置节点最多等 15 秒、超时后收尾最多 3 秒）。
   static Future<CoreProcess> start({String? exe}) async {
     final path = exe ?? await findExe();
     final proc = await Process.start(path, ['ui-core']);
@@ -50,7 +50,7 @@ class CoreProcess {
     });
     final first = proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).first;
     try {
-      final line = await first.timeout(const Duration(seconds: 20));
+      final line = await first.timeout(const Duration(seconds: 30));
       final j = jsonDecode(line) as Map<String, dynamic>;
       final addr = '${j['addr']}';
       final i = addr.lastIndexOf(':');

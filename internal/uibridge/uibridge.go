@@ -32,11 +32,23 @@ func NewToken() (string, error) {
 // Handler 返回桌面客户端用的 HTTP 处理器。除令牌校验外：
 //
 //	GET /api/ping        {"ok":true}
+//	GET /api/core        本机节点的运行状态（仅 HandlerWithCore 提供）
 //	GET /api/activity    跨设备合并的操作记录，参数 since、operator_type、tool、status、limit
 //	/local/...           原样转给本机节点（设备列表、工具调用、取消、实时事件）
 func Handler(socket, token string) http.Handler {
+	return HandlerWithCore(socket, token, nil)
+}
+
+// HandlerWithCore 同 Handler，另外在 GET /api/core 返回 core() 的结果
+// （ui-core 用它报告本机节点是复用的、内置的还是暂时没有）。core 为 nil 时没有这个接口。
+func HandlerWithCore(socket, token string, core func() any) http.Handler {
 	c := client.New(socket)
 	mux := http.NewServeMux()
+	if core != nil {
+		mux.HandleFunc("GET /api/core", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, core())
+		})
+	}
 	mux.HandleFunc("GET /api/ping", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
