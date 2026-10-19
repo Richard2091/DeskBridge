@@ -63,7 +63,7 @@ func runUICore(args []string, stdout, stderr io.Writer) int {
 	defer stop()
 
 	mode := "off"
-	var nodeDone chan struct{}
+	var nodeDone <-chan struct{}
 	if *nodeFlag == "auto" {
 		if nodeReachable(socket, time.Second) {
 			mode = "external"
