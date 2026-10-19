@@ -13,13 +13,16 @@ import 'models.dart';
 enum AppPage { devices, activity, settings }
 
 class AppModel extends ChangeNotifier {
-  AppModel(this.api, {this.configFile, bool poll = true}) {
+  AppModel(this.api, {this.configFile, this.nodeMode = '', bool poll = true}) {
     _loadConfig();
     if (poll) startPolling();
   }
 
   final Api api;
   final File? configFile;
+
+  /// 本机节点的来源（见 CoreProcess.nodeMode），空串表示未知。
+  final String nodeMode;
 
   // ---- 数据 ----
   LocalStatus? status;
@@ -141,7 +144,7 @@ class AppModel extends ChangeNotifier {
       devices = await api.devices(refresh: force);
       devicesError = null;
     } on ApiException catch (e) {
-      devicesError = e.code == 'node_not_running' ? '本机节点未运行。请先启动 DeskBridge 节点（deskbridge node），或运行 deskbridge install 设为开机自启。' : e.message;
+      devicesError = e.code == 'node_not_running' ? '本机节点没有响应。请重启 DeskBridge 客户端；如果仍然不行，查看数据目录 logs 下的 ui-node.log。' : e.message;
     } finally {
       _devBusy = false;
       devicesLoading = false;

@@ -71,6 +71,28 @@ func runNode(args []string, _, stderr io.Writer) int {
 	log.SetOutput(logOut)
 	logf := func(format string, args ...any) { log.Printf(format, args...) }
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	err := runNodeCore(ctx, nodeOptions{
+		Name: *name, Hostname: *hostname, ControlURL: *controlURL,
+		AuthKey: auth, Port: *port, Verbose: *verbose,
+	}, logf)
+	if err != nil {
+		return exitError
+	}
+	return exitOK
+}
+
+// nodeOptions 是节点运行所需的参数（node 子命令和 ui-core 内置节点共用）。
+type nodeOptions struct {
+	Name, Hostname, ControlURL, AuthKey string
+	Port                                int
+	Verbose                             bool
+}
+
+// runNodeCore 准备本地目录并运行节点，直到 ctx 取消或出错。
+// ctx 取消属于正常退出，返回 nil；其他失败已写入日志并返回错误。
+func runNodeCore(ctx context.Context, opts nodeOptions, logf func(string, ...any)) error {
 	_, err := paths.EnsureHome()
 	var tsDir string
 	if err == nil {
@@ -81,44 +103,41 @@ func runNode(args []string, _, stderr io.Writer) int {
 	}
 	if err != nil {
 		logf("准备本地目录失败：%v", err)
-		return exitError
+		return err
 	}
 	keyFile, err := paths.DeviceKeyFile()
 	if err != nil {
 		logf("确定设备密钥路径失败：%v", err)
-		return exitError
+		return err
 	}
 	dev, err := deviceid.Load(deviceid.DefaultStore(keyFile))
 	if err != nil {
 		logf("加载设备 ID 失败：%v", err)
-		return exitError
+		return err
 	}
 	logf("设备 ID：%s", dev.ID())
 
 	var tsLogf func(format string, args ...any)
-	if *verbose {
+	if opts.Verbose {
 		tsLogf = logf
 	}
 	ch := mesh.NewTailscale(mesh.TailscaleConfig{
 		Dir:        tsDir,
-		Hostname:   *hostname,
-		ControlURL: *controlURL,
-		AuthKey:    auth,
+		Hostname:   opts.Hostname,
+		ControlURL: opts.ControlURL,
+		AuthKey:    opts.AuthKey,
 		Logf:       tsLogf,
 	})
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	socketPath, err := paths.SocketPath()
 	if err != nil {
 		logf("确定本机接口路径失败：%v", err)
-		return exitError
+		return err
 	}
 
 	// 设备显示名和 node.New 的默认规则一致：未指定时用主机名，
 	// sys.info 的 name 字段也用它。
-	displayName := *name
+	displayName := opts.Name
 	if displayName == "" {
 		if h, herr := os.Hostname(); herr == nil && h != "" {
 			displayName = h
@@ -127,7 +146,7 @@ func runNode(args []string, _, stderr io.Writer) int {
 	registry := tools.NewRegistry()
 	if err := builtin.Register(registry, builtin.Info{Name: displayName, Version: version.Version}); err != nil {
 		logf("注册内置工具失败：%v", err)
-		return exitError
+		return err
 	}
 
 	var records *store.DB
@@ -145,8 +164,8 @@ func runNode(args []string, _, stderr io.Writer) int {
 		Device:   dev,
 		Tools:    registry,
 		Records:  records,
-		Name:     *name,
-		Port:     *port,
+		Name:     opts.Name,
+		Port:     opts.Port,
 		Socket:   socketPath,
 		Logf:     logf,
 	})
@@ -158,8 +177,8 @@ func runNode(args []string, _, stderr io.Writer) int {
 	}
 	if err != nil {
 		logf("节点异常退出：%v", err)
-		return exitError
+		return err
 	}
 	logf("节点已退出")
-	return exitOK
+	return nil
 }

@@ -41,7 +41,7 @@ class _BootstrapState extends State<Bootstrap> {
       }
       setState(() {
         _core = core;
-        _model = AppModel(core.api, configFile: defaultConfigFile());
+        _model = AppModel(core.api, configFile: defaultConfigFile(), nodeMode: core.nodeMode);
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);

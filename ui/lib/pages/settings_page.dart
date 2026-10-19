@@ -85,6 +85,13 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  static String _nodeModeText(String mode) => switch (mode) {
+        'embedded' => '随客户端运行',
+        'external' => '后台运行',
+        'off' => '不启动',
+        _ => mode,
+      };
+
   Widget _local(BuildContext context, AppModel m) {
     final st = m.status;
     if (st == null) return Notice(icon: Icons.cloud_off_outlined, title: '读不到本机节点', detail: m.devicesError ?? '正在连接…');
@@ -93,6 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _kv(context, '设备名称', st.name),
         _kv(context, '设备 ID', st.deviceId, mono: true),
         _kv(context, '节点版本', st.version),
+        if (m.nodeMode.isNotEmpty) _kv(context, '节点', _nodeModeText(m.nodeMode)),
         Align(
           alignment: Alignment.centerLeft,
           child: Padding(

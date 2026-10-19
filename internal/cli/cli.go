@@ -47,7 +47,7 @@ func commands() []command {
 		{"cancel", "取消设备上一条正在执行的调用", runCancel},
 		{"call", "通用工具调用，输出完整的响应 JSON", runCall},
 		{"mcp", "作为 MCP 服务器运行，供 AI Agent 使用", runMCP},
-		{"ui-core", "供桌面客户端启动的子进程：本地带令牌的 HTTP 桥接", runUICore},
+		{"ui-core", "供桌面客户端启动的子进程：本地带令牌的 HTTP 桥接，没有本机节点时在进程内运行节点（-node=off 关闭）", runUICore},
 		{"version", "显示版本", runVersion},
 		{"help", "显示帮助", runHelp},
 	}

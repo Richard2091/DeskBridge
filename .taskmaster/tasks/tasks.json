@@ -893,9 +893,20 @@
             ],
             "parentTaskId": 12,
             "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "客户端内置节点",
+            "description": "启动客户端时：已有后台节点就复用，退出时不关；没有就在 ui-core 进程内运行节点（tsnet 和工具），客户端退出时一起退出（2026-10-19 用户决定）",
+            "details": "",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 12,
+            "updatedAt": "2026-10-19T04:49:39.904Z",
+            "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-16T06:59:05.886Z"
+        "updatedAt": "2026-10-19T04:49:39.904Z"
       },
       {
         "id": "13",
@@ -1490,7 +1501,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-16T06:59:05.888Z",
+      "lastModified": "2026-10-19T04:49:39.905Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [
