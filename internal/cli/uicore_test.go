@@ -37,3 +37,17 @@ func TestNodeReachable(t *testing.T) {
 		t.Fatal("监听者关闭后不应可达")
 	}
 }
+
+func TestExited(t *testing.T) {
+	if !exited(nil) {
+		t.Fatal("没有启动的节点应视为已退出")
+	}
+	done := make(chan struct{})
+	if exited(done) {
+		t.Fatal("运行中的节点不应视为已退出")
+	}
+	close(done)
+	if !exited(done) {
+		t.Fatal("done 关闭后应视为已退出")
+	}
+}

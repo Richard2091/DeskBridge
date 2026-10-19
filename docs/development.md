@@ -71,7 +71,7 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 - **Flutter 位置：** 台式机 `D:\data\AI\Projects\DeskBridgeTools\flutter`（3.47，Dart 3.13）。在中国大陆的网络下需要设置 `PUB_HOSTED_URL=https://pub.flutter-io.cn` 和 `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`。
 - **常用命令（在 `ui\` 下）：** `flutter pub get`、`flutter analyze`、`flutter test`（单元测试和组件测试，不需要后台）。
 - **构建：** `scripts\build-ui.cmd`：先编译 Go 程序，再 `flutter build windows --release`，把 `deskbridge.exe` 复制到 `ui\build\windows\x64\runner\Release\`，和 `deskbridge_client.exe` 放在一起。
-- **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机节点必须已在运行（开机自启或 `deskbridge node`）。
+- **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机已有节点（开机自启或 `deskbridge node`）就复用它，客户端退出时不关；没有就在 ui-core 进程内运行节点，客户端退出时一起退出，节点日志在数据目录 `logs\ui-node.log`。
 - **界面配置：** `%APPDATA%\DeskBridge\ui.json`（目前只有主题）。
 
 ## 远程执行通道

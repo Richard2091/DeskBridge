@@ -70,14 +70,20 @@ func runUICore(args []string, stdout, stderr io.Writer) int {
 		} else {
 			mode = "embedded"
 			var logPath string
-			nodeDone, logPath, err = startEmbeddedNode(ctx, socket, stderr)
+			nodeDone, logPath, err = startEmbeddedNode(ctx, socket)
 			if err != nil {
-				fmt.Fprintf(stderr, "本机节点启动失败：%v（日志：%s）\n", err, logPath)
-				stop()
-				if nodeDone != nil {
-					waitDone(nodeDone, embeddedExitWait)
+				// 内置节点已退出，而本机接口能连上：同时启动的另一个客户端（或刚自启的
+				// 节点）抢先占用了它，改为复用。
+				if exited(nodeDone) && ctx.Err() == nil && nodeReachable(socket, time.Second) {
+					mode, nodeDone = "external", nil
+				} else {
+					stop()
+					if nodeDone != nil {
+						waitDone(nodeDone, embeddedExitWait)
+					}
+					fmt.Fprintf(stderr, "本机节点启动失败：%v（日志：%s）\n", err, logPath)
+					return exitError
 				}
-				return exitError
 			}
 		}
 	}
@@ -118,6 +124,19 @@ func waitDone(done <-chan struct{}, d time.Duration) {
 	}
 }
 
+// exited 报告节点是否已退出；done 为 nil 表示节点没有启动。
+func exited(done <-chan struct{}) bool {
+	if done == nil {
+		return true
+	}
+	select {
+	case <-done:
+		return true
+	default:
+		return false
+	}
+}
+
 // nodeReachable 报告能否在 timeout 内连上本机接口 socket。
 func nodeReachable(socket string, timeout time.Duration) bool {
 	c, err := net.DialTimeout("unix", socket, timeout)
@@ -130,7 +149,7 @@ func nodeReachable(socket string, timeout time.Duration) bool {
 
 // startEmbeddedNode 在 goroutine 里运行节点并等本机接口就绪。
 // 返回的 done 在节点退出后关闭（失败时也返回，便于调用方等待收尾）。
-func startEmbeddedNode(ctx context.Context, socket string, stderr io.Writer) (<-chan struct{}, string, error) {
+func startEmbeddedNode(ctx context.Context, socket string) (<-chan struct{}, string, error) {
 	dir, err := paths.LogDir()
 	if err != nil {
 		return nil, "", fmt.Errorf("确定日志目录失败：%w", err)
@@ -159,6 +178,7 @@ func startEmbeddedNode(ctx context.Context, socket string, stderr io.Writer) (<-
 	for {
 		select {
 		case err := <-result:
+			<-done // 等收尾完成，调用方据此判断节点已退出
 			if err == nil {
 				err = errors.New("节点已退出")
 			}
