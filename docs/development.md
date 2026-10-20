@@ -87,6 +87,13 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 - **本地开发：** `scripts\build-ui.cmd` 仍可用，只用于开发调试，不是发布流程。
 - **安装程序：** `installer/deskbridge.iss`，界面语言文件 `installer/ChineseSimplified.isl` 取自 Inno Setup 官方仓库（见 `docs/references.md`）。卸载时会先运行 `deskbridge.exe uninstall`，没装过自启动时它失败，卸载程序忽略。
 
+## macOS 开发（任务 20）
+
+- **测试机：** 一台 Mac（经 Tailscale 用 SSH 登录，SSH 密钥和地址只记在本地，不写进仓库）。工具链装在用户目录 `~/sdk`（Go、Flutter），编译 macOS 客户端还需要完整的 Xcode（App Store 安装）。在中国大陆的网络下，Go 用 `GOPROXY=https://goproxy.cn,direct`，Flutter 用上文的两个镜像变量。
+- **同步：** Mac 上的仓库设了 `git config receive.denyCurrentBranch updateInstead`，Linux 提交后直接 `git push mac main` 推到它的工作区，Mac 上不需要 GitHub 凭据。Mac 工作区不要留未提交的改动，否则推送会被拒绝。
+- **检查：** Mac 上 `go vet ./... && go test ./...`；客户端 `cd ui && flutter analyze && flutter test`。
+- **构建客户端：** `scripts/build-macos.sh [版本号]`：编译 amd64 和 arm64 两份 Go 程序并用 `lipo` 合成 universal 版，`flutter build macos --release`，把 Go 程序复制到 `DeskBridge.app/Contents/Helpers/`，最后重新做临时签名。
+
 ## 远程执行通道
 
 - **现在（2026-10-14 起）：** 用 DeskBridge 自己连接和开发 DeskBridge：Linux 上运行 `deskbridge exec -d desktop -- ...` 等命令，或让 Agent 经 `deskbridge mcp` 调用。开发过程中遇到的不便，记录为 DeskBridge 的需求。

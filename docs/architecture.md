@@ -225,6 +225,13 @@ AI 拿到的画面在两端都能看到：发起端可以实时查看和回看�
 
 实时画面暂时只支持局域网直连（ADR-0006）。被控端用 DXGI 桌面复制采集、系统自带的 H.264 编码器编码（任务 24.2 实测），经内网传给控制端解码显示，同时转发鼠标键盘。传输方式（WebRTC 或自定义流）随任务 24 决定。客户端里每个远程会话是一个独立窗口（用户提出参考 ToDesk、UU 远程），可以同时操作多台设备；Flutter 的多窗口方案待验证（任务 12、15）。必须做码率自适应和只保留最新帧；路径不是局域网直连时不启用实时画面，远程桌面降级为截图模式，复用工具层的截图和输入能力。是否启用实时画面由一个可替换的判断规则决定，以后支持中继时只改规则。只参考 RustDesk 的设计，不复制代码。
 
-## macOS（预留）
+## macOS（任务 20，适配中）
 
-代码结构上为 `_darwin.go` 预留平台模块。未实现的工具在能力报告中不出现。真正适配时需要处理“屏幕录制”和“辅助功能”权限，必须由用户在系统设置中手动授予。
+先搭好命令、文件、进程、自启和客户端，之后新功能在 Windows、Linux、macOS 三端同步推进。未实现的工具在能力报告中不出现。
+
+- **进程：** `proc.list` 用 `sysctl kern.proc.all`，进程名是内核记录的短名（最多 16 字节），暂不提供内存；`proc.kill` 和 Linux 共用信号实现。
+- **自启：** `deskbridge install` 写 LaunchAgent（`~/Library/LaunchAgents/io.github.richard2091.<名称>.plist`），只在图形登录会话里运行，异常退出由 launchd 重启，正常的重启仍由 `supervise` 负责。
+- **数据目录：** `~/Library/Application Support/DeskBridge`，权限 0700。
+- **客户端：** `ui/macos`，不启用 App Sandbox（要启动子进程、访问网络和用户文件）。包标识 `io.github.richard2091.deskbridge`，以后的系统权限（屏幕录制等）按包标识记录，改它会让用户重新授权。Go 程序放在 `DeskBridge.app/Contents/Helpers/deskbridge`：macOS 默认文件系统不区分大小写，放在 `Contents/MacOS` 会和客户端自己的 `DeskBridge` 重名。
+- **签名：** 预览版只做临时签名（ad-hoc），首次打开要右键“打开”；Developer ID 签名和公证见任务 20.8。
+- **桌面工具（任务 20.7）：** 等 Windows 版（任务 9）的接口定型后再做。需要“屏幕录制”和“辅助功能”权限，必须由用户在系统设置中手动授予；缺权限时返回 `permission_denied`。
