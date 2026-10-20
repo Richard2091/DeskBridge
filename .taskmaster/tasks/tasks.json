@@ -1110,17 +1110,112 @@
       },
       {
         "id": "20",
-        "title": "macOS 适配（预留）",
-        "description": "有 macOS 设备后再适配：命令、文件、桌面工具和客户端。",
+        "title": "macOS 适配",
+        "description": "先搭好 macOS 端（核心工具、自启、客户端、CI），之后 Windows、Linux、macOS 三端同步推进；桌面工具等任务 9。",
         "details": "需要处理屏幕录制与辅助功能权限（用户手动授予）。在此之前代码只保留 _darwin.go 占位，能力报告中不出现未实现工具。",
         "testStrategy": "",
-        "status": "deferred",
-        "dependencies": [
-          "9"
-        ],
+        "status": "in-progress",
+        "dependencies": [],
         "priority": "low",
-        "subtasks": [],
-        "updatedAt": "2026-10-06T08:21:32.490Z"
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Mac 开发环境与开发循环",
+            "description": "在测试 Mac 上装好 Go、Flutter、Xcode，建立 Linux 推送、Mac 编译测试的循环。",
+            "details": "工具链装在 ~/sdk，走本机代理。Linux 用 git remote mac（receive.denyCurrentBranch=updateInstead）直接推送，不经 GitHub。写进 docs/development.md（不写真实 IP 和设备名）。验收：Mac 上 go test ./... 能跑，flutter doctor 的 macOS 项通过。",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 20,
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:31:20.120Z"
+          },
+          {
+            "id": 2,
+            "title": "macOS 上的 proc.list 和 proc.kill",
+            "description": "用 sysctl kern.proc.all 列进程，结束进程和 Linux 共用实现，让 Go 测试在 macOS 上全部通过。",
+            "details": "listProcesses/descendantsOf 用 unix.SysctlKinfoProcSlice；进程名取 comm（最多 16 字节，有截断，待改进可用 kern.procargs2）；内存暂不提供（memory_bytes 省略）。killProcesses、mapKillError、userNameOf 从 proc_linux.go 移到 linux||darwin 的共用文件。验收：Mac 上 go test ./... 全部通过，Linux/Windows CI 不受影响。",
+            "status": "pending",
+            "dependencies": [
+              "20.1"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "macOS 后台节点自启（LaunchAgent）",
+            "description": "deskbridge install/uninstall 在 macOS 上生成和移除 LaunchAgent，登录后自动启动节点。",
+            "details": "autostart_darwin.go：plist 写到 ~/Library/LaunchAgents/<label>.plist（RunAtLoad，标准输出写日志），launchctl bootstrap/bootout/kickstart gui/<uid>。Linux 以后用 systemd --user 对应（不在本子任务）。验收：Mac 上 install 后节点运行，注销重新登录后自动起来，uninstall 后进程和 plist 都没了。",
+            "status": "pending",
+            "dependencies": [
+              "20.1"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Flutter macOS 客户端",
+            "description": "ui/ 增加 macos 工程，能启动内置 Go 节点，登录后看到设备并使用命令、文件功能。",
+            "details": "flutter create --platforms=macos；关闭 App Sandbox（要启动子进程、访问网络和用户文件）；构建时把 darwin 版 deskbridge 放进 .app 的 Contents/MacOS，core_process.dart 按平台查找。验收：Mac 上 flutter test 通过，flutter build macos 生成的 .app 能正常打开和使用。",
+            "status": "pending",
+            "dependencies": [
+              "20.1"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "CI 和预览版加入 macOS",
+            "description": "CI 在 macOS 运行器上跑 Go 测试和 flutter build macos；发布工作流产出未签名的 .app 压缩包。",
+            "details": "GitHub Actions macos 运行器（Apple Silicon）：darwin/arm64 和 darwin/amd64 分别编译 Go，合成 universal 二进制；客户端构建 universal。签名公证见 20.8。验收：CI 绿；草稿 Release 里有 macOS 压缩包，在测试 Mac 上能解压运行（需右键打开绕过 Gatekeeper）。",
+            "status": "pending",
+            "dependencies": [
+              "20.2",
+              "20.4"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "macOS 节点真机互通验证",
+            "description": "Mac 节点加入网络，从 Linux 和 Windows 调用 exec、fs、proc、sys.info 并确认结果。",
+            "details": "检查 UTF-8 输出、路径、权限错误码、本机接口 socket 权限（0700/0600）。验收：各工具调用结果正确，结果记录在子任务里。",
+            "status": "pending",
+            "dependencies": [
+              "20.2",
+              "20.3"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "macOS 桌面工具：截图、输入、窗口",
+            "description": "在 macOS 上实现和 Windows 对应的桌面工具，处理屏幕录制和辅助功能权限。",
+            "details": "等任务 9 定下工具接口后再做。权限由用户在系统设置里手动授予；缺权限时返回 permission_denied 和 missing 字段。注意：测试 Mac 是黑苹果，显卡没有原生驱动，屏幕采集和编码能力待验证。",
+            "status": "pending",
+            "dependencies": [
+              "9",
+              "20.6"
+            ],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "macOS 安装包、签名和公证",
+            "description": "生成 dmg 或 pkg，用 Developer ID 签名并公证。",
+            "details": "需要 Apple 开发者账号（用户决定）。在此之前只发未签名的压缩包。",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 20,
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-10-20T03:31:20.120Z"
       },
       {
         "id": "21",
@@ -1513,7 +1608,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T03:02:05.033Z",
+      "lastModified": "2026-10-20T03:31:20.120Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [
