@@ -979,11 +979,8 @@
         "description": "Windows 和 Linux 安装包、自动更新、发布流程自动化。",
         "details": "Windows：安装程序（MSI 或类似）、可选 winget；代码签名（需要证书，待用户决定）。Linux：deb/rpm、静态二进制。自动更新机制。GitHub Releases 自动构建。验收：新机器下载安装后可用；版本升级可自动完成。",
         "testStrategy": "",
-        "status": "pending",
-        "dependencies": [
-          "12",
-          "30"
-        ],
+        "status": "in-progress",
+        "dependencies": [],
         "priority": "medium",
         "subtasks": [
           {
@@ -991,30 +988,33 @@
             "title": "发布流程自动化（GitHub Releases）",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 14,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T02:36:51.059Z"
           },
           {
             "id": 2,
             "title": "Windows 安装包",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 14,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T02:37:03.549Z"
           },
           {
             "id": 3,
             "title": "Linux 安装包和静态二进制",
             "description": "",
             "details": "",
-            "status": "pending",
+            "status": "in-progress",
             "dependencies": [],
             "parentTaskId": 14,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T02:37:16.937Z"
           },
           {
             "id": 4,
@@ -1036,7 +1036,8 @@
             "parentTaskId": 14,
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-10-20T02:37:16.937Z"
       },
       {
         "id": "15",
@@ -1512,7 +1513,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-19T06:39:30.578Z",
+      "lastModified": "2026-10-20T02:37:16.938Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [
