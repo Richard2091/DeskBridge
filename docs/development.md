@@ -74,6 +74,19 @@ Linux（编辑、提交） ──push──▶ GitHub ──pull──▶ Window
 - **运行：** 客户端启动时找同目录的 `deskbridge.exe`（或环境变量 `DESKBRIDGE_EXE`，或 PATH），以 `deskbridge ui-core` 子进程运行，经本机随机端口加令牌通信（见 `docs/architecture.md` 操作记录一节）。本机已有节点（开机自启或 `deskbridge node`）就复用它，客户端退出时不关；没有就在 ui-core 进程内运行节点，客户端退出时一起退出，节点日志在数据目录 `logs\ui-node.log`。运行期间 ui-core 每 2 秒检查本机节点，节点消失就重新拉起内置节点；同一数据目录只允许一个节点（`node.lock`）。内置节点的名称、主机名、控制服务器、端口读数据目录下的 `node.json`（`deskbridge install -name ... -hostname ... -control-url ... -port ...` 会写入它，不再写进计划任务参数；旧任务重新运行 `install` 即可迁移）。
 - **界面配置：** `%APPDATA%\DeskBridge\ui.json`（目前只有主题）。
 
+## 发布
+
+预览版由 `.github/workflows/release.yml` 在 GitHub Actions 上构建，不依赖本地 Windows 机器。
+
+- **打 tag 发布：** 在要发布的提交上 `git tag v0.1.0 && git push origin v0.1.0`。预发布后缀如 `v0.1.0-rc.1` 也可以（Go 保留完整版本号，Flutter 的 build-name 去掉后缀）。
+- **产物：** Windows 安装程序（`DeskBridge-<版本>-windows-amd64-setup.exe`，Inno Setup，按当前用户安装）、免安装压缩包（`...-windows-amd64.zip`）、Linux 的 `...-linux-amd64.tar.gz` 和 `...-linux-arm64.tar.gz`（只有命令行程序），以及 `SHA256SUMS.txt`。
+- **草稿 Release：** tag 触发时 `release` 作业用 `gh release create --draft --prerelease` 建草稿，在仓库的 Releases 页面（登录后只有有权限的人可见）里查看，确认后手动点发布。工作流不会自动发布。
+- **不打 tag 时：** `workflow_dispatch`（可填版本号）和改动了 `release.yml`、`installer/**`、`scripts/**` 的 PR 只构建并跑冒烟测试，产物作为 Actions artifacts 保存，不创建 Release。
+- **冒烟测试：** 静默安装到临时目录（不勾选开机自启）、运行 `deskbridge.exe version`、`ui-core -node=off` 读到第一行 JSON 后关闭标准输入确认退出，再静默卸载并确认目录被删除。
+- **发布前检查：** CI 全部通过；下载附件，在干净的 Windows 上装一次，确认能打开、能登录 Tailscale；确认 `SHA256SUMS.txt` 和说明（`installer/release-notes.md`）；预览版暂无代码签名，首次运行会出现 SmartScreen。
+- **本地开发：** `scripts\build-ui.cmd` 仍可用，只用于开发调试，不是发布流程。
+- **安装程序：** `installer/deskbridge.iss`，界面语言文件 `installer/ChineseSimplified.isl` 取自 Inno Setup 官方仓库（见 `docs/references.md`）。卸载时会先运行 `deskbridge.exe uninstall`，没装过自启动时它失败，卸载程序忽略。
+
 ## 远程执行通道
 
 - **现在（2026-10-14 起）：** 用 DeskBridge 自己连接和开发 DeskBridge：Linux 上运行 `deskbridge exec -d desktop -- ...` 等命令，或让 Agent 经 `deskbridge mcp` 调用。开发过程中遇到的不便，记录为 DeskBridge 的需求。

@@ -49,6 +49,15 @@
 |---|---|---|
 | staticcheck（`honnef.co/go/tools`，2026.2.1） | Go 静态检查 | MIT（已核实 LICENSE，2026-10-07） |
 
+发布工具（只在 CI 中使用，不编进程序）：
+
+| 工具 | 用途 | 许可证 |
+|---|---|---|
+| Inno Setup（6.7.1，用 Chocolatey 包 `innosetup` 安装） | 生成 Windows 安装程序 | 自有宽松许可证：允许任何用途（含商业）、修改和再分发，须保留版权声明（已核实 jrsoftware/issrc 的 `license.txt` 和官网 isorder 页，2026-10-20）。官网请求商业用户购买许可证（“request”，非强制）；若项目商业化再决定是否购买 |
+| `ChineseSimplified.isl`（Inno Setup 官方仓库 jrsoftware/issrc，提交 `6ef3219`，维护者 Kira） | 安装程序简体中文界面 | 随 issrc 仓库发布，按 Inno Setup 许可证；6.7.1 安装包不含此文件，所以放在 `installer/` 中（行尾被 Git 规范化） |
+| Chocolatey（runner 自带） | 安装 Inno Setup | Apache-2.0（待核实） |
+| `actions/upload-artifact@v4`、`actions/download-artifact@v4` | 工作流在作业间传递附件 | MIT |
+
 H.264 编码只用系统自带的 Media Foundation 编码器（显卡厂商的硬件编码器和微软软件编码器），不引入 openh264、x264 等编码库。
 
 ## 参考记录

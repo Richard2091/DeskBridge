@@ -1,4 +1,4 @@
-; DeskBridge 安装程序（Inno Setup 6）。
+﻿; DeskBridge 安装程序（Inno Setup 6）。
 ; 编译：iscc /DAppVersion=0.1.0 /DAppNumVersion=0.1.0.0 /DSourceDir=<Release 目录> /O<输出目录> /F<文件名> installer\deskbridge.iss
 ; 按当前用户安装，不需要管理员权限。
 
