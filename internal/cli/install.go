@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/Richard2091/DeskBridge/internal/autostart"
 	"github.com/Richard2091/DeskBridge/internal/nodeconfig"
@@ -51,8 +52,12 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		return exitError
 	}
 	// 守护进程负责重启和收集崩溃输出（它的日志在 superLog），节点自己写 logPath。
-	nodeArgs := []string{"supervise", "-log-file", superLog, "-hide-console", "--",
-		"node", "-log-file", logPath}
+	nodeArgs := []string{"supervise", "-log-file", superLog}
+	if runtime.GOOS == "windows" {
+		// 只有 Windows 的计划任务会给控制台程序弹出窗口；其他平台上 -hide-console 会报 unsupported_platform。
+		nodeArgs = append(nodeArgs, "-hide-console")
+	}
+	nodeArgs = append(nodeArgs, "--", "node", "-log-file", logPath)
 	err = autostart.Install(autostart.Config{TaskName: *taskName, Exe: exe, Args: nodeArgs})
 	if err != nil {
 		return installFailed(stderr, "安装", err)
