@@ -3,25 +3,50 @@
 package builtin
 
 import (
-	"github.com/Richard2091/DeskBridge/internal/protocol"
+	"golang.org/x/sys/unix"
+
 	"github.com/Richard2091/DeskBridge/internal/tools"
 )
 
-// procTools 返回 macOS 上的 proc 工具。进程列表和进程树的枚举还没有
-// 实现，proc.list 和 proc.kill 不注册；proc.exec 可用。
+// procTools 返回 macOS 上的 proc 工具：三个都有实现。
 func procTools() []*tools.Tool {
-	return []*tools.Tool{newProcExecTool()}
+	return []*tools.Tool{newProcExecTool(), newProcListTool(), newProcKillTool()}
 }
 
-// 以下函数只为让包在 macOS 上编译通过；没有工具会调用它们。
-
-func listProcesses() ([]procEntry, bool) { return nil, false }
-
-func descendantsOf(pid int) []int { return nil }
-
-func killProcesses(pids []int, force bool) ([]int, error) {
-	return nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持结束进程")
+// listProcesses 用 sysctl kern.proc.all 列出所有进程：PID、PPID、
+// 用户（real uid）和名称。名称来自 p_comm，系统最多保存 16 字节，
+// 较长的进程名会被截断。内存占用（memory_bytes）待实现，先省略。
+func listProcesses() ([]procEntry, bool) {
+	kps, err := unix.SysctlKinfoProcSlice("kern.proc.all")
+	if err != nil {
+		return nil, false
+	}
+	procs := make([]procEntry, 0, len(kps))
+	for i := range kps {
+		kp := &kps[i]
+		name := cString(kp.Proc.P_comm[:])
+		if name == "" {
+			continue
+		}
+		procs = append(procs, procEntry{
+			PID:  int(kp.Proc.P_pid),
+			PPID: int(kp.Eproc.Ppid),
+			Name: name,
+			User: userNameOf(int(kp.Eproc.Pcred.P_ruid)),
+		})
+	}
+	return procs, true
 }
 
-// mapKillError 原样返回 killProcesses 的协议错误。
-func mapKillError(err error) error { return err }
+// descendantsOf 用一次 sysctl 的结果构造 pid→ppid，找出 pid 的全部后代。
+func descendantsOf(pid int) []int {
+	kps, err := unix.SysctlKinfoProcSlice("kern.proc.all")
+	if err != nil {
+		return nil
+	}
+	parents := make(map[int]int, len(kps))
+	for i := range kps {
+		parents[int(kps[i].Proc.P_pid)] = int(kps[i].Eproc.Ppid)
+	}
+	return childrenOf(pid, parents)
+}
