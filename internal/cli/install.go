@@ -19,7 +19,7 @@ import (
 func runInstall(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	taskName := fs.String("task-name", autostart.DefaultTaskName, "计划任务名")
+	taskName := fs.String("task-name", autostart.DefaultTaskName, "自启动项名称（Windows 为计划任务名，macOS 为 LaunchAgent 标签的后缀）")
 	settings := addNodeSettingFlags(fs, "；保存到数据目录的 node.json，没给出的保持原值")
 	noStart := fs.Bool("no-start", false, "只安装，不立即启动（默认立即启动，不用等下次登录）")
 	if err := fs.Parse(args); err != nil {
@@ -57,7 +57,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return installFailed(stderr, "安装", err)
 	}
-	fmt.Fprintf(stdout, "已安装计划任务 %s：用户登录后自动运行 %s\n日志：%s（节点）、%s（守护进程，含崩溃输出）\n", *taskName, exe, logPath, superLog)
+	fmt.Fprintf(stdout, "已安装自启动项 %s：用户登录后自动运行 %s\n日志：%s（节点）、%s（守护进程，含崩溃输出）\n", *taskName, exe, logPath, superLog)
 	fmt.Fprintln(stdout, "更换程序文件时需先 uninstall 或结束任务，替换后再 install；路径不变时只需重新运行任务。")
 	if *noStart {
 		return exitOK
@@ -91,7 +91,7 @@ func saveNodeSettings(explicit nodeconfig.Config) error {
 func runUninstall(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("uninstall", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	taskName := fs.String("task-name", autostart.DefaultTaskName, "计划任务名")
+	taskName := fs.String("task-name", autostart.DefaultTaskName, "自启动项名称（Windows 为计划任务名，macOS 为 LaunchAgent 标签的后缀）")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
@@ -102,7 +102,7 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 	if err := autostart.Uninstall(*taskName); err != nil {
 		return installFailed(stderr, "卸载", err)
 	}
-	fmt.Fprintf(stdout, "已卸载计划任务 %s（正在运行的节点已结束）。\n", *taskName)
+	fmt.Fprintf(stdout, "已卸载自启动项 %s（正在运行的节点已结束）。\n", *taskName)
 	return exitOK
 }
 

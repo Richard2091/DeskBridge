@@ -1,6 +1,7 @@
 // Package autostart 让节点在用户登录后自动启动。Windows 用计划任务：
 // 登录时触发，以当前用户在桌面会话中运行；进程失败（崩溃或被结束）后
-// 由计划任务重启。其他平台返回 platform.ErrUnsupportedPlatform。
+// 由计划任务重启。macOS 用 LaunchAgent（用户登录图形会话时加载）。
+// 其他平台返回 platform.ErrUnsupportedPlatform。
 package autostart
 
 import (
