@@ -1,0 +1,236 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本号（不带 v）
+        default: 0.0.0-dev
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - installer/**
+      - scripts/**
+
+permissions:
+  contents: read
+
+jobs:
+  meta:
+    name: 确定版本号
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      base: ${{ steps.v.outputs.base }}
+    steps:
+      - id: v
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          case "$EVENT" in
+            push) version=${GITHUB_REF_NAME#v} ;;
+            workflow_dispatch) version=$INPUT_VERSION ;;
+            *) version=0.0.0-dev ;;
+          esac
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "版本号格式不对：$version（应为 1.2.3 或 1.2.3-rc.1）" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Flutter 的 build-name 不接受预发布后缀，只用主版本三段。
+          echo "base=${version%%-*}" >> "$GITHUB_OUTPUT"
+          echo "版本号：$version（Flutter：${version%%-*}）"
+
+  windows:
+    name: Windows：压缩包和安装程序
+    needs: meta
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      BASE_VERSION: ${{ needs.meta.outputs.base }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 编译 deskbridge.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags "-s -w -X github.com/Richard2091/DeskBridge/internal/version.Version=$env:VERSION" -o dist/windows-amd64/deskbridge.exe ./cmd/deskbridge
+          if ($LASTEXITCODE -ne 0) { throw "go build 失败，退出码 $LASTEXITCODE" }
+
+      - name: 构建 Flutter 客户端
+        shell: pwsh
+        working-directory: ui
+        run: |
+          $ErrorActionPreference = 'Stop'
+          flutter pub get
+          if ($LASTEXITCODE -ne 0) { throw "flutter pub get 失败" }
+          flutter build windows --release --build-name $env:BASE_VERSION --build-number ${{ github.run_number }}
+          if ($LASTEXITCODE -ne 0) { throw "flutter build 失败，退出码 $LASTEXITCODE" }
+
+      - name: 整理发布目录并打包 zip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'stage/DeskBridge'
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item -Recurse -Force 'ui/build/windows/x64/runner/Release/*' $stage
+          Copy-Item -Force dist/windows-amd64/deskbridge.exe $stage
+          Copy-Item -Force LICENSE $stage
+          foreach ($f in 'deskbridge_client.exe', 'deskbridge.exe') {
+            if (-not (Test-Path "$stage/$f")) { throw "发布目录缺少 $f" }
+          }
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Force -Path $stage -DestinationPath "out/DeskBridge-$env:VERSION-windows-amd64.zip"
+
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if ($iscc) {
+            Write-Host "runner 自带 Inno Setup：$iscc"
+          } else {
+            choco install innosetup --version=6.7.1 -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "choco 安装 Inno Setup 失败，退出码 $LASTEXITCODE" }
+            $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $iscc) { throw '找不到 ISCC.exe' }
+          "ISCC=$iscc" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: 编译安装程序
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & $env:ISCC /Qp "/DAppVersion=$env:VERSION" "/DAppNumVersion=$env:BASE_VERSION.0" "/DSourceDir=$PWD\stage\DeskBridge" "/O$PWD\out" "/FDeskBridge-$env:VERSION-windows-amd64-setup" installer/deskbridge.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc 失败，退出码 $LASTEXITCODE" }
+          Get-ChildItem out | Format-Table Name, Length
+
+      - name: 冒烟测试（安装、运行、卸载）
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = "$PWD\out\DeskBridge-$env:VERSION-windows-amd64-setup.exe"
+          $dir = Join-Path $env:RUNNER_TEMP 'DeskBridgeSmoke'
+          # 不勾选“开机自启”任务，CI 上不装计划任务。
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/CURRENTUSER', '/NORESTART', "/DIR=$dir", "/LOG=$env:RUNNER_TEMP\setup.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content "$env:RUNNER_TEMP\setup.log" -Tail 40; throw "安装失败，退出码 $($p.ExitCode)" }
+          $exe = Join-Path $dir 'deskbridge.exe'
+          foreach ($f in 'deskbridge.exe', 'deskbridge_client.exe', 'unins000.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "安装目录缺少 $f" }
+          }
+
+          $out = (& $exe version) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw "deskbridge version 失败" }
+          Write-Host "deskbridge version 输出：$out"
+          if ($out -notlike "*$env:VERSION*") { throw "version 输出不含 $env:VERSION" }
+
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = $exe
+          $psi.Arguments = 'ui-core -node=off'
+          $psi.RedirectStandardInput = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.UseShellExecute = $false
+          $psi.CreateNoWindow = $true
+          $core = [System.Diagnostics.Process]::Start($psi)
+          $read = $core.StandardOutput.ReadLineAsync()
+          if (-not $read.Wait(30000)) { $core.Kill(); throw 'ui-core 30 秒内没有输出第一行' }
+          $first = $read.Result
+          Write-Host "ui-core 第一行：$first"
+          $json = $first | ConvertFrom-Json
+          if (-not $json.addr -or -not $json.token -or $json.node -ne 'off') { $core.Kill(); throw 'ui-core 第一行 JSON 不符合预期' }
+          $core.StandardInput.Close()
+          if (-not $core.WaitForExit(15000)) { $core.Kill(); throw '关闭标准输入后 ui-core 没有退出' }
+          Write-Host "ui-core 已退出，退出码 $($core.ExitCode)"
+
+          $u = Start-Process (Join-Path $dir 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "卸载失败，退出码 $($u.ExitCode)" }
+          # 卸载程序会交给临时副本继续，轮询等目录消失。
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Test-Path $dir) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+          if (Test-Path $dir) { Get-ChildItem $dir -Recurse | Select-Object -First 20 FullName; throw '卸载后安装目录仍然存在' }
+          Write-Host '冒烟测试通过：安装、version、ui-core、卸载都正常'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*
+          if-no-files-found: error
+
+  linux:
+    name: Linux：压缩包
+    needs: meta
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: scripts/build.sh "$VERSION"
+      - name: 打包
+        run: |
+          set -eu
+          mkdir out
+          for arch in amd64 arm64; do
+            stage=$(mktemp -d)
+            cp "dist/linux-$arch/deskbridge" LICENSE "$stage/"
+            tar -C "$stage" -czf "out/DeskBridge-$VERSION-linux-$arch.tar.gz" deskbridge LICENSE
+          done
+          ls -l out
+      - run: |
+          set -eu
+          d=$(mktemp -d)
+          tar -C "$d" -xzf "out/DeskBridge-$VERSION-linux-amd64.tar.gz"
+          "$d/deskbridge" version | tee /dev/stderr | grep -qF "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    name: 创建草稿 Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [meta, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: 生成校验和和说明
+        run: |
+          set -eu
+          cd assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          sed "s/{{VERSION}}/$VERSION/g" installer/release-notes.md > release-notes.txt
+      - name: 创建草稿 Release
+        run: |
+          set -eu
+          gh release create "$GITHUB_REF_NAME" assets/* --draft --prerelease \
+            --title "DeskBridge $VERSION（预览版）" --notes-file release-notes.txt
