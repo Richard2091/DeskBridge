@@ -1133,19 +1133,20 @@
             "id": 2,
             "title": "macOS 上的 proc.list 和 proc.kill",
             "description": "用 sysctl kern.proc.all 列进程，结束进程和 Linux 共用实现，让 Go 测试在 macOS 上全部通过。",
-            "details": "listProcesses/descendantsOf 用 unix.SysctlKinfoProcSlice；进程名取 comm（最多 16 字节，有截断，待改进可用 kern.procargs2）；内存暂不提供（memory_bytes 省略）。killProcesses、mapKillError、userNameOf 从 proc_linux.go 移到 linux||darwin 的共用文件。验收：Mac 上 go test ./... 全部通过，Linux/Windows CI 不受影响。",
-            "status": "pending",
+            "details": "listProcesses/descendantsOf 用 unix.SysctlKinfoProcSlice；进程名取 comm（最多 16 字节，有截断，待改进可用 kern.procargs2）；内存暂不提供（memory_bytes 省略）。killProcesses、mapKillError、userNameOf 从 proc_linux.go 移到 linux||darwin 的共用文件。验收：Mac 上 go test ./... 全部通过，Linux/Windows CI 不受影响。\n<info added on 2026-10-20T03:42:17.418Z>\n2026-10-20 完成（commit 9dda14e）。darwin 实现用 unix.SysctlKinfoProcSlice（sysctl kern.proc.all）列出进程；killProcesses、mapKillError、userNameOf 移到 proc_unix.go（构建标签 linux||darwin）供 Linux/macOS 共用。验收通过：Mac 上 go test -count=1 ./... 全部通过，GOOS=linux 和 GOOS=windows 下 go vet 通过，CI 不受影响。已知限制：进程名取 comm 最多 16 字节有截断（后续可用 kern.procargs2 改进），暂不提供内存信息（memory_bytes 省略），均已在 architecture.md 记录。\n</info added on 2026-10-20T03:42:17.418Z>",
+            "status": "done",
             "dependencies": [
               "20.1"
             ],
             "parentTaskId": 20,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-10-20T03:43:17.634Z"
           },
           {
             "id": 3,
             "title": "macOS 后台节点自启（LaunchAgent）",
             "description": "deskbridge install/uninstall 在 macOS 上生成和移除 LaunchAgent，登录后自动启动节点。",
-            "details": "autostart_darwin.go：plist 写到 ~/Library/LaunchAgents/<label>.plist（RunAtLoad，标准输出写日志），launchctl bootstrap/bootout/kickstart gui/<uid>。Linux 以后用 systemd --user 对应（不在本子任务）。验收：Mac 上 install 后节点运行，注销重新登录后自动起来，uninstall 后进程和 plist 都没了。",
+            "details": "autostart_darwin.go：plist 写到 ~/Library/LaunchAgents/<label>.plist（RunAtLoad，标准输出写日志），launchctl bootstrap/bootout/kickstart gui/<uid>。Linux 以后用 systemd --user 对应（不在本子任务）。验收：Mac 上 install 后节点运行，注销重新登录后自动起来，uninstall 后进程和 plist 都没了。\n<info added on 2026-10-20T03:42:58.692Z>\n2026-10-20（0cd44ef、a883f52）：完成 LaunchAgent 实现与真机验证。plist 标签为 io.github.richard2091.<名称>，配置 RunAtLoad、KeepAlive{SuccessfulExit=false}、Aqua。真机结果：install 后节点 running，sock 权限 0600、目录权限 0700；kill 节点进程由 supervise 自动重启，kill supervise 由 launchd 重启（runs=2）；uninstall 后无残留进程和 plist。期间发现并修复一个问题：非 Windows 平台上 supervise -hide-console 报 unsupported_platform 退出，导致循环重启。待验证项：注销后重新登录自动启动（需用户手动操作确认）。\n</info added on 2026-10-20T03:42:58.692Z>",
             "status": "pending",
             "dependencies": [
               "20.1"
@@ -1215,7 +1216,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-20T03:31:20.120Z"
+        "updatedAt": "2026-10-20T03:43:17.634Z"
       },
       {
         "id": "21",
@@ -1608,7 +1609,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T03:31:20.120Z",
+      "lastModified": "2026-10-20T03:43:17.635Z",
       "taskCount": 30,
       "completedCount": 12,
       "tags": [
