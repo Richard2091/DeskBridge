@@ -23,13 +23,13 @@ import (
 
 // procExecArgs 是 proc.exec 的参数。
 type procExecArgs struct {
-	Command        string            `json:"command"`  // 经 shell 执行；和 argv 二选一
-	Argv           []string          `json:"argv"`     // 不经 shell 直接执行；和 command 二选一
-	Shell          string            `json:"shell"`    // 空为平台默认
-	Cwd            string            `json:"cwd"`      // 工作目录
-	Env            map[string]string `json:"env"`      // 追加或覆盖的环境变量
-	Stdin          string            `json:"stdin"`    // 标准输入
-	Console        string            `json:"console"`  // hidden（默认）或 visible
+	Command        string            `json:"command"`          // 经 shell 执行；和 argv 二选一
+	Argv           []string          `json:"argv"`             // 不经 shell 直接执行；和 command 二选一
+	Shell          string            `json:"shell"`            // 空为平台默认
+	Cwd            string            `json:"cwd"`              // 工作目录
+	Env            map[string]string `json:"env"`              // 追加或覆盖的环境变量
+	Stdin          string            `json:"stdin"`            // 标准输入
+	Console        string            `json:"console"`          // hidden（默认）或 visible
 	MaxOutputBytes int               `json:"max_output_bytes"` // 0 用默认值
 }
 

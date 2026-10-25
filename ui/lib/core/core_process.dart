@@ -15,13 +15,16 @@ class CoreProcess {
   /// 本机节点的来源：external（已在后台运行，复用）、embedded（随客户端运行）、off（不启动）。
   final String nodeMode;
 
-  /// 找 deskbridge 程序：环境变量 DESKBRIDGE_EXE，其次与本程序同目录，最后在 PATH 里找。
+  /// 找 deskbridge 程序：环境变量 DESKBRIDGE_EXE，其次与本程序同目录（macOS 上是
+  /// .app 里的 Contents/Helpers，避免和不区分大小写的 Contents/MacOS/DeskBridge 重名），
+  /// 最后在 PATH 里找。
   static Future<String> findExe() async {
     final env = Platform.environment['DESKBRIDGE_EXE'];
     if (env != null && env.isNotEmpty && File(env).existsSync()) return env;
     final dir = File(Platform.resolvedExecutable).parent.path;
     final name = Platform.isWindows ? 'deskbridge.exe' : 'deskbridge';
-    final beside = '$dir${Platform.pathSeparator}$name';
+    final sep = Platform.pathSeparator;
+    final beside = Platform.isMacOS ? '${File(dir).parent.path}${sep}Helpers$sep$name' : '$dir$sep$name';
     if (File(beside).existsSync()) return beside;
     try {
       final r = await Process.run(Platform.isWindows ? 'where' : 'which', ['deskbridge']);
