@@ -192,13 +192,6 @@ func (s *Session) refreshPageInfo(ctx context.Context, p *pageState) {
 	}
 }
 
-// UpdatePageInfo 刷新当前页面的地址和标题。
-func (s *Session) updateCurrentPageInfo(ctx context.Context) {
-	if p, err := s.currentPage(); err == nil {
-		s.refreshPageInfo(ctx, p)
-	}
-}
-
 // NavigateResult 是 browser.navigate 的返回值。
 type NavigateResult struct {
 	URL     string `json:"url"`

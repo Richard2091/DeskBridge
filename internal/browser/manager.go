@@ -170,6 +170,19 @@ func (m *Manager) Open(ctx context.Context, owner string, opts OpenOptions) (*Se
 	sessionID := randomID()
 	profileDir := cfg.profileDir(m.home, sessionID, opts.ProfileName)
 	isolated := cfg.ProfileMode != "persistent"
+	if !isolated {
+		// persistent 配置档案同一时间只能被一个会话使用，否则第二实例会把
+		// 命令转发给已有实例，关闭时可能影响另一个会话。
+		m.mu.Lock()
+		for _, existing := range m.sessions {
+			if existing.proc != nil && samePath(existing.proc.profileDir, profileDir) {
+				m.mu.Unlock()
+				return nil, OpenInfo{}, protocol.Errorf(protocol.CodeUnavailable,
+					"配置档案 %q 正在被另一个会话使用", opts.ProfileName)
+			}
+		}
+		m.mu.Unlock()
+	}
 
 	var chosen Candidate
 	var proc *launched
@@ -208,7 +221,6 @@ func (m *Manager) Open(ctx context.Context, owner string, opts OpenOptions) (*Se
 		owner:        owner,
 		home:         m.home,
 		cfg:          cfg,
-		logf:         m.logf,
 		client:       client,
 		proc:         proc,
 		pages:        make(map[string]*pageState),
@@ -384,7 +396,6 @@ type Session struct {
 	owner string
 	home  string
 	cfg   Config
-	logf  func(string, ...any)
 
 	mu        sync.Mutex
 	client    *cdpClient
@@ -469,18 +480,6 @@ func (s *Session) close() {
 	if proc != nil {
 		proc.close()
 	}
-}
-
-// callCurrent 在当前页面上发一条 CDP 命令。
-func (s *Session) callCurrent(ctx context.Context, method string, params any, out any) *protocol.Error {
-	p, perr := s.currentPage()
-	if perr != nil {
-		return perr
-	}
-	if err := s.client.call(ctx, p.sessionID, method, params, out); err != nil {
-		return cdpProtocolError(err)
-	}
-	return nil
 }
 
 // cdpProtocolError 把 CDP 错误映射为协议错误。

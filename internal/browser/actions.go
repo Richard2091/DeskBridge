@@ -90,6 +90,7 @@ type ClickOptions struct {
 	Ref        string
 	Selector   string
 	Point      *Point
+	SnapshotID string
 	Button     string // left、right、middle
 	ClickCount int
 	Modifiers  []string
@@ -100,6 +101,10 @@ func (s *Session) Click(ctx context.Context, opts ClickOptions) error {
 	p, perr := s.currentPage()
 	if perr != nil {
 		return perr
+	}
+	if opts.SnapshotID != "" && p.snapshotID != opts.SnapshotID {
+		return protocol.Errorf(protocol.CodeInvalidArgs,
+			"快照 %s 已过期，请重新调用 browser.snapshot", opts.SnapshotID)
 	}
 	pt, err := s.resolvePoint(ctx, p, opts.Ref, opts.Selector, opts.Point)
 	if err != nil {
@@ -371,31 +376,30 @@ func (s *Session) clearElement(ctx context.Context, p *pageState, ref, selector 
 
 // keyInfo 是按键的 CDP 参数。
 type keyInfo struct {
-	Key       string
-	Code      string
-	VK        int
-	Text      string
-	KeyCode32 int
+	Key  string
+	Code string
+	VK   int
+	Text string
 }
 
 // keyTable 是支持的命名按键。
 var keyTable = map[string]keyInfo{
-	"Enter":      {"Enter", "Enter", 13, "\r", 13},
-	"Tab":        {"Tab", "Tab", 9, "", 9},
-	"Escape":     {"Escape", "Escape", 27, "", 27},
-	"Esc":        {"Escape", "Escape", 27, "", 27},
-	"Backspace":  {"Backspace", "Backspace", 8, "", 8},
-	"Delete":     {"Delete", "Delete", 46, "", 46},
-	"ArrowUp":    {"ArrowUp", "ArrowUp", 38, "", 38},
-	"ArrowDown":  {"ArrowDown", "ArrowDown", 40, "", 40},
-	"ArrowLeft":  {"ArrowLeft", "ArrowLeft", 37, "", 37},
-	"ArrowRight": {"ArrowRight", "ArrowRight", 39, "", 39},
-	"Home":       {"Home", "Home", 36, "", 36},
-	"End":        {"End", "End", 35, "", 35},
-	"PageUp":     {"PageUp", "PageUp", 33, "", 33},
-	"PageDown":   {"PageDown", "PageDown", 34, "", 34},
-	"Space":      {" ", "Space", 32, " ", 32},
-	" ":          {" ", "Space", 32, " ", 32},
+	"Enter":      {"Enter", "Enter", 13, "\r"},
+	"Tab":        {"Tab", "Tab", 9, ""},
+	"Escape":     {"Escape", "Escape", 27, ""},
+	"Esc":        {"Escape", "Escape", 27, ""},
+	"Backspace":  {"Backspace", "Backspace", 8, ""},
+	"Delete":     {"Delete", "Delete", 46, ""},
+	"ArrowUp":    {"ArrowUp", "ArrowUp", 38, ""},
+	"ArrowDown":  {"ArrowDown", "ArrowDown", 40, ""},
+	"ArrowLeft":  {"ArrowLeft", "ArrowLeft", 37, ""},
+	"ArrowRight": {"ArrowRight", "ArrowRight", 39, ""},
+	"Home":       {"Home", "Home", 36, ""},
+	"End":        {"End", "End", 35, ""},
+	"PageUp":     {"PageUp", "PageUp", 33, ""},
+	"PageDown":   {"PageDown", "PageDown", 34, ""},
+	"Space":      {" ", "Space", 32, " "},
+	" ":          {" ", "Space", 32, " "},
 }
 
 // Key 按下并释放一个键。

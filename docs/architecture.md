@@ -131,6 +131,7 @@ deskbridge exec / mcp / ui-core ──本机接口──▶ 本机 deskbridge no
 | `input.click` / `input.type` / `input.key` / `input.scroll` | 鼠标键盘 |
 | `window.list` / `window.focus` | 窗口 |
 | `ui.tree` / `ui.find` / `ui.invoke` | 界面元素（Windows UI Automation） |
+| `browser.*` | 浏览器：启动默认浏览器、导航、页面快照、点击、输入、截图、控制台/网络、Cookie（见 ADR-0012） |
 
 ## MCP 服务器
 

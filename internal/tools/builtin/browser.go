@@ -352,6 +352,7 @@ func newBrowserClickTool() *tools.Tool {
 				Ref:        a.Ref,
 				Selector:   a.Selector,
 				Point:      a.Point,
+				SnapshotID: a.SnapshotID,
 				Button:     a.Button,
 				ClickCount: a.ClickCount,
 				Modifiers:  a.Modifiers,

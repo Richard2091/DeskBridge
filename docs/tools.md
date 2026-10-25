@@ -139,6 +139,52 @@
 - 节点自己及其子进程不会被结束。
 - 只按 PID 指定目标：PID 在调用方查看之后被复用的情况无法识别（已知限制）。
 
+## 浏览器工具
+
+节点内置一组 `browser.*` 工具，经 Chrome DevTools Protocol（CDP）操作浏览器。**默认启动系统设置的默认浏览器**（Windows 读注册表的 UserChoice，Linux 用 `xdg-settings` / `xdg-mime`），默认无头运行，用独立的配置档案，不接管用户正在使用的窗口。默认浏览器不是 Chromium 内核（如 Firefox、Safari）时无法用 CDP 自动化：`browser.open` 会在 `warnings` 里说明，并按 `allow_fallback`（默认开启）退回本机已知的 Chromium 浏览器；关闭回退时返回 `unsupported_platform`。
+
+配置在数据目录下的 `browser.json`，字段都可缺省：
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `enabled` | `true` | 为 `false` 时浏览器工具返回 `unavailable` |
+| `headless` | `true` | 是否默认无头运行 |
+| `executable` | 空 | 指定浏览器可执行文件；空表示用系统默认浏览器 |
+| `use_default_browser` | `true` | 是否优先使用系统默认浏览器 |
+| `allow_fallback` | `true` | 默认浏览器不可用时是否退回已知的 Chromium 浏览器 |
+| `max_sessions` | `2` | 同时打开的会话上限（最大 4） |
+| `idle_timeout_seconds` | `600` | 空闲多久自动关闭会话（最大 3600） |
+| `allowed_schemes` | `http`、`https`、`about`、`data` | 允许导航的 URL scheme；默认禁止 `file` |
+| `profile_mode` | `isolated` | `isolated`：每会话一个临时目录，关闭即删；`persistent`：保存在数据目录的 `browser/profiles/<名字>` |
+
+**会话：** `browser.open` 返回 `session`，其余浏览器工具都要带这个参数。会话只属于创建它的调用者（连接方式 + 主人 + 设备）；默认最多同时 2 个，空闲 10 分钟自动关闭；浏览器崩溃后会话不可恢复，重新 `browser.open`。节点退出时关闭全部会话（Windows 作业对象、Linux Pdeathsig 兜底结束浏览器进程）。
+
+**ref 快照：** `browser.snapshot` 返回当前页面的可访问性树，节点形如 `{"ref":"e12","role":"button","name":"提交"}`。`ref` 在同一个 `snapshot_id` 内有效，导航或重新快照后失效（用旧 ref 返回 `invalid_args`，`details.reason` 为 `stale_ref`）。点击和输入优先用 ref，比 CSS 选择器稳定。
+
+| 工具 | 参数 | 返回 |
+|---|---|---|
+| `browser.open` | `headless`、`executable`、`profile`、`profile_name`、`viewport`（都可选） | `session`、`browser`、`executable`、`headless`、`default_browser`、`method`、`warnings` |
+| `browser.close` | `session` | `closed` |
+| `browser.info` | 无 | 默认浏览器、可用浏览器列表、配置、已打开的会话 |
+| `browser.navigate` | `session`、`url`、`wait_until`（`load`/`domcontentloaded`/`network_idle`） | `url`、`title` |
+| `browser.snapshot` | `session`、`max_nodes`（默认 400）、`max_bytes`（默认 256 KiB） | `snapshot_id`、`url`、`title`、`nodes`、`truncated` |
+| `browser.click` | `session`，`ref` / `selector` / `point` 三选一；`button`、`click_count`、`modifiers`、`snapshot_id` 可选 | `clicked`、`url`、`title` |
+| `browser.type` | `session`、`text`，`ref` / `selector` 二选一；`clear`、`submit` 可选 | `typed` |
+| `browser.key` | `session`、`key`、`modifiers`（可选） | `pressed` |
+| `browser.wait` | `session`，`selector` / `text` / `url` 至少一个；`state`（`visible`/`attached`） | `waited_ms` |
+| `browser.screenshot` | `session`、`full_page`、`format`、`quality`、`clip`、`save_path`（都可选） | `path`、`width`、`height`、`bytes` |
+| `browser.eval` | `session`、`expression`、`await_promise`、`max_bytes`（可选） | `value`、`truncated` |
+| `browser.console` | `session`、`level`、`max_entries`、`clear`（可选） | `entries`、`count` |
+| `browser.network` | `session`、`filter`（`all`/`xhr`/`document`/`failed`）、`max_entries` | `requests`、`count` |
+| `browser.tabs` | `session`、`action`（`list`/`new`/`select`/`close`）、`url`、`index` | `tabs` |
+| `browser.cookies` | `session`、`action`（`get`/`set`/`clear`）、`url`、`cookies` | `cookies` 或 `set` 数量 |
+
+- 截图默认保存到数据目录 `browser/screenshots/`，`save_path` 是绝对路径或相对数据目录的路径。
+- `browser.eval` 等同于在页面里执行任意 JavaScript，权限上按“执行命令”对待；表达式在操作记录里截断。
+- Cookie 的值在操作记录里脱敏。
+- 找不到浏览器时返回 `unavailable`（默认浏览器不支持 CDP 且不允许回退时是 `unsupported_platform`）；浏览器崩溃返回 `unavailable`；导航被 scheme 白名单拒绝返回 `permission_denied`。
+- **不影响用户正在使用的窗口：** 每次会话都启动独立的浏览器实例（独立用户数据目录，默认无头），不接管、不聚焦、不关闭用户已经打开的浏览器窗口；`browser.close` 只结束这个会话自己启动的实例（Windows 用独立作业对象，Linux/macOS 用独立进程组）。`persistent` 配置档案同一时间只允许一个会话使用。
+
 ## 编码
 
 Windows 上外部程序的输出不一定是 UTF-8：`cmd` 内部命令和很多老程序按控制台代码页（中文系统为 936，即 GBK）输出，PowerShell 的错误流也可能不受 `OutputEncoding` 影响。`proc.exec` 对标准输出和标准错误分别处理：

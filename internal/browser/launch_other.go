@@ -6,11 +6,19 @@ package browser
 
 import "os/exec"
 
+type processGroup struct{}
+
 func prepareCmd(cmd *exec.Cmd) {}
 
-func assignToJob(pid int) {}
+func newProcessGroup() (*processGroup, error) { return &processGroup{}, nil }
 
-func terminate(cmd *exec.Cmd) {
+func (g *processGroup) attach(pid int) {}
+
+func (g *processGroup) terminate(cmd *exec.Cmd) { terminateProcess(cmd) }
+
+func (g *processGroup) release() {}
+
+func terminateProcess(cmd *exec.Cmd) {
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 	}

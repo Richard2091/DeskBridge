@@ -68,6 +68,13 @@ func asProtoError(err error, target **protocol.Error) bool {
 // expectedTools 是各平台应该注册的工具集合。
 func expectedTools() []string {
 	base := []string{"sys.info", "fs.stat", "fs.list", "fs.read", "fs.write", "proc.exec"}
+	browser := []string{
+		"browser.open", "browser.close", "browser.info", "browser.navigate",
+		"browser.snapshot", "browser.click", "browser.type", "browser.key",
+		"browser.wait", "browser.screenshot", "browser.eval", "browser.console",
+		"browser.network", "browser.tabs", "browser.cookies",
+	}
+	base = append(base, browser...)
 	switch runtime.GOOS {
 	case "windows", "linux":
 		return append(base, "proc.list", "proc.kill")

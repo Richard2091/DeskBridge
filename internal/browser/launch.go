@@ -50,6 +50,7 @@ func (t *tailBuffer) String() string {
 // launched 是启动完成的浏览器进程。
 type launched struct {
 	cmd        *exec.Cmd
+	group      *processGroup
 	wsURL      string
 	version    string
 	profileDir string
@@ -87,29 +88,37 @@ func launch(ctx context.Context, exe, profileDir string, isolated, headless bool
 	if err := os.MkdirAll(profileDir, 0o700); err != nil {
 		return nil, fmt.Errorf("创建浏览器配置目录 %s 失败：%w", profileDir, err)
 	}
+	group, gerr := newProcessGroup()
+	if gerr != nil {
+		// 拿不到进程组时退化为只结束根进程，不影响启动。
+		group = nil
+	}
 	cmd := exec.Command(exe, browserArgs(profileDir, headless)...)
 	out := &tailBuffer{max: 64 << 10}
 	cmd.Stdout = out
 	cmd.Stderr = out
 	prepareCmd(cmd)
 	if err := cmd.Start(); err != nil {
+		group.release()
 		removeProfile(profileDir, isolated)
 		return nil, fmt.Errorf("启动浏览器 %s 失败：%w", exe, err)
 	}
 	l := &launched{
 		cmd:        cmd,
+		group:      group,
 		profileDir: profileDir,
 		isolated:   isolated,
 		output:     out,
 		waitCh:     make(chan error, 1),
 	}
 	go func() { l.waitCh <- cmd.Wait() }()
-	assignToJob(cmd.Process.Pid)
+	group.attach(cmd.Process.Pid)
 
 	wsURL, err := waitDevTools(ctx, l)
 	if err != nil {
 		l.kill()
 		l.wait(2 * time.Second)
+		group.release()
 		removeProfile(profileDir, isolated)
 		return nil, fmt.Errorf("%w（浏览器输出：%s）", err, clip(out.String(), 600))
 	}
@@ -227,10 +236,14 @@ func httpURLFromWS(wsURL string) (string, error) {
 
 // kill 结束浏览器进程。
 func (l *launched) kill() {
-	if l == nil || l.cmd == nil || l.cmd.Process == nil {
+	if l == nil || l.cmd == nil {
 		return
 	}
-	terminate(l.cmd)
+	if l.group != nil {
+		l.group.terminate(l.cmd)
+		return
+	}
+	terminateProcess(l.cmd)
 }
 
 // wait 等待浏览器进程退出，超时后强制结束。
@@ -241,7 +254,7 @@ func (l *launched) wait(timeout time.Duration) {
 	select {
 	case <-l.waitCh:
 	case <-time.After(timeout):
-		terminate(l.cmd)
+		terminateProcess(l.cmd)
 		select {
 		case <-l.waitCh:
 		case <-time.After(2 * time.Second):
@@ -256,6 +269,9 @@ func (l *launched) close() {
 	}
 	l.kill()
 	l.wait(3 * time.Second)
+	if l.group != nil {
+		l.group.release()
+	}
 	removeProfile(l.profileDir, l.isolated)
 }
 
