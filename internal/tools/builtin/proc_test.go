@@ -584,3 +584,24 @@ func TestStreamHelper(t *testing.T) {
 	fmt.Fprint(os.Stdout, "最后一行没有换行")
 	os.Exit(0)
 }
+
+// TestProcExecVisibleUnsupportedPlatform 验证非 Windows 平台明确拒绝 visible。
+func TestProcExecVisibleUnsupportedPlatform(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 上支持 visible")
+	}
+	_, err := callExec(t, map[string]any{"command": "echo hi", "console": "visible"}, 0)
+	expectProtoError(t, err, protocol.CodeUnsupportedPlatform)
+}
+
+// TestProcExecVisibleStdinRejected 验证 visible 模式不接受 stdin（两个平台一致）。
+func TestProcExecVisibleStdinRejected(t *testing.T) {
+	_, err := callExec(t, map[string]any{"command": "echo hi", "console": "visible", "stdin": "x"}, 0)
+	expectProtoError(t, err, protocol.CodeInvalidArgs)
+}
+
+// TestProcExecConsoleInvalid 验证 console 参数只接受 hidden / visible。
+func TestProcExecConsoleInvalid(t *testing.T) {
+	_, err := callExec(t, map[string]any{"command": "echo hi", "console": "always"}, 0)
+	expectProtoError(t, err, protocol.CodeInvalidArgs)
+}

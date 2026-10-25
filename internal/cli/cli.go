@@ -66,6 +66,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "-v", "-version", "--version":
 		return runVersion(nil, stdout, stderr)
 	}
+	// console 是内部命令（proc.exec 的 visible 模式用它持有控制台窗口），
+	// 不作为用户命令列进帮助。
+	if args[0] == "console" {
+		return runConsole(args[1:], stdout, stderr)
+	}
 	for _, c := range commands() {
 		if c.name == args[0] {
 			return c.run(args[1:], stdout, stderr)

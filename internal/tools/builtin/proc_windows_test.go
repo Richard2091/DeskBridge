@@ -5,6 +5,7 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Richard2091/DeskBridge/internal/tools"
+	"golang.org/x/sys/windows"
 )
 
 // TestProcExecKeepsBackgroundProcess 验证 cmd 正常结束后，start /b 启动的
@@ -105,5 +107,74 @@ func TestProcExecPowerShellPlainStderr(t *testing.T) {
 				t.Errorf("stdout 中文不对：%q", res.Stdout)
 			}
 		})
+	}
+}
+
+// TestConsoleCreationFlags 验证默认不弹控制台窗口、可见模式新建窗口。
+func TestConsoleCreationFlags(t *testing.T) {
+	if got := consoleCreationFlags(false); got != windows.CREATE_NO_WINDOW {
+		t.Errorf("hidden 模式的创建标志 = %#x，期望 CREATE_NO_WINDOW", got)
+	}
+	if got := consoleCreationFlags(true); got != windows.CREATE_NEW_CONSOLE {
+		t.Errorf("visible 模式的创建标志 = %#x，期望 CREATE_NEW_CONSOLE", got)
+	}
+}
+
+// TestVisibleCommand 验证可见模式把命令交给 console 子命令，标题和回显都在参数里。
+func TestVisibleCommand(t *testing.T) {
+	oldExe, oldHold := helperExecutable, consoleHold
+	helperExecutable = func() (string, error) { return `C:\fake\deskbridge.exe`, nil }
+	consoleHold = 3 * time.Second
+	defer func() { helperExecutable, consoleHold = oldExe, oldHold }()
+
+	shellCmd, err := buildShellCommand("cmd", "echo hi")
+	if err != nil {
+		t.Fatalf("构造命令失败: %v", err)
+	}
+	helper, err := visibleCommand(shellCmd, "echo hi", `C:\work> `)
+	if err != nil {
+		t.Fatalf("包装可见命令失败: %v", err)
+	}
+	if len(helper.Args) < 2 || helper.Args[1] != "console" {
+		t.Fatalf("helper 参数 = %q，期望第二个是 console", helper.Args)
+	}
+	joined := strings.Join(helper.Args, "\n")
+	for _, want := range []string{"-title", "DeskBridge", "-line", `C:\work> echo hi`, "-cmdline", "-hold", "3s"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("helper 参数缺少 %q：%q", want, helper.Args)
+		}
+	}
+}
+
+// TestProcExecVisibleWindows 验证 visible 模式的完整链路：在设备桌面上新建
+// 控制台窗口运行命令，返回退出码，不返回输出。需要先把本仓库编译出的
+// deskbridge.exe 路径放进环境变量 DESKBRIDGE_HELPER_EXE（测试程序的
+// os.Executable 不是 deskbridge，不能当 console 子命令用）。
+func TestProcExecVisibleWindows(t *testing.T) {
+	exe := os.Getenv("DESKBRIDGE_HELPER_EXE")
+	if exe == "" {
+		t.Skip("未设置 DESKBRIDGE_HELPER_EXE，跳过可见窗口的集成测试")
+	}
+	oldExe, oldHold := helperExecutable, consoleHold
+	helperExecutable = func() (string, error) { return exe, nil }
+	consoleHold = 0
+	defer func() { helperExecutable, consoleHold = oldExe, oldHold }()
+
+	res, err := callExec(t, map[string]any{
+		"command": "exit /b 7",
+		"shell":   "cmd",
+		"console": "visible",
+	}, 30*time.Second)
+	if err != nil {
+		t.Fatalf("visible 模式执行失败: %v", err)
+	}
+	if res.ExitCode != 7 {
+		t.Errorf("exit_code = %d，期望 7", res.ExitCode)
+	}
+	if res.Stdout != "" || res.Stderr != "" {
+		t.Errorf("visible 模式不应返回输出：stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	}
+	if !res.Console {
+		t.Error("结果里的 console 应为 true")
 	}
 }

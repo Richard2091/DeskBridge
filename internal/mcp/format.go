@@ -40,6 +40,7 @@ type execResult struct {
 	StdoutTruncated bool   `json:"stdout_truncated"`
 	StderrTruncated bool   `json:"stderr_truncated"`
 	TimedOut        bool   `json:"timed_out"`
+	Console         bool   `json:"console"`
 }
 
 // formatExec 把 proc.exec 的结果排成给人读的文本。
@@ -49,6 +50,10 @@ func formatExec(r execResult) string {
 		b.WriteString("退出码：超时，已终止\n")
 	} else {
 		fmt.Fprintf(&b, "退出码：%d\n", r.ExitCode)
+	}
+	if r.Console {
+		b.WriteString("（visible 模式：命令在设备桌面的控制台窗口里运行，输出没有通过工具返回）\n")
+		return b.String()
 	}
 	b.WriteString("--- 标准输出 ---\n")
 	b.WriteString(r.Stdout)

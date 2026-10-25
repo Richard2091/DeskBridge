@@ -32,6 +32,7 @@ type execArgs struct {
 	Shell          string `json:"shell,omitempty" jsonschema:"powershell、pwsh、cmd、sh、bash 之一；省略时 Windows 用 powershell，其他系统用 sh"`
 	Cwd            string `json:"cwd,omitempty" jsonschema:"工作目录；省略时用节点进程的当前目录"`
 	Stdin          string `json:"stdin,omitempty" jsonschema:"标准输入的内容；省略时为空输入，等待输入的命令会立即读到结束"`
+	Console        string `json:"console,omitempty" jsonschema:"控制台窗口：hidden（默认）不弹窗口；visible 在设备桌面上打开带标题的窗口显示命令行和实时输出，适合下载、安装、构建等耗时较长、需要人看着的命令，此时不返回 stdout/stderr，只返回退出码；仅 Windows 支持"`
 	TimeoutMS      int    `json:"timeout_ms,omitempty" jsonschema:"超时，单位毫秒；默认 300000（5 分钟），上限 600000（10 分钟）。超时会终止整个进程树并返回已收到的输出"`
 	MaxOutputBytes int    `json:"max_output_bytes,omitempty" jsonschema:"标准输出和标准错误各自保留的字节数；默认 65536，上限 8388608。超出部分被丢弃，结果末尾会注明已截断"`
 }
@@ -82,7 +83,9 @@ func (s *server) addTools(srv *sdk.Server) {
 	addTool(srv, "exec",
 		"在设备上执行一条命令，返回退出码、标准输出和标准错误。超时默认 300000 毫秒，上限 600000 毫秒（10 分钟）；输出默认各保留 65536 字节，被截断时结果末尾会注明。"+
 			"耗时很长的命令不要一直等：把它放到后台并把输出写进日志文件，再用 read_file 轮询日志。"+
-			"Windows 上用 shell=cmd 执行 start /b cmd /c \"命令 > 日志文件 2>&1\" 启动后台进程，命令正常结束后进程会保留。",
+			"Windows 上用 shell=cmd 执行 start /b cmd /c \"命令 > 日志文件 2>&1\" 启动后台进程，命令正常结束后进程会保留。"+
+			"Windows 上默认不弹控制台窗口；下载、安装、构建等耗时较长、需要人在被控端桌面上看着的命令可以设 console=visible，"+
+			"在那个桌面上打开带标题的窗口显示命令行和实时输出，此时不返回 stdout/stderr，只返回退出码。",
 		false, s.exec)
 	addTool(srv, "read_file",
 		"读取设备上的文件。默认最多读 262144 字节；没读完时结果末尾会给出继续读的 offset，用 offset 分块读取。不是合法 UTF-8 的文件以 base64 返回，开头会注明。",
@@ -171,6 +174,9 @@ func (s *server) exec(ctx context.Context, req *sdk.CallToolRequest, in execArgs
 	}
 	if in.Stdin != "" {
 		args["stdin"] = in.Stdin
+	}
+	if in.Console != "" {
+		args["console"] = in.Console
 	}
 	resp, fail := s.callTool(ctx, req, in.Device, "proc.exec", args, in.TimeoutMS)
 	if fail != nil {

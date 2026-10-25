@@ -37,7 +37,11 @@ const execHelp = `在目标设备上执行命令。选项必须写在命令之�
 不要等它：放到后台并把输出写进日志文件，再用 read 轮询，例如 Windows 上
   deskbridge exec -d win-pc --shell cmd "start /b mytask.exe > D:\log.txt 2>&1"
   deskbridge read -d win-pc D:\log.txt
-（Windows 上用 start /b 启动的后台进程在命令正常结束后会保留。）`
+（Windows 上用 start /b 启动的后台进程在命令正常结束后会保留。）
+
+Windows 上默认不弹控制台窗口。下载、安装、构建等耗时较长、想让人在设备桌面上
+看着的命令可以加 --console visible：在那个桌面上打开一个带标题的窗口，先回显
+命令行再显示实时输出；此时不返回 stdout/stderr，只返回退出码。`
 
 const execExitHelp = `退出码：远程命令的退出码（超出 0-255 时为 1）；超时 124，并提示“命令超时”；
 Ctrl+C 时取消远程调用并退出 130；工具调用失败或本机节点未运行为 1；用法错误为 2。`
@@ -63,6 +67,7 @@ type execResult struct {
 	StdoutTruncated bool   `json:"stdout_truncated"`
 	StderrTruncated bool   `json:"stderr_truncated"`
 	TimedOut        bool   `json:"timed_out"`
+	Console         bool   `json:"console"`
 	DurationMS      int64  `json:"duration_ms"`
 }
 
@@ -70,6 +75,7 @@ func runExec(args []string, stdout, stderr io.Writer) int {
 	t := newToolCmd("exec", execUsage, execHelp, true, stdout, stderr)
 	t.exitHelp = execExitHelp
 	shell := t.fs.String("shell", "", "shell：powershell、pwsh、cmd、sh、bash，默认取对端平台的默认值")
+	console := t.fs.String("console", "", "控制台窗口：visible 在设备桌面上打开带标题的窗口显示命令和输出（仅 Windows，不返回 stdout/stderr）")
 	cwd := t.fs.String("cwd", "", "工作目录")
 	var envs envList
 	t.fs.Var(&envs, "env", "追加或覆盖的环境变量 K=V，可重复")
@@ -91,6 +97,9 @@ func runExec(args []string, stdout, stderr io.Writer) int {
 	callArgs := map[string]any{"command": strings.Join(t.fs.Args(), " ")}
 	if *shell != "" {
 		callArgs["shell"] = *shell
+	}
+	if *console != "" {
+		callArgs["console"] = *console
 	}
 	if *cwd != "" {
 		callArgs["cwd"] = *cwd
@@ -136,6 +145,9 @@ func runExec(args []string, stdout, stderr io.Writer) int {
 	var r execResult
 	if err := decodeResult(resp.Result, &r); err != nil {
 		return s.fail(err)
+	}
+	if r.Console {
+		fmt.Fprintln(stderr, "（visible 模式：命令在设备桌面的控制台窗口里运行，不返回 stdout/stderr）")
 	}
 	if *s.jsonOut {
 		if c := s.printRaw(resp.Result); c != exitOK {

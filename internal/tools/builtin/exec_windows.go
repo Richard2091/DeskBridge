@@ -4,9 +4,13 @@ package builtin
 
 import (
 	"errors"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/Richard2091/DeskBridge/internal/protocol"
@@ -20,8 +24,27 @@ const defaultShell = "powershell"
 func shellAllowed() []string { return []string{"powershell", "pwsh", "cmd"} }
 
 // psEncodingPrefix 把 PowerShell 的控制台输出编码设为 UTF-8，加在用户
-// 命令前面，见 docs/tools.md 的编码一节。
-const psEncodingPrefix = `[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false);[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding;`
+// 命令前面，见 docs/tools.md 的编码一节。默认不弹窗口时子进程可能没有
+// 控制台，设置控制台编码会失败（Windows PowerShell 5.1 会抛“句柄无效”），
+// 所以两项都用 try/catch 包住：失败时输出按系统代码页编码，解码侧本来
+// 就会按 OEM 代码页回退。
+const psEncodingPrefix = `try{[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)}catch{};try{[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)}catch{};$OutputEncoding=[System.Text.UTF8Encoding]::new($false);`
+
+// consoleHold 是可见模式命令结束后窗口保留的时间，测试里可以改小。
+var consoleHold = 5 * time.Second
+
+// helperExecutable 返回 console 子命令所在的程序路径，测试里可以替换。
+var helperExecutable = func() (string, error) { return os.Executable() }
+
+// consoleCreationFlags 返回启动子进程用的创建标志。默认不让控制台程序
+// 新建窗口（节点自己没有控制台时会弹一个空白窗口）；可见模式反过来，
+// 新建一个控制台窗口，标题和回显由 console 子命令负责。
+func consoleCreationFlags(visible bool) uint32 {
+	if visible {
+		return windows.CREATE_NEW_CONSOLE
+	}
+	return windows.CREATE_NO_WINDOW
+}
 
 // buildShellCommand 按 docs/tools.md 的方式构造经 shell 执行的命令。
 func buildShellCommand(shell, command string) (*exec.Cmd, error) {
@@ -54,6 +77,57 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 	}
 }
 
+// visibleCommand 把要执行的命令包装成 console 子命令：由它在设备桌面上新建
+// 的控制台窗口里运行，窗口里先打印一行模拟人工输入的命令，再把控制台交给
+// 真正的命令，命令的输出直接写进窗口。
+func visibleCommand(shellCmd *exec.Cmd, display, prompt string) (*exec.Cmd, error) {
+	exe, err := helperExecutable()
+	if err != nil {
+		return nil, protocol.Errorf(protocol.CodeInternal, "确定程序路径失败：%v", err)
+	}
+	args := []string{
+		"console",
+		"-title", consoleTitle(display),
+		"-line", echoLine(prompt, display),
+		"-exe", shellCmd.Path,
+		"-hold", consoleHold.String(),
+	}
+	if shellCmd.SysProcAttr != nil && shellCmd.SysProcAttr.CmdLine != "" {
+		args = append(args, "-cmdline", shellCmd.SysProcAttr.CmdLine)
+	} else if len(shellCmd.Args) > 1 {
+		args = append(append(args, "--"), shellCmd.Args[1:]...)
+	}
+	helper := exec.Command(exe, args...)
+	helper.Env = shellCmd.Env
+	helper.Dir = shellCmd.Dir
+	return helper, nil
+}
+
+// consoleTitle 生成窗口标题：单行、短，一眼能看出这条命令在做什么。
+func consoleTitle(display string) string {
+	const max = 80
+	s := oneLine(display)
+	if utf8.RuneCountInString(s) > max {
+		s = string([]rune(s)[:max]) + "…"
+	}
+	return "DeskBridge · " + s
+}
+
+// echoLine 生成窗口里回显的一行命令；过长的命令截断，避免命令行超限。
+func echoLine(prompt, display string) string {
+	const max = 400
+	s := oneLine(display)
+	if utf8.RuneCountInString(s) > max {
+		s = string([]rune(s)[:max]) + "…"
+	}
+	return prompt + s
+}
+
+// oneLine 把命令压成一行（窗口标题和回显都不能带换行）。
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 // startProcess 启动进程并放进作业对象，让它创建的子进程默认也在同一
 // 作业里。流程：
 //  1. 以 CREATE_SUSPENDED 启动，主线程挂起，进程还没执行任何代码，
@@ -64,11 +138,14 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 //     选这种方式而不是 NtResumeProcess，是因为 Toolhelp32 和
 //     ResumeThread 都是文档化的 API。
 //
+// 创建标志按 visible 决定：默认 CREATE_NO_WINDOW（不弹窗口），可见模式
+// CREATE_NEW_CONSOLE（窗口由 console 子命令持有）。
+//
 // 作业对象故意不设 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE：命令正常结束
 // 后它启动的后台程序（如 start /b、start notepad）要保留。只有超时
 // 或取消时，kill 才用 TerminateJobObject 显式结束整棵进程树；cleanup
 // 只关闭作业句柄。
-func startProcess(cmd *exec.Cmd) (kill, cleanup func(), err error) {
+func startProcess(cmd *exec.Cmd, visible bool) (kill, cleanup func(), err error) {
 	job, jerr := windows.CreateJobObject(nil, nil)
 	if jerr != nil {
 		return nil, nil, jerr
@@ -77,7 +154,7 @@ func startProcess(cmd *exec.Cmd) (kill, cleanup func(), err error) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
-	cmd.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED
+	cmd.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED | consoleCreationFlags(visible)
 	if serr := cmd.Start(); serr != nil {
 		windows.CloseHandle(job)
 		return nil, nil, serr

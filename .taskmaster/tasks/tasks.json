@@ -1605,12 +1605,26 @@
         ],
         "priority": "high",
         "subtasks": []
+      },
+      {
+        "id": "31",
+        "title": "proc.exec 默认不弹控制台窗口，新增 visible 可见窗口模式",
+        "description": "节点用自启项运行时没有控制台，proc.exec 的控制台子进程会各自弹出一个空白 cmd 窗口。改为默认 CREATE_NO_WINDOW；下载、安装、构建等需要人看着的长时间命令用 console=visible 在设备桌面打开带标题、回显命令行的窗口。",
+        "details": "改动：internal/tools/builtin/exec_windows.go 加创建标志选择；新增 internal/cli/console.go 及 console_windows.go/console_other.go（console 子命令：设置窗口标题、回显命令、运行命令、结束后保留 5 秒）；proc.exec 参数加 console（hidden 默认 / visible 仅 Windows）；CLI exec 加 --console；MCP exec 工具同步参数和说明；docs/tools.md、docs/development.md 更新；Windows 测试覆盖创建标志、参数构造、非 Windows 拒绝、helper 退出码。",
+        "testStrategy": "",
+        "status": "in-progress",
+        "dependencies": [
+          "5"
+        ],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-10-25T15:13:33.168Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-20T03:43:17.635Z",
-      "taskCount": 30,
+      "lastModified": "2026-10-25T15:13:33.169Z",
+      "taskCount": 31,
       "completedCount": 12,
       "tags": [
         "master"

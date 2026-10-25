@@ -95,7 +95,8 @@
 | `shell` | Windows `powershell`，其他 `sh` | `powershell`、`pwsh`、`cmd`、`sh`、`bash` |
 | `cwd` | 节点当前目录 | 工作目录 |
 | `env` | — | 追加或覆盖的环境变量，`{"NAME":"value"}` |
-| `stdin` | 空 | 标准输入；不提供时为空输入，等待输入的命令会立即读到结束 |
+| `stdin` | 空 | 标准输入；不提供时为空输入，等待输入的命令会立即读到结束；`visible` 模式不支持 |
+| `console` | `hidden` | 控制台窗口：`hidden` 不弹窗口；`visible` 在设备桌面上打开带标题的窗口显示命令行和实时输出（仅 Windows），此时不返回 `stdout`/`stderr` |
 | `max_output_bytes` | `1048576`（1 MiB） | 标准输出和标准错误各自的上限，上限 8 MiB；超出部分丢弃 |
 
 返回：
@@ -106,6 +107,7 @@
 | `stdout` / `stderr` | 已解码为 UTF-8 的输出 |
 | `stdout_truncated` / `stderr_truncated` | 是否超过 `max_output_bytes` |
 | `timed_out` | 是否因超时被终止 |
+| `console` | 是否在可见窗口模式下运行；为 `true` 时没有 `stdout`/`stderr` |
 | `duration_ms` | 执行耗时 |
 
 - 命令启动不了（程序不存在、目录不存在）返回 `not_found` 或 `invalid_args` 错误；启动后非零退出不是错误，结果里看 `exit_code`。
@@ -114,6 +116,9 @@
   - `powershell` / `pwsh`：`-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command <前缀 + 换行 + 命令>`，前缀是把 `[Console]::InputEncoding`（让 `stdin` 按 UTF-8 读取）、`[Console]::OutputEncoding` 和 `$OutputEncoding` 设为 UTF-8 的语句。不用 `-EncodedCommand`：输出被重定向时它会让 PowerShell 把错误流和进度流序列化成 CLIXML 写到 `stderr`；`-Command` 下 `stderr` 是和控制台一致的纯文本。引号由 Go 按标准规则转义，PowerShell 同样规则还原。警告流（`Write-Warning`）在文本模式下写到 `stdout`，和控制台一致。
   - `cmd`：`cmd /d /s /c "<command>"`，自己拼命令行（Go 的 `SysProcAttr.CmdLine`），不让 Go 再转义一次。
   - `sh` / `bash`：`-c <command>`。
+- **控制台窗口（Windows）：** 默认用 `CREATE_NO_WINDOW` 启动子进程，不弹窗口（节点自己没有控制台时，控制台程序会新开一个空白窗口，标题还是程序路径）。`console` 为 `visible` 时改用 `CREATE_NEW_CONSOLE` 启动内部的 `deskbridge console` 子命令：它在设备桌面上新建一个控制台窗口，标题是命令摘要（如 `DeskBridge · git clone …`），窗口里先回显一行模拟人工输入的提示符和命令，再把控制台交给真正的 shell，输出直接进窗口；命令结束后窗口保留 5 秒再关闭。
+  - `visible` 只适合下载、安装、构建这类耗时长、需要人看着的命令：输出进了窗口，所以结果里拿不到 `stdout`/`stderr`，只有 `exit_code`、`duration_ms` 等；需要输出时必须用默认的 `hidden`（或在命令里把输出写进日志文件）。
+  - 其他平台把 `console` 设为 `visible` 返回 `unsupported_platform`。
 
 ## proc.list
 

@@ -24,7 +24,11 @@ func buildShellCommand(shell, command string) (*exec.Cmd, error) {
 	return nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持执行命令")
 }
 
-func startProcess(cmd *exec.Cmd) (kill, cleanup func(), err error) {
+func visibleCommand(shellCmd *exec.Cmd, display, prompt string) (*exec.Cmd, error) {
+	return nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持执行命令")
+}
+
+func startProcess(cmd *exec.Cmd, visible bool) (kill, cleanup func(), err error) {
 	return nil, nil, protocol.Errorf(protocol.CodeUnsupportedPlatform, "当前平台不支持执行命令")
 }
 

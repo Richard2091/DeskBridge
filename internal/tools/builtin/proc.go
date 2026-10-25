@@ -23,12 +23,13 @@ import (
 
 // procExecArgs 是 proc.exec 的参数。
 type procExecArgs struct {
-	Command        string            `json:"command"` // 经 shell 执行；和 argv 二选一
-	Argv           []string          `json:"argv"`    // 不经 shell 直接执行；和 command 二选一
-	Shell          string            `json:"shell"`   // 空为平台默认
-	Cwd            string            `json:"cwd"`
-	Env            map[string]string `json:"env"` // 追加或覆盖的环境变量
-	Stdin          string            `json:"stdin"`
+	Command        string            `json:"command"`  // 经 shell 执行；和 argv 二选一
+	Argv           []string          `json:"argv"`     // 不经 shell 直接执行；和 command 二选一
+	Shell          string            `json:"shell"`    // 空为平台默认
+	Cwd            string            `json:"cwd"`      // 工作目录
+	Env            map[string]string `json:"env"`      // 追加或覆盖的环境变量
+	Stdin          string            `json:"stdin"`    // 标准输入
+	Console        string            `json:"console"`  // hidden（默认）或 visible
 	MaxOutputBytes int               `json:"max_output_bytes"` // 0 用默认值
 }
 
@@ -40,6 +41,7 @@ type execResult struct {
 	StdoutTruncated bool   `json:"stdout_truncated"`
 	StderrTruncated bool   `json:"stderr_truncated"`
 	TimedOut        bool   `json:"timed_out"`
+	Console         bool   `json:"console,omitempty"` // 可见窗口模式；此时不返回 stdout/stderr
 	DurationMS      int64  `json:"duration_ms"`
 }
 
@@ -53,7 +55,8 @@ const procExecSchema = `{
     "shell": {"type": "string", "description": "执行 command 用的 shell", "enum": ["powershell", "pwsh", "cmd", "sh", "bash"]},
     "cwd": {"type": "string", "description": "工作目录，默认节点进程的当前目录"},
     "env": {"type": "object", "additionalProperties": {"type": "string"}, "description": "追加或覆盖的环境变量，如 {\"NAME\":\"value\"}"},
-    "stdin": {"type": "string", "description": "标准输入；不提供时为空输入"},
+    "stdin": {"type": "string", "description": "标准输入；不提供时为空输入；visible 模式不支持"},
+    "console": {"type": "string", "enum": ["hidden", "visible"], "default": "hidden", "description": "控制台窗口：hidden（默认）不弹窗口，输出通过返回值和实时输出事件返回；visible 在设备桌面上打开一个带标题的窗口，显示命令行和实时输出，适合下载、安装、构建等耗时较长、需要人看着的命令；visible 不返回 stdout/stderr，只返回退出码，仅 Windows 支持"},
     "max_output_bytes": {"type": "integer", "default": 1048576, "maximum": 8388608, "description": "标准输出和标准错误各自的上限，超出部分丢弃并标记 truncated"}
   }
 }`
@@ -62,7 +65,7 @@ func newProcExecTool() *tools.Tool {
 	return &tools.Tool{
 		Spec: protocol.ToolSpec{
 			Name:        "proc.exec",
-			Description: "在设备上执行一条命令或程序，返回退出码和输出。命令启动失败返回错误；非零退出不是错误，看结果里的 exit_code。",
+			Description: "在设备上执行一条命令或程序，返回退出码和输出。命令启动失败返回错误；非零退出不是错误，看结果里的 exit_code。Windows 上默认不弹控制台窗口；下载、安装、构建等耗时较长、需要人看着的命令可以把 console 设为 visible，在设备桌面上打开带标题的窗口显示命令行和实时输出（此时不返回 stdout/stderr，只返回退出码）。",
 			Source:      protocol.SourceBuiltin,
 			InputSchema: json.RawMessage(procExecSchema),
 		},
@@ -78,6 +81,15 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 	var a procExecArgs
 	if err := tools.DecodeArgs(call.Args, &a); err != nil {
 		return nil, err
+	}
+	switch a.Console {
+	case "", "hidden", "visible":
+	default:
+		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "不支持的 console：%s（可用：hidden、visible）", a.Console)
+	}
+	visible := a.Console == "visible"
+	if visible && a.Stdin != "" {
+		return nil, protocol.Errorf(protocol.CodeInvalidArgs, "visible 模式不支持 stdin")
 	}
 	maxOutput := a.MaxOutputBytes
 	if maxOutput <= 0 {
@@ -99,17 +111,41 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
 	}
+	if visible {
+		// 可见窗口模式：把命令交给 console 子命令，由它在新控制台窗口里运行。
+		display := a.Command
+		if display == "" {
+			display = strings.Join(a.Argv, " ")
+		}
+		shell := ""
+		if a.Command != "" {
+			shell = a.Shell
+			if shell == "" {
+				shell = defaultShell
+			}
+		}
+		cwd := cmd.Dir
+		if cwd == "" {
+			cwd, _ = os.Getwd()
+		}
+		cmd, err = visibleCommand(cmd, display, consolePrompt(shell, cwd))
+		if err != nil {
+			return nil, err
+		}
+	}
 	stdout := newLimitedBuffer(maxOutput)
 	stderr := newLimitedBuffer(maxOutput)
 	outStream := newLineStreamer(call, "stdout")
 	errStream := newLineStreamer(call, "stderr")
-	cmd.Stdout = io.MultiWriter(stdout, outStream)
-	cmd.Stderr = io.MultiWriter(stderr, errStream)
-	if a.Stdin != "" {
-		cmd.Stdin = strings.NewReader(a.Stdin)
+	if !visible {
+		cmd.Stdout = io.MultiWriter(stdout, outStream)
+		cmd.Stderr = io.MultiWriter(stderr, errStream)
+		if a.Stdin != "" {
+			cmd.Stdin = strings.NewReader(a.Stdin)
+		}
 	}
 
-	kill, cleanup, err := startProcess(cmd)
+	kill, cleanup, err := startProcess(cmd, visible)
 	if err != nil {
 		return nil, mapStartError(err)
 	}
@@ -152,6 +188,7 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 			StdoutTruncated: stdout.truncated,
 			StderrTruncated: stderr.truncated,
 			TimedOut:        true,
+			Console:         visible,
 			DurationMS:      elapsed,
 		}, nil
 	}
@@ -175,6 +212,7 @@ func runProcExec(ctx context.Context, call *tools.Call) (any, error) {
 		Stderr:          decodeOutput(stderr.b.Bytes()),
 		StdoutTruncated: stdout.truncated,
 		StderrTruncated: stderr.truncated,
+		Console:         visible,
 		DurationMS:      elapsed,
 	}, nil
 }
@@ -195,6 +233,15 @@ func buildExecCommand(a *procExecArgs) (*exec.Cmd, error) {
 		return buildShellCommand(shell, a.Command)
 	}
 	return buildArgvCommand(a.Argv)
+}
+
+// consolePrompt 生成可见窗口里模拟的提示符：PowerShell 用 "PS 路径>"，
+// 其他 shell 和直接运行程序用 "路径>"。回显的一行要像人工敲进去的命令。
+func consolePrompt(shell, cwd string) string {
+	if shell == "powershell" || shell == "pwsh" {
+		return "PS " + cwd + "> "
+	}
+	return cwd + "> "
 }
 
 // buildArgvCommand 构造不经 shell 的命令。
