@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/Richard2091/DeskBridge/internal/tools"
 	"golang.org/x/sys/windows"
@@ -147,9 +148,9 @@ func TestVisibleCommand(t *testing.T) {
 }
 
 // TestProcExecVisibleWindows 验证 visible 模式的完整链路：在设备桌面上新建
-// 控制台窗口运行命令，返回退出码，不返回输出。需要先把本仓库编译出的
-// deskbridge.exe 路径放进环境变量 DESKBRIDGE_HELPER_EXE（测试程序的
-// os.Executable 不是 deskbridge，不能当 console 子命令用）。
+// 控制台窗口运行命令，窗口标题是命令摘要，返回退出码，不返回输出。需要先把
+// 本仓库编译出的 deskbridge.exe 路径放进环境变量 DESKBRIDGE_HELPER_EXE
+// （测试程序的 os.Executable 不是 deskbridge，不能当 console 子命令用）。
 func TestProcExecVisibleWindows(t *testing.T) {
 	exe := os.Getenv("DESKBRIDGE_HELPER_EXE")
 	if exe == "" {
@@ -157,24 +158,71 @@ func TestProcExecVisibleWindows(t *testing.T) {
 	}
 	oldExe, oldHold := helperExecutable, consoleHold
 	helperExecutable = func() (string, error) { return exe, nil }
-	consoleHold = 0
+	consoleHold = 3 * time.Second
 	defer func() { helperExecutable, consoleHold = oldExe, oldHold }()
 
-	res, err := callExec(t, map[string]any{
-		"command": "exit /b 7",
+	const command = "ping -n 5 127.0.0.1"
+	wantTitle := consoleTitle(command)
+	raw, err := json.Marshal(map[string]any{
+		"command": command,
 		"shell":   "cmd",
 		"console": "visible",
-	}, 30*time.Second)
+	})
 	if err != nil {
-		t.Fatalf("visible 模式执行失败: %v", err)
+		t.Fatal(err)
 	}
-	if res.ExitCode != 7 {
-		t.Errorf("exit_code = %d，期望 7", res.ExitCode)
+	tool, ok := newTestRegistry(t).Get("proc.exec")
+	if !ok {
+		t.Fatal("proc.exec 没有注册")
 	}
-	if res.Stdout != "" || res.Stderr != "" {
-		t.Errorf("visible 模式不应返回输出：stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	type outcome struct {
+		res *execResult
+		err error
 	}
-	if !res.Console {
+	ch := make(chan outcome, 1)
+	go func() {
+		v, runErr := tool.Run(context.Background(), &tools.Call{RequestID: "visible", Args: raw})
+		if runErr != nil {
+			ch <- outcome{err: runErr}
+			return
+		}
+		ch <- outcome{res: v.(*execResult)}
+	}()
+
+	// 命令运行期间按标题找窗口，验证窗口确实建出来了。
+	found := false
+	for deadline := time.Now().Add(20 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		if findTopWindow(wantTitle) != 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("没有找到标题为 %q 的控制台窗口", wantTitle)
+	}
+
+	out := <-ch
+	if out.err != nil {
+		t.Fatalf("visible 模式执行失败: %v", out.err)
+	}
+	if out.res.ExitCode != 0 {
+		t.Errorf("exit_code = %d，期望 0", out.res.ExitCode)
+	}
+	if out.res.Stdout != "" || out.res.Stderr != "" {
+		t.Errorf("visible 模式不应返回输出：stdout=%q stderr=%q", out.res.Stdout, out.res.Stderr)
+	}
+	if !out.res.Console {
 		t.Error("结果里的 console 应为 true")
 	}
+}
+
+// findTopWindow 按标题查找顶层窗口，找不到返回 0。
+func findTopWindow(title string) uintptr {
+	proc := windows.NewLazySystemDLL("user32.dll").NewProc("FindWindowW")
+	p, err := windows.UTF16PtrFromString(title)
+	if err != nil {
+		return 0
+	}
+	r, _, _ := proc.Call(0, uintptr(unsafe.Pointer(p)))
+	return r
 }
