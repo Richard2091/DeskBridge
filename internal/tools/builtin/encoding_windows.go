@@ -86,8 +86,8 @@ func containsCJK(s string) bool {
 	for _, r := range s {
 		switch {
 		case r >= 0x2E80 && r <= 0x9FFF, // 部首、假名、中日韩统一表意文字
-			r >= 0xF900 && r <= 0xFAFF, // 兼容表意文字
-			r >= 0xFF00 && r <= 0xFFEF, // 全角符号
+			r >= 0xF900 && r <= 0xFAFF,   // 兼容表意文字
+			r >= 0xFF00 && r <= 0xFFEF,   // 全角符号
 			r >= 0x20000 && r <= 0x2FA1F: // 扩展 B 及以后
 			return true
 		}
