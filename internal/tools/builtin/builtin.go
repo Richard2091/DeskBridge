@@ -56,7 +56,8 @@ func allTools(info Info) []*tools.Tool {
 		newFsReadTool(),
 		newFsWriteTool(),
 	}
-	return append(regs, procTools()...)
+	regs = append(regs, procTools()...)
+	return append(regs, browserTools()...)
 }
 
 // checkCtx 在工具开始工作前检查调用是否已经超时或被取消；已取消时

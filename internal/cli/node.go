@@ -231,6 +231,7 @@ func runNodeCore(ctx context.Context, opts nodeOptions, logf func(string, ...any
 		logf("注册内置工具失败：%v", err)
 		return err
 	}
+	defer builtin.CloseBrowsers()
 
 	var records *store.DB
 	if recPath, rerr := paths.RecordsFile(); rerr != nil {
