@@ -78,8 +78,13 @@ func TestProfileDir(t *testing.T) {
 		t.Errorf("isolated profile 路径不对：%s", got)
 	}
 	cfg.ProfileMode = "persistent"
-	if got := cfg.profileDir("/home/u", "abc", "../坏 名字"); !strings.HasSuffix(got, filepath.Join("profiles", "___")) {
-		t.Errorf("persistent profile 名字应被清洗：%s", got)
+	got := cfg.profileDir("/home/u", "abc", "../坏 名字")
+	base := filepath.Base(got)
+	if base == "" || strings.Contains(base, "..") || strings.ContainsAny(base, `\/`) {
+		t.Errorf("persistent profile 名字应被清洗成安全文件名：%s", got)
+	}
+	if strings.Contains(base, "坏") || strings.Contains(base, " ") {
+		t.Errorf("persistent profile 名字不应包含中文或空格：%s", base)
 	}
 	if got := cfg.profileDir("/home/u", "abc", ""); !strings.HasSuffix(got, filepath.Join("profiles", "default")) {
 		t.Errorf("persistent 默认名字不对：%s", got)

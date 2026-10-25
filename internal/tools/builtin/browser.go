@@ -326,14 +326,14 @@ const browserClickSchema = `{
 }`
 
 type browserClickArgs struct {
-	Session    string          `json:"session"`
-	Ref        string          `json:"ref"`
-	Selector   string          `json:"selector"`
-	Point      *browser.Point  `json:"point"`
-	SnapshotID string          `json:"snapshot_id"`
-	Button     string          `json:"button"`
-	ClickCount int             `json:"click_count"`
-	Modifiers  []string        `json:"modifiers"`
+	Session    string         `json:"session"`
+	Ref        string         `json:"ref"`
+	Selector   string         `json:"selector"`
+	Point      *browser.Point `json:"point"`
+	SnapshotID string         `json:"snapshot_id"`
+	Button     string         `json:"button"`
+	ClickCount int            `json:"click_count"`
+	Modifiers  []string       `json:"modifiers"`
 }
 
 func newBrowserClickTool() *tools.Tool {

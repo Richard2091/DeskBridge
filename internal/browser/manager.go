@@ -113,11 +113,11 @@ func (m *Manager) SessionInfos() []SessionInfo {
 			idle = 0
 		}
 		out = append(out, SessionInfo{
-			Session:     s.id,
-			Browser:     s.browserLabel(),
-			Headless:    s.headless,
-			Pages:       pages,
-			IdleSeconds: idle,
+			Session:       s.id,
+			Browser:       s.browserLabel(),
+			Headless:      s.headless,
+			Pages:         pages,
+			IdleSeconds:   idle,
 			CreatedAtUnix: s.createdAt.Unix(),
 		})
 	}
@@ -217,19 +217,19 @@ func (m *Manager) Open(ctx context.Context, owner string, opts OpenOptions) (*Se
 	}
 
 	s := &Session{
-		id:           sessionID,
-		owner:        owner,
-		home:         m.home,
-		cfg:          cfg,
-		client:       client,
-		proc:         proc,
-		pages:        make(map[string]*pageState),
-		bySession:    make(map[string]*pageState),
-		headless:     headless,
-		browserName:  chosen.Name,
-		browserVer:   proc.version,
-		viewport:     viewport,
-		createdAt:    time.Now(),
+		id:          sessionID,
+		owner:       owner,
+		home:        m.home,
+		cfg:         cfg,
+		client:      client,
+		proc:        proc,
+		pages:       make(map[string]*pageState),
+		bySession:   make(map[string]*pageState),
+		headless:    headless,
+		browserName: chosen.Name,
+		browserVer:  proc.version,
+		viewport:    viewport,
+		createdAt:   time.Now(),
 	}
 	s.lastUsed.Store(time.Now().UnixNano())
 	s.setupEvents()

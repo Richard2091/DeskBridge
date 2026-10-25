@@ -151,7 +151,7 @@ func (b *networkBuffer) responseReceived(params json.RawMessage) {
 		RequestID string `json:"requestId"`
 		Type      string `json:"type"`
 		Response  struct {
-			Status  int    `json:"status"`
+			Status   int    `json:"status"`
 			MIMEType string `json:"mimeType"`
 		} `json:"response"`
 	}
@@ -329,10 +329,10 @@ func (p *pageState) handleConsole(params json.RawMessage) {
 func (p *pageState) handleException(params json.RawMessage) {
 	var ev struct {
 		ExceptionDetails struct {
-			Text      string `json:"text"`
-			URL       string `json:"url"`
-			LineNumber int   `json:"lineNumber"`
-			Exception struct {
+			Text       string `json:"text"`
+			URL        string `json:"url"`
+			LineNumber int    `json:"lineNumber"`
+			Exception  struct {
 				Description string `json:"description"`
 			} `json:"exception"`
 		} `json:"exceptionDetails"`

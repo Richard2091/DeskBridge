@@ -57,7 +57,7 @@ func TestBrowserE2E(t *testing.T) {
 	// 简单的测试页面，用 data URL 避免依赖网络。
 	html := `<html><head><title>快照测试</title></head><body>
 <button id="b">提交</button><input id="i"><div id="out"></div></body></html>`
-	dataURL := "data:text/html;base64," + base64.StdEncoding.EncodeToString([]byte(html))
+	dataURL := "data:text/html;charset=utf-8;base64," + base64.StdEncoding.EncodeToString([]byte(html))
 	nav, err := s.Navigate(ctx, dataURL, "load")
 	if err != nil {
 		t.Fatalf("导航失败：%v", err)
@@ -130,5 +130,51 @@ func TestBrowserE2E(t *testing.T) {
 	}
 	if len(tabs) == 0 {
 		t.Error("标签页列表为空")
+	}
+}
+
+// TestDetectBrowsersE2E 检查系统默认浏览器的解析结果。
+func TestDetectBrowsersE2E(t *testing.T) {
+	if os.Getenv("DESKBRIDGE_BROWSER_TEST") == "" {
+		t.Skip("设置 DESKBRIDGE_BROWSER_TEST=1 启用")
+	}
+	info := DetectBrowsers(DefaultConfig())
+	t.Logf("默认浏览器：%+v", info.Default)
+	for _, c := range info.Candidates {
+		t.Logf("候选：%+v", c)
+	}
+	if len(info.Warnings) > 0 {
+		t.Logf("提示：%v", info.Warnings)
+	}
+	if !info.HasDefault {
+		t.Log("没有解析到系统默认浏览器（可能是无桌面环境）")
+	}
+}
+
+// TestOpenDefaultBrowserE2E 验证默认浏览器优先：默认浏览器支持 CDP 时直接使用，
+// 不支持或启动失败时按 allow_fallback 退回 Chromium 并给出警告。
+func TestOpenDefaultBrowserE2E(t *testing.T) {
+	if os.Getenv("DESKBRIDGE_BROWSER_TEST") == "" {
+		t.Skip("设置 DESKBRIDGE_BROWSER_TEST=1 启用")
+	}
+	m, err := NewManager(t.TempDir(), t.Logf)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	defer m.CloseAll()
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	headless := true
+	s, info, perr := m.Open(ctx, "test", OpenOptions{Headless: &headless})
+	if perr != nil {
+		t.Fatalf("打开默认浏览器失败（%s）：%s", perr.Code, perr.Message)
+	}
+	defer func() { _ = m.Close("test", s.ID()) }()
+	t.Logf("使用浏览器=%s 默认浏览器=%v 方式=%s 警告=%v", info.Browser, info.DefaultBrowser, info.Method, info.Warnings)
+	if !info.DefaultBrowser && len(info.Warnings) == 0 {
+		t.Error("没有使用默认浏览器，但没有任何提示")
+	}
+	if info.DefaultBrowser && info.Method != "windows-userchoice" && info.Method != "xdg-settings" && info.Method != "xdg-mime" && info.Method != "launchservices" {
+		t.Errorf("使用默认浏览器时 method = %q，来路不明", info.Method)
 	}
 }

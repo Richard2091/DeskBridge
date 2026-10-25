@@ -141,7 +141,7 @@
 
 ## 浏览器工具
 
-节点内置一组 `browser.*` 工具，经 Chrome DevTools Protocol（CDP）操作浏览器。**默认启动系统设置的默认浏览器**（Windows 读注册表的 UserChoice，Linux 用 `xdg-settings` / `xdg-mime`），默认无头运行，用独立的配置档案，不接管用户正在使用的窗口。默认浏览器不是 Chromium 内核（如 Firefox、Safari）时无法用 CDP 自动化：`browser.open` 会在 `warnings` 里说明，并按 `allow_fallback`（默认开启）退回本机已知的 Chromium 浏览器；关闭回退时返回 `unsupported_platform`。
+节点内置一组 `browser.*` 工具，经 Chrome DevTools Protocol（CDP）操作浏览器。**默认启动系统设置的默认浏览器**（Windows 读注册表的 UserChoice，Linux 用 `xdg-settings` / `xdg-mime`），默认无头运行，用独立的配置档案，不接管用户正在使用的窗口。默认浏览器不是 Chromium 内核（如 Firefox、Safari）时无法用 CDP 自动化：`browser.open` 会在 `warnings` 里说明，并按 `allow_fallback`（默认开启）退回本机已知的 Chromium 浏览器；关闭回退时返回 `unsupported_platform`。个别 Chromium 浏览器（例如基于旧版内核的第三方浏览器）的启动器会把命令转交给已经运行的实例后立即退出，或者不支持无头调试；这时也会退回 Chrome/Edge 并在 `warnings` 里说明，可以用 `executable` 指定一个能调试的浏览器。
 
 配置在数据目录下的 `browser.json`，字段都可缺省：
 
