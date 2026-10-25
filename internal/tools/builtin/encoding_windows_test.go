@@ -130,3 +130,18 @@ func TestDecodeCodePageTruncatedGBK(t *testing.T) {
 		}
 	}
 }
+
+// TestDecodeOutputGBKLikeUTF8 验证 GBK 字节碰巧也是合法 UTF-8 时按 OEM 解码，
+// 同时不把合法的 UTF-8 文本（含拉丁字母、中文）误判成 GBK。
+func TestDecodeOutputGBKLikeUTF8(t *testing.T) {
+	// “值1”的 GBK 编码是 D6 B5 31，D6 B5 也是合法 UTF-8（U+05B5）。
+	if got := decodeOutput([]byte{0xD6, 0xB5, 0x31}); got != "值1" {
+		t.Errorf("decodeOutput = %q，期望 值1", got)
+	}
+	if got := decodeOutput([]byte("café")); got != "café" {
+		t.Errorf("decodeOutput = %q，期望 café", got)
+	}
+	if got := decodeOutput([]byte("中文")); got != "中文" {
+		t.Errorf("decodeOutput = %q，期望 中文", got)
+	}
+}
