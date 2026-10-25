@@ -36,7 +36,7 @@ func ensureJob() windows.Handle {
 		}
 		var info windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION
 		info.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-		if err := windows.SetInformationJobObject(h,
+		if _, err := windows.SetInformationJobObject(h,
 			windows.JobObjectExtendedLimitInformation,
 			uintptr(unsafe.Pointer(&info)),
 			uint32(unsafe.Sizeof(info))); err != nil {
